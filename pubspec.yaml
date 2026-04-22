@@ -1,0 +1,52 @@
+name: focus_app
+description: A productivity app inspired by the Focus web app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  provider: ^6.1.1
+  fl_chart: ^0.66.0
+  intl: ^0.18.1
+  just_audio: ^0.9.36
+  path_provider: ^2.1.1
+  shared_preferences: ^2.2.2
+  share_plus: ^7.2.1
+  file_selector: ^1.0.0
+  file_picker: ^8.1.2
+  crypto: ^3.0.6
+  archive: ^3.6.1
+  excel: ^4.0.6
+  xml: ^6.5.0
+  pdf: ^3.10.7
+  printing: ^5.11.1
+  flutter_local_notifications: ^21.0.0
+  timezone: ^0.11.0
+  flutter_timezone: ^5.0.2
+  url_launcher: ^6.3.2
+  flutter_launcher_icons: ^0.13.1
+  
+  
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icon.png
+    - assets/sounds/chime.mp3
+    - assets/sounds/bell.mp3
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon.png"
