@@ -197,7 +197,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               exam.displayType,
               if (time.isNotEmpty) time,
               if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom}',
-            ].join(' • '),
+            ].join(' · '),
             type: CalendarItemType.exam,
             color: exam.isFinal
                 ? const Color(0xFF7C3AED)

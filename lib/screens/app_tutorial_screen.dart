@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 class AppTutorialScreen extends StatefulWidget {
   const AppTutorialScreen({super.key});
@@ -16,17 +16,33 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       icon: Icons.dashboard_customize_rounded,
       title: 'Dashboard',
       text:
-          'Consulta tus puntos, nivel, racha, próximas clases y próximos exámenes desde un solo lugar.',
-      bullets: ['Resumen del día', 'Nivel y progreso', 'Accesos rápidos'],
+          'Tu vista rápida para saber cómo va tu estudio sin revisar toda la app.',
+      bullets: ['Puntos y nivel', 'Racha y horas', 'Lo más importante del día'],
       colors: [Color(0xFF2563EB), Color(0xFF38BDF8)],
     ),
     (
       icon: Icons.book_rounded,
       title: 'Materias',
       text:
-          'Carga materias manualmente o desde el Excel de Politécnica y revisa tu horario semanal primero.',
-      bullets: ['Horario semanal', 'Profesor y sección', 'Importación desde Excel'],
+          'Carga materias manualmente y revisa tu horario semanal como vista principal.',
+      bullets: [
+        'Horario semanal',
+        'Profesor y sección',
+        'Recursos por materia'
+      ],
       colors: [Color(0xFF0F766E), Color(0xFF34D399)],
+    ),
+    (
+      icon: Icons.school_rounded,
+      title: 'Politécnica',
+      text:
+          'Usa herramientas específicas para la facultad: calculadora de firma y ponderado, más importación automática del Excel oficial.',
+      bullets: [
+        'Calculadora académica',
+        'Importar Excel',
+        'Carrera, materias y secciones'
+      ],
+      colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
     ),
     (
       icon: Icons.assignment_rounded,
@@ -41,15 +57,23 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       title: 'Pomodoro',
       text:
           'Estudia por ciclos de enfoque y descanso, con modo horizontal y continuidad automática entre bloques.',
-      bullets: ['Modo horizontal', 'Ciclos automáticos', 'Estadísticas de enfoque'],
-      colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
+      bullets: [
+        'Modo horizontal',
+        'Ciclos automáticos',
+        'Estadísticas de enfoque'
+      ],
+      colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
     ),
     (
       icon: Icons.auto_graph_rounded,
       title: 'Hábitos y logros',
       text:
           'Marca hábitos, suma puntos, sube de nivel y completa misiones semanales de estudio.',
-      bullets: ['Sistemas diarios', 'Racha de constancia', 'Logros e insignias'],
+      bullets: [
+        'Sistemas diarios',
+        'Racha de constancia',
+        'Logros e insignias'
+      ],
       colors: [Color(0xFFDB2777), Color(0xFFF472B6)],
     ),
     (
@@ -57,8 +81,20 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       title: 'Recursos y configuración',
       text:
           'Guarda enlaces clave, organiza recursos por materia y ajusta la experiencia de la app a tu estilo.',
-      bullets: ['Biblioteca personal', 'Recursos por materia', 'Tema y accesibilidad'],
+      bullets: [
+        'Biblioteca personal',
+        'Recursos por materia',
+        'Tema y accesibilidad'
+      ],
       colors: [Color(0xFF0F172A), Color(0xFF334155)],
+    ),
+    (
+      icon: Icons.verified_user_rounded,
+      title: 'Beta segura',
+      text:
+          'Antes de probar una versión nueva, exporta un backup. Si algo falla, puedes restaurar tus datos y avisar a PoliCode con una captura.',
+      bullets: ['Exportar copia', 'Buscar actualización', 'Compartir la app'],
+      colors: [Color(0xFF0891B2), Color(0xFF22D3EE)],
     ),
   ];
 
@@ -110,7 +146,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
                                 color: Colors.white.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(item.icon, color: Colors.white, size: 30),
+                              child: Icon(item.icon,
+                                  color: Colors.white, size: 30),
                             ),
                             const SizedBox(height: 18),
                             Text(
@@ -207,7 +244,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
                         curve: Curves.easeOutCubic,
                       );
                     },
-                    child: Text(_page == _pages.length - 1 ? 'Listo' : 'Siguiente'),
+                    child: Text(
+                        _page == _pages.length - 1 ? 'Listo' : 'Siguiente'),
                   ),
                 ),
               ],
@@ -218,3 +256,4 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 }
+

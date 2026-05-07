@@ -6,10 +6,16 @@ import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/focus_mode_config.dart';
+import '../models/focus_mode_status.dart';
+import '../models/focus_shield_app.dart';
 import '../models/app_settings.dart';
 import '../models/pomodoro.dart';
+import '../models/subject.dart';
 import '../providers/app_provider.dart';
+import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 
 class PomodoroScreen extends StatefulWidget {
@@ -26,8 +32,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   static const _subjectKey = 'pomodoro_subject';
   static const _runningKey = 'pomodoro_running';
   static const _savedAtKey = 'pomodoro_saved_at';
+  static const _endAtKey = 'pomodoro_end_at';
   static const _cycleCountKey = 'pomodoro_cycle_count';
   static const _horizontalThemeKey = 'pomodoro_horizontal_theme';
+  static const _maxAutoRecoveryDuration = Duration(hours: 8);
 
   Timer? _timer;
   int _remainingSeconds = 25 * 60;
@@ -35,10 +43,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _isRunning = false;
   bool _isLoading = true;
   bool _isHorizontalFocusMode = false;
+  bool _isCompletingSession = false;
+  bool _isDisposed = false;
   String _selectedSubject = '';
   int _completedFocusSessions = 0;
   int _horizontalThemeIndex = 0;
+  final ValueNotifier<int> _horizontalRefresh = ValueNotifier<int>(0);
   late final AudioPlayer _audioPlayer;
+  FocusModeConfig _focusModeConfig = const FocusModeConfig();
+  FocusModeStatus _focusModeStatus = const FocusModeStatus();
+  bool _focusModePermissionGranted = false;
+  bool _loadingFocusMode = true;
+  Timer? _focusModeStatusTimer;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -76,13 +92,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       }
     });
     if (_isRunning) {
-      unawaited(
-        NotificationService.showPomodoroTimerNotification(
-          mode: _mode,
-          remainingSeconds: _remainingSeconds,
-          subject: _selectedSubject,
-        ),
-      );
+      unawaited(_showPomodoroNotification(provider));
     }
     await _persistState();
   }
@@ -96,26 +106,39 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _loadInitialData() async {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    if (provider.subjects.isNotEmpty && _selectedSubject.isEmpty) {
-      _selectedSubject = provider.subjects.first.name;
-    }
     await _restoreState();
-    if (_selectedSubject.isEmpty && provider.subjects.isNotEmpty) {
-      _selectedSubject = provider.subjects.first.name;
-    }
+    await _loadFocusModeConfig();
     if (!mounted) return;
     setState(() => _isLoading = false);
   }
 
+  Future<void> _loadFocusModeConfig() async {
+    final config = await FocusModeService.loadConfig();
+    final permissionGranted = await FocusModeService.hasUsageAccessPermission();
+    final status = await FocusModeService.getStatus();
+    if (!mounted) return;
+    setState(() {
+      _focusModeConfig = config;
+      _focusModePermissionGranted = permissionGranted;
+      _focusModeStatus = status;
+      _loadingFocusMode = false;
+    });
+    if (status.active || (_isRunning && _mode == 'focus')) {
+      _startFocusModeStatusPolling();
+    }
+  }
+
   int _totalSecondsForMode(AppProvider provider, [String? mode]) {
+    int safeMinutesToSeconds(int minutes) =>
+        (minutes * 60).clamp(1, 24 * 60 * 60).toInt();
+
     switch (mode ?? _mode) {
       case 'shortBreak':
-        return provider.settings.shortBreakTime * 60;
+        return safeMinutesToSeconds(provider.settings.shortBreakTime);
       case 'longBreak':
-        return provider.settings.longBreakTime * 60;
+        return safeMinutesToSeconds(provider.settings.longBreakTime);
       default:
-        return provider.settings.focusTime * 60;
+        return safeMinutesToSeconds(provider.settings.focusTime);
     }
   }
 
@@ -124,29 +147,74 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _remainingSeconds = _totalSecondsForMode(provider);
   }
 
+  String _activeSubjectName(AppProvider provider) {
+    final selected = _selectedSubject.trim();
+    if (selected.isEmpty) return 'General';
+
+    final exists = provider.subjects.any(
+      (subject) => subject.name.trim().toLowerCase() == selected.toLowerCase(),
+    );
+    return exists ? selected : 'General';
+  }
+
   Future<void> _restoreState() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _mode = prefs.getString(_modeKey) ?? 'focus';
+    _mode = _normalizeMode(prefs.getString(_modeKey));
     _selectedSubject = prefs.getString(_subjectKey) ?? _selectedSubject;
+    if (_activeSubjectName(provider) == 'General') {
+      _selectedSubject = '';
+    }
     _completedFocusSessions = prefs.getInt(_cycleCountKey) ?? 0;
-    _horizontalThemeIndex = prefs.getInt(_horizontalThemeKey) ?? 0;
+    _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ?? 0)
+        .clamp(0, _horizontalThemes.length - 1)
+        .toInt();
     _remainingSeconds =
         prefs.getInt(_remainingKey) ?? _totalSecondsForMode(provider);
     final wasRunning = prefs.getBool(_runningKey) ?? false;
+    final endAtMillis = prefs.getInt(_endAtKey);
+    if (wasRunning && endAtMillis != null) {
+      final now = DateTime.now();
+      final endAt = DateTime.fromMillisecondsSinceEpoch(endAtMillis);
+      final secondsLeft = endAt.difference(now).inSeconds;
+      if (secondsLeft > 0) {
+        _remainingSeconds =
+            secondsLeft.clamp(1, _totalSecondsForMode(provider));
+        _startTimer(restored: true);
+      } else {
+        await _recoverExpiredTimer(provider, now: now, endedAt: endAt);
+      }
+      return;
+    }
+
     final savedAt = prefs.getInt(_savedAtKey);
     if (wasRunning && savedAt != null) {
-      final elapsed = DateTime.now()
-          .difference(DateTime.fromMillisecondsSinceEpoch(savedAt))
-          .inSeconds;
+      final savedAtDate = DateTime.fromMillisecondsSinceEpoch(savedAt);
+      final savedRemaining = _remainingSeconds;
+      final elapsed = DateTime.now().difference(savedAtDate).inSeconds;
       _remainingSeconds = (_remainingSeconds - elapsed)
           .clamp(0, _totalSecondsForMode(provider));
       if (_remainingSeconds > 0) {
         _startTimer(restored: true);
       } else {
-        _setRemainingFromMode();
+        await _recoverExpiredTimer(
+          provider,
+          now: DateTime.now(),
+          endedAt: savedAtDate.add(Duration(seconds: savedRemaining)),
+        );
       }
+    }
+  }
+
+  String _normalizeMode(String? mode) {
+    switch (mode) {
+      case 'focus':
+      case 'shortBreak':
+      case 'longBreak':
+        return mode!;
+      default:
+        return 'focus';
     }
   }
 
@@ -157,35 +225,79 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     await prefs.setString(_subjectKey, _selectedSubject);
     await prefs.setBool(_runningKey, _isRunning);
     await prefs.setInt(_savedAtKey, DateTime.now().millisecondsSinceEpoch);
+    if (_isRunning) {
+      await prefs.setInt(
+        _endAtKey,
+        DateTime.now()
+            .add(Duration(seconds: _remainingSeconds))
+            .millisecondsSinceEpoch,
+      );
+    } else {
+      await prefs.remove(_endAtKey);
+    }
     await prefs.setInt(_cycleCountKey, _completedFocusSessions);
     await prefs.setInt(_horizontalThemeKey, _horizontalThemeIndex);
   }
 
   void _startTimer({bool restored = false}) {
+    if (_isDisposed) return;
+    final provider = Provider.of<AppProvider>(context, listen: false);
     _timer?.cancel();
+    if (_remainingSeconds <= 0) {
+      _setRemainingFromMode();
+    }
     if (mounted) {
       setState(() => _isRunning = true);
     } else {
       _isRunning = true;
     }
+    _refreshHorizontalMode();
+    unawaited(_syncFocusModeShield(provider));
     if (!restored) {
       _persistState();
     }
-    unawaited(
-      NotificationService.showPomodoroTimerNotification(
-        mode: _mode,
-        remainingSeconds: _remainingSeconds,
-        subject: _selectedSubject,
-      ),
-    );
+    unawaited(_showPomodoroNotification(provider));
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_remainingSeconds > 0) {
-        setState(() => _remainingSeconds--);
-        _persistState();
-      } else {
+      if (_remainingSeconds <= 1) {
+        if (mounted) {
+          setState(() => _remainingSeconds = 0);
+        } else {
+          _remainingSeconds = 0;
+        }
+        _refreshHorizontalMode();
         _completeSession();
+        return;
       }
+
+      if (mounted) {
+        setState(() => _remainingSeconds--);
+      } else {
+        _remainingSeconds--;
+      }
+      _refreshHorizontalMode();
+      unawaited(_showPomodoroNotification(provider));
+      _persistState();
     });
+  }
+
+  Future<void> _showPomodoroNotification(AppProvider provider) async {
+    if (!_isRunning || !provider.settings.notificationsEnabled) {
+      await NotificationService.cancelPomodoroTimerNotification();
+      return;
+    }
+
+    await NotificationService.showPomodoroTimerNotification(
+      mode: _mode,
+      remainingSeconds: _remainingSeconds,
+      totalSeconds: _totalSecondsForMode(provider),
+      subject: _activeSubjectName(provider),
+    );
+  }
+
+  void _refreshHorizontalMode() {
+    if (!_isDisposed && _isHorizontalFocusMode) {
+      _horizontalRefresh.value++;
+    }
   }
 
   void _pauseTimer() {
@@ -196,12 +308,19 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } else {
       _isRunning = false;
     }
+    _refreshHorizontalMode();
+    unawaited(_stopFocusModeShield());
     _persistState();
   }
 
   void _resetTimer() {
     _pauseTimer();
-    setState(_setRemainingFromMode);
+    if (mounted) {
+      setState(_setRemainingFromMode);
+    } else {
+      _setRemainingFromMode();
+    }
+    _refreshHorizontalMode();
     _persistState();
   }
 
@@ -213,6 +332,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _isRunning = false;
       _setRemainingFromMode();
     });
+    _refreshHorizontalMode();
+    unawaited(_stopFocusModeShield());
     _persistState();
   }
 
@@ -225,6 +346,79 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       default:
         return _completedFocusSessions % 4 == 0 ? 'longBreak' : 'shortBreak';
     }
+  }
+
+  Future<void> _recoverExpiredTimer(
+    AppProvider provider, {
+    required DateTime now,
+    required DateTime endedAt,
+  }) async {
+    final overrun = now.difference(endedAt);
+    if (overrun > _maxAutoRecoveryDuration) {
+      await _completePhaseSilently(provider, completedAt: endedAt);
+      _timer?.cancel();
+      _isRunning = false;
+      _setRemainingFromMode();
+      await NotificationService.cancelPomodoroTimerNotification();
+      await _persistState();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El Pomodoro quedó abierto mucho tiempo. Guardamos lo seguro y pausamos el ciclo.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    await _completePhaseSilently(provider, completedAt: endedAt);
+    var consumedSeconds = overrun.inSeconds;
+    var guard = 0;
+    var phaseStart = endedAt;
+
+    while (guard < 24) {
+      final currentTotal = _totalSecondsForMode(provider);
+      if (consumedSeconds < currentTotal) break;
+      phaseStart = phaseStart.add(Duration(seconds: currentTotal));
+      consumedSeconds -= currentTotal;
+      await _completePhaseSilently(provider, completedAt: phaseStart);
+      guard++;
+    }
+
+    final currentTotal = _totalSecondsForMode(provider);
+    _remainingSeconds = (currentTotal - consumedSeconds).clamp(1, currentTotal);
+    _startTimer(restored: true);
+    await _persistState();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restauramos tu Pomodoro según el tiempo real pasado.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _completePhaseSilently(
+    AppProvider provider, {
+    required DateTime completedAt,
+  }) async {
+    if (_mode == 'focus') {
+      final subjectName = _activeSubjectName(provider);
+      await provider.addPomodoro(
+        Pomodoro(
+          date: completedAt.toIso8601String(),
+          subject: subjectName,
+          duration: provider.settings.focusTime,
+        ),
+      );
+      _completedFocusSessions++;
+      _mode = _nextBreakMode(provider);
+    } else {
+      _mode = 'focus';
+    }
+    _remainingSeconds = _totalSecondsForMode(provider);
   }
 
   Future<void> _playBell() async {
@@ -240,79 +434,217 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _completeSession() async {
-    _timer?.cancel();
-    if (mounted) {
-      setState(() => _isRunning = false);
-    } else {
-      _isRunning = false;
-    }
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    await _playBell();
-
-    if (_mode == 'focus') {
-      if (_selectedSubject.isEmpty) {
-        _selectedSubject = provider.subjects.isNotEmpty
-            ? provider.subjects.first.name
-            : 'General';
+    if (_isCompletingSession) return;
+    _isCompletingSession = true;
+    try {
+      _timer?.cancel();
+      if (mounted) {
+        setState(() => _isRunning = false);
+      } else {
+        _isRunning = false;
       }
-      await provider.addPomodoro(
-        Pomodoro(
-          date: DateTime.now().toIso8601String(),
-          subject: _selectedSubject,
-          duration: provider.settings.focusTime,
-        ),
-      );
-      _completedFocusSessions++;
-      final nextMode = _nextBreakMode(provider);
-      setState(() {
-        _mode = nextMode;
-        _setRemainingFromMode();
-      });
+      _refreshHorizontalMode();
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      await _playBell();
+
+      if (_mode == 'focus') {
+        await _stopFocusModeShield();
+        final subjectName = _activeSubjectName(provider);
+        await provider.addPomodoro(
+          Pomodoro(
+            date: DateTime.now().toIso8601String(),
+            subject: subjectName,
+            duration: provider.settings.focusTime,
+          ),
+        );
+        _completedFocusSessions++;
+        final nextMode = _nextBreakMode(provider);
+        if (mounted) {
+          setState(() {
+            _mode = nextMode;
+            _setRemainingFromMode();
+          });
+        } else {
+          _mode = nextMode;
+          _setRemainingFromMode();
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Enfoque completado. Empieza ${nextMode == 'longBreak' ? 'el descanso largo' : 'el descanso corto'}.',
+              ),
+            ),
+          );
+        }
+      } else {
+        await _stopFocusModeShield();
+        if (mounted) {
+          setState(() {
+            _mode = 'focus';
+            _setRemainingFromMode();
+          });
+        } else {
+          _mode = 'focus';
+          _setRemainingFromMode();
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Descanso completado. Volvemos al enfoque.'),
+            ),
+          );
+        }
+      }
+
+      _refreshHorizontalMode();
+      _startTimer();
+      await _persistState();
+    } finally {
+      _isCompletingSession = false;
+    }
+  }
+
+  Future<void> _syncFocusModeShield(AppProvider provider) async {
+    if (!_isRunning || _mode != 'focus') {
+      await _stopFocusModeShield();
+      return;
+    }
+    if (!_focusModeConfig.enabled || _focusModeConfig.blockedApps.isEmpty) {
+      return;
+    }
+    if (!_focusModePermissionGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
-              'Enfoque completado. Empieza ${nextMode == 'longBreak' ? 'el descanso largo' : 'el descanso corto'}.',
+              'Activa el permiso de uso para que Modo Enfoque Total pueda vigilar apps distractoras.',
             ),
           ),
         );
       }
-    } else {
-      setState(() {
-        _mode = 'focus';
-        _setRemainingFromMode();
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Descanso completado. Volvemos al enfoque.'),
-          ),
-        );
-      }
+      return;
     }
 
-    _startTimer();
-    await _persistState();
+    await FocusModeService.startFocusSession(
+      subject: _activeSubjectName(provider),
+      durationSeconds: _remainingSeconds,
+      blockedApps: _focusModeConfig.blockedApps,
+    );
+    _startFocusModeStatusPolling();
+    await _refreshFocusModeStatus();
+  }
+
+  Future<void> _stopFocusModeShield() async {
+    _focusModeStatusTimer?.cancel();
+    _focusModeStatusTimer = null;
+    await FocusModeService.stopFocusSession();
+    if (!mounted) return;
+    setState(() {
+      _focusModeStatus = const FocusModeStatus();
+    });
+  }
+
+  void _startFocusModeStatusPolling() {
+    _focusModeStatusTimer?.cancel();
+    _focusModeStatusTimer = Timer.periodic(
+      const Duration(seconds: 2),
+      (_) => _refreshFocusModeStatus(),
+    );
+  }
+
+  Future<void> _refreshFocusModeStatus() async {
+    final status = await FocusModeService.getStatus();
+    if (!mounted) return;
+    setState(() => _focusModeStatus = status);
+    if (!status.active) {
+      _focusModeStatusTimer?.cancel();
+      _focusModeStatusTimer = null;
+    }
+  }
+
+  Future<void> _toggleFocusModeEnabled(bool value) async {
+    final newConfig = _focusModeConfig.copyWith(enabled: value);
+    await FocusModeService.saveConfig(newConfig);
+    if (!mounted) return;
+    setState(() => _focusModeConfig = newConfig);
+  }
+
+  Future<void> _openFocusModeSetup() async {
+    final selectedApps = await Navigator.of(context).push<List<FocusShieldApp>>(
+      MaterialPageRoute(
+        builder: (_) => FocusModeSetupScreen(
+          initiallySelected: _focusModeConfig.blockedApps,
+        ),
+      ),
+    );
+    if (selectedApps == null) return;
+    final newConfig = _focusModeConfig.copyWith(blockedApps: selectedApps);
+    await FocusModeService.saveConfig(newConfig);
+    if (!mounted) return;
+    setState(() => _focusModeConfig = newConfig);
+  }
+
+  Future<void> _grantFocusModePermission() async {
+    await FocusModeService.openUsageAccessSettings();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    final granted = await FocusModeService.hasUsageAccessPermission();
+    if (!mounted) return;
+    setState(() => _focusModePermissionGranted = granted);
+    if (granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content:
+              Text('Permiso activado. Focus ya puede vigilar apps abiertas.'),
+        ),
+      );
+    }
   }
 
   Future<void> _toggleHorizontalFocusMode() async {
-    final next = !_isHorizontalFocusMode;
-    setState(() => _isHorizontalFocusMode = next);
-    if (next) {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      await SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      await SystemChrome.setPreferredOrientations(
-          [DeviceOrientation.portraitUp]);
+    if (_isHorizontalFocusMode) {
+      Navigator.of(context, rootNavigator: true).maybePop();
+      return;
     }
+
+    setState(() => _isHorizontalFocusMode = true);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    if (!mounted) return;
+
+    await Navigator.of(context, rootNavigator: true).push(
+      PageRouteBuilder<void>(
+        opaque: true,
+        fullscreenDialog: true,
+        pageBuilder: (routeContext, _, __) {
+          return ValueListenableBuilder<int>(
+            valueListenable: _horizontalRefresh,
+            builder: (_, __, ___) {
+              final provider = Provider.of<AppProvider>(context, listen: false);
+              final horizontalTheme = _horizontalThemes[_horizontalThemeIndex];
+              return _buildCinematicHorizontalTimer(
+                horizontalTheme,
+                _totalSecondsForMode(provider),
+                onExit: () => Navigator.of(routeContext).maybePop(),
+              );
+            },
+          );
+        },
+      ),
+    );
+
+    if (!mounted) return;
+    setState(() => _isHorizontalFocusMode = false);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
   void _setHorizontalTheme(int index) {
     setState(() => _horizontalThemeIndex = index);
+    _horizontalRefresh.value++;
     _persistState();
   }
 
@@ -322,21 +654,176 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     return '${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
   }
 
+  Widget _buildCinematicHorizontalTimer(
+    _HorizontalTheme horizontalTheme,
+    int totalSeconds, {
+    required VoidCallback onExit,
+  }) {
+    final minutes = _remainingSeconds ~/ 60;
+    final seconds = _remainingSeconds % 60;
+    final progress =
+        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
+    final modeLabel = _mode == 'focus'
+        ? 'Enfoque'
+        : _mode == 'shortBreak'
+            ? 'Descanso'
+            : 'Descanso largo';
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 1.15,
+                  colors: [
+                    horizontalTheme.glow.withValues(alpha: 0.16),
+                    horizontalTheme.backgroundEnd,
+                    Colors.black,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(22, 14, 74, 18),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      IconButton(
+                        tooltip: 'Salir',
+                        onPressed: onExit,
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white70,
+                          size: 30,
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          modeLabel,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: horizontalTheme.textColor
+                                .withValues(alpha: 0.58),
+                            fontSize: 24,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 48),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final numberSize =
+                            (constraints.maxHeight * 0.74).clamp(112.0, 265.0);
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _TimePanel(
+                                    value: minutes.toString().padLeft(2, '0'),
+                                    topLabel: '',
+                                    numberSize: numberSize,
+                                    theme: horizontalTheme,
+                                  ),
+                                ),
+                                const SizedBox(width: 18),
+                                Expanded(
+                                  child: _TimePanel(
+                                    value: seconds.toString().padLeft(2, '0'),
+                                    topLabel: '',
+                                    numberSize: numberSize,
+                                    theme: horizontalTheme,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: Align(
+                                  alignment: Alignment.center,
+                                  child: Container(
+                                    height: 2,
+                                    color: Colors.black.withValues(alpha: 0.42),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      minHeight: 5,
+                      value: progress.clamp(0, 1),
+                      backgroundColor: Colors.white.withValues(alpha: 0.08),
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(horizontalTheme.glow),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            right: 18,
+            top: 58,
+            bottom: 58,
+            child: _HorizontalToolRail(
+              theme: horizontalTheme,
+              isRunning: _isRunning,
+              onTheme: () => _setHorizontalTheme(
+                (_horizontalThemeIndex + 1) % _horizontalThemes.length,
+              ),
+              onToggle: _isRunning ? _pauseTimer : () => _startTimer(),
+              onReset: _resetTimer,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
       _persistState();
+    } else if (state == AppLifecycleState.resumed) {
+      unawaited(_refreshFocusModeStatus());
+      unawaited(_loadFocusModeConfig());
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _persistState();
     if (!_isRunning) {
       unawaited(NotificationService.cancelPomodoroTimerNotification());
     }
     _timer?.cancel();
+    _focusModeStatusTimer?.cancel();
+    if (!_isRunning || _mode != 'focus') {
+      unawaited(FocusModeService.stopFocusSession());
+    }
+    _horizontalRefresh.dispose();
     _audioPlayer.dispose();
     WidgetsBinding.instance.removeObserver(this);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -354,102 +841,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_isHorizontalFocusMode) {
-      final horizontalTheme = _horizontalThemes[_horizontalThemeIndex];
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          onTap: () => _setHorizontalTheme(
-            (_horizontalThemeIndex + 1) % _horizontalThemes.length,
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        horizontalTheme.backgroundStart,
-                        horizontalTheme.glow.withValues(alpha: 0.18),
-                        horizontalTheme.backgroundEnd,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      colors: [
-                        horizontalTheme.glow.withValues(alpha: 0.22),
-                        Colors.transparent,
-                      ],
-                      radius: 0.9,
-                    ),
-                  ),
-                ),
-              ),
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _mode == 'focus'
-                          ? 'Enfoque'
-                          : _mode == 'shortBreak'
-                              ? 'Descanso corto'
-                              : 'Descanso largo',
-                      style: TextStyle(
-                        color: horizontalTheme.textColor.withValues(alpha: 0.7),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 240),
-                      child: Text(
-                        _formatTime(_remainingSeconds),
-                        key: ValueKey(_remainingSeconds),
-                        style: TextStyle(
-                          color: horizontalTheme.textColor,
-                          fontSize: 150,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 4,
-                          shadows: [
-                            Shadow(
-                              color:
-                                  horizontalTheme.glow.withValues(alpha: 0.46),
-                              blurRadius: 28,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 12,
-                left: 12,
-                child: IconButton(
-                  tooltip: 'Salir',
-                  onPressed: _toggleHorizontalFocusMode,
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final themePalette = _themePalette();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final themePalette = _themePalette();
     final progress =
         totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final compact = MediaQuery.of(context).size.width < 390;
@@ -616,19 +1009,34 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           height: compact ? 186 : 220,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                Theme.of(context).cardColor,
-                                themePalette.surfaceTint,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
+                            gradient: RadialGradient(
+                              center: const Alignment(-0.35, -0.45),
+                              radius: 1.05,
+                              colors: isDark
+                                  ? [
+                                      themePalette.accent
+                                          .withValues(alpha: 0.22),
+                                      const Color(0xFF111827),
+                                      const Color(0xFF020617),
+                                    ]
+                                  : [
+                                      Theme.of(context).cardColor,
+                                      themePalette.surfaceTint,
+                                    ],
+                            ),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .outlineVariant
+                                      .withValues(alpha: 0.22),
                             ),
                             boxShadow: [
                               BoxShadow(
                                 color:
-                                    themePalette.accent.withValues(alpha: 0.12),
-                                blurRadius: 24,
+                                    themePalette.accent.withValues(alpha: 0.18),
+                                blurRadius: 32,
                                 offset: const Offset(0, 10),
                               ),
                             ],
@@ -656,6 +1064,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                     fontSize: compact ? 42 : 52,
                                     fontWeight: FontWeight.w900,
                                     height: 1,
+                                    color: isDark ? Colors.white : null,
                                   ),
                                 ),
                               ),
@@ -664,7 +1073,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 _mode == 'focus'
                                     ? 'Tiempo restante'
                                     : 'Cuenta regresiva',
-                                style: Theme.of(context).textTheme.bodySmall,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: isDark
+                                          ? Colors.white.withValues(alpha: 0.66)
+                                          : null,
+                                    ),
                               ),
                             ],
                           ),
@@ -720,6 +1136,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                     ],
                   ),
+                  if (subjects.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _subjectSelector(provider, subjects),
+                  ],
                 ],
               ),
             ),
@@ -727,124 +1147,81 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             _glassCard(
               context,
               padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Configurar Pomodoro',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+              child: _buildFocusModeTotalCard(provider),
+            ),
+            const SizedBox(height: 14),
+            _expandableGlassCard(
+              context,
+              title: 'Configurar Pomodoro',
+              subtitle:
+                  'Ajusta tiempos, sonido y descanso sin salir del temporizador.',
+              children: [
+                _TimerSlider(
+                  label: 'Enfoque',
+                  value: provider.settings.focusTime,
+                  min: 5,
+                  max: 90,
+                  color: const Color(0xFF2563EB),
+                  onChanged: (value) =>
+                      _updatePomodoroSettings(focusTime: value),
+                ),
+                _TimerSlider(
+                  label: 'Descanso corto',
+                  value: provider.settings.shortBreakTime,
+                  min: 1,
+                  max: 30,
+                  color: const Color(0xFF10B981),
+                  onChanged: (value) =>
+                      _updatePomodoroSettings(shortBreakTime: value),
+                ),
+                _TimerSlider(
+                  label: 'Descanso largo',
+                  value: provider.settings.longBreakTime,
+                  min: 5,
+                  max: 60,
+                  color: const Color(0xFFF59E0B),
+                  onChanged: (value) =>
+                      _updatePomodoroSettings(longBreakTime: value),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  initialValue: provider.settings.sound,
+                  decoration: const InputDecoration(
+                    labelText: 'Sonido al terminar',
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Ajusta tiempos, sonido y materia sin salir del temporizador.',
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  items: const [
+                    DropdownMenuItem(value: 'chime', child: Text('Campana')),
+                    DropdownMenuItem(value: 'bell', child: Text('Timbre')),
+                    DropdownMenuItem(value: 'none', child: Text('Sin sonido')),
+                  ],
+                  onChanged: (value) =>
+                      _updatePomodoroSettings(sound: value ?? 'none'),
+                ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: provider.settings.breakAfterFocus,
+                  decoration: const InputDecoration(
+                    labelText: 'Después del enfoque',
                   ),
-                  const SizedBox(height: 16),
-                  _TimerSlider(
-                    label: 'Enfoque',
-                    value: provider.settings.focusTime,
-                    min: 5,
-                    max: 90,
-                    color: const Color(0xFF2563EB),
-                    onChanged: (value) =>
-                        _updatePomodoroSettings(focusTime: value),
-                  ),
-                  _TimerSlider(
-                    label: 'Descanso corto',
-                    value: provider.settings.shortBreakTime,
-                    min: 1,
-                    max: 30,
-                    color: const Color(0xFF10B981),
-                    onChanged: (value) =>
-                        _updatePomodoroSettings(shortBreakTime: value),
-                  ),
-                  _TimerSlider(
-                    label: 'Descanso largo',
-                    value: provider.settings.longBreakTime,
-                    min: 5,
-                    max: 60,
-                    color: const Color(0xFFF59E0B),
-                    onChanged: (value) =>
-                        _updatePomodoroSettings(longBreakTime: value),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<String>(
-                    initialValue: provider.settings.sound,
-                    decoration: const InputDecoration(
-                      labelText: 'Sonido al terminar',
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'auto',
+                      child: Text('Automático cada 4 ciclos'),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'chime', child: Text('Campana')),
-                      DropdownMenuItem(value: 'bell', child: Text('Timbre')),
-                      DropdownMenuItem(
-                          value: 'none', child: Text('Sin sonido')),
-                    ],
-                    onChanged: (value) =>
-                        _updatePomodoroSettings(sound: value ?? 'none'),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: provider.settings.breakAfterFocus,
-                    decoration: const InputDecoration(
-                      labelText: 'Después del enfoque',
+                    DropdownMenuItem(
+                      value: 'shortBreak',
+                      child: Text('Siempre descanso corto'),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'auto',
-                        child: Text('Automático cada 4 ciclos'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'shortBreak',
-                        child: Text('Siempre descanso corto'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'longBreak',
-                        child: Text('Siempre descanso largo'),
-                      ),
-                    ],
-                    onChanged: (value) => _updatePomodoroSettings(
-                      breakAfterFocus: value ?? 'auto',
-                    ),
-                  ),
-                  if (subjects.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    DropdownButtonFormField<String>(
-                      initialValue: subjects.any(
-                        (subject) => subject.name == _selectedSubject,
-                      )
-                          ? _selectedSubject
-                          : subjects.first.name,
-                      decoration: const InputDecoration(
-                        labelText: 'Materia asociada',
-                      ),
-                      items: subjects
-                          .map(
-                            (subject) => DropdownMenuItem(
-                              value: subject.name,
-                              child: Text(subject.name),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedSubject = value ?? '');
-                        if (_isRunning) {
-                          unawaited(
-                            NotificationService.showPomodoroTimerNotification(
-                              mode: _mode,
-                              remainingSeconds: _remainingSeconds,
-                              subject: _selectedSubject,
-                            ),
-                          );
-                        }
-                        _persistState();
-                      },
+                    DropdownMenuItem(
+                      value: 'longBreak',
+                      child: Text('Siempre descanso largo'),
                     ),
                   ],
-                ],
-              ),
+                  onChanged: (value) => _updatePomodoroSettings(
+                    breakAfterFocus: value ?? 'auto',
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             _glassCard(
@@ -910,6 +1287,243 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         padding: padding,
         child: child,
       ),
+    );
+  }
+
+  Widget _expandableGlassCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    return _glassCard(
+      context,
+      padding: EdgeInsets.zero,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey('pomodoro-$title'),
+          initiallyExpanded: false,
+          maintainState: false,
+          tilePadding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          title: Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _subjectSelector(AppProvider provider, List<Subject> subjects) {
+    return DropdownButtonFormField<String>(
+      key: ValueKey(_selectedSubject),
+      initialValue: subjects.any(
+        (subject) => subject.name == _selectedSubject,
+      )
+          ? _selectedSubject
+          : '',
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Materia asociada',
+        prefixIcon: Icon(Icons.menu_book_rounded),
+        helperText: 'Opcional. Se guarda en tus estadísticas del Pomodoro.',
+      ),
+      items: [
+        const DropdownMenuItem(
+          value: '',
+          child: Text('General'),
+        ),
+        ...subjects.map(
+          (subject) => DropdownMenuItem<String>(
+            value: subject.name,
+            child: Text(
+              subject.name,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+      onChanged: (value) {
+        setState(() => _selectedSubject = value ?? '');
+        if (_isRunning) {
+          unawaited(_showPomodoroNotification(provider));
+        }
+        _persistState();
+      },
+    );
+  }
+
+  Widget _buildFocusModeTotalCard(AppProvider provider) {
+    final blockedApps = _focusModeConfig.blockedApps;
+    final isEnabled = _focusModeConfig.enabled;
+    final activeNow = _focusModeStatus.active && _isRunning && _mode == 'focus';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Modo Enfoque Total',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Vigila apps distractoras mientras corre tu sesión de enfoque y te avisa si intentas abrirlas.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: isEnabled,
+              onChanged: _toggleFocusModeEnabled,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        if (_loadingFocusMode)
+          const Center(child: CircularProgressIndicator())
+        else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: _focusModePermissionGranted
+                  ? const Color(0xFF10B981).withValues(alpha: 0.10)
+                  : const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  _focusModePermissionGranted
+                      ? Icons.verified_user_rounded
+                      : Icons.security_rounded,
+                  color: _focusModePermissionGranted
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _focusModePermissionGranted
+                        ? 'Permiso activo. Focus puede revisar qué app está al frente.'
+                        : 'Falta activar el permiso de uso. Sin eso no podemos vigilar otras apps.',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (!_focusModePermissionGranted)
+            FilledButton.icon(
+              onPressed: _grantFocusModePermission,
+              icon: const Icon(Icons.admin_panel_settings_rounded),
+              label: const Text('Activar permiso de vigilancia'),
+            ),
+          if (!_focusModePermissionGranted) const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: _openFocusModeSetup,
+            icon: const Icon(Icons.apps_rounded),
+            label: Text(
+              blockedApps.isEmpty
+                  ? 'Elegir apps distractoras'
+                  : 'Editar apps bloqueadas',
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (blockedApps.isEmpty)
+            Text(
+              'Todavía no elegiste apps. Añade Instagram, TikTok, YouTube o las que más te saquen del ritmo.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: blockedApps
+                  .take(8)
+                  .map(
+                    (app) => Chip(
+                      label: Text(
+                        app.label,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          if (blockedApps.length > 8) ...[
+            const SizedBox(height: 8),
+            Text(
+              '+${blockedApps.length - 8} apps más',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.32),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  activeNow ? 'Sesión protegida ahora' : 'Estado de protección',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  activeNow
+                      ? 'Apps frenadas: ${_focusModeStatus.blockedAttempts}. Tiempo restante: ${_formatTime(_focusModeStatus.remainingSeconds)}.'
+                      : isEnabled
+                          ? 'Se activará automáticamente cuando inicies un bloque de enfoque.'
+                          : 'Actívalo cuando quieras estudiar sin tentaciones.',
+                ),
+                if (_focusModeStatus.lastBlockedApp.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Último intento detectado: ${_focusModeStatus.lastBlockedApp}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1058,6 +1672,143 @@ class _ModePill extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.w800,
             color: selected ? color : null,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimePanel extends StatelessWidget {
+  final String value;
+  final String topLabel;
+  final double numberSize;
+  final _HorizontalTheme theme;
+
+  const _TimePanel({
+    required this.value,
+    required this.topLabel,
+    required this.numberSize,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(42),
+        color: Colors.white.withValues(alpha: 0.045),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.045)),
+      ),
+      child: Stack(
+        children: [
+          if (topLabel.isNotEmpty)
+            Positioned(
+              top: 14,
+              left: 0,
+              right: 0,
+              child: Text(
+                topLabel,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.textColor.withValues(alpha: 0.52),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.3,
+                ),
+              ),
+            ),
+          Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  color: theme.textColor.withValues(alpha: 0.82),
+                  fontSize: numberSize,
+                  height: 0.86,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -10,
+                  shadows: [
+                    Shadow(
+                      color: theme.glow.withValues(alpha: 0.26),
+                      blurRadius: 34,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HorizontalToolRail extends StatelessWidget {
+  final _HorizontalTheme theme;
+  final bool isRunning;
+  final VoidCallback onTheme;
+  final VoidCallback onToggle;
+  final VoidCallback onReset;
+
+  const _HorizontalToolRail({
+    required this.theme,
+    required this.isRunning,
+    required this.onTheme,
+    required this.onToggle,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _RailButton(icon: Icons.tune_rounded, onTap: onTheme, theme: theme),
+        const SizedBox(height: 12),
+        _RailButton(
+          icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          onTap: onToggle,
+          theme: theme,
+        ),
+        const SizedBox(height: 12),
+        _RailButton(icon: Icons.refresh_rounded, onTap: onReset, theme: theme),
+      ],
+    );
+  }
+}
+
+class _RailButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final _HorizontalTheme theme;
+
+  const _RailButton({
+    required this.icon,
+    required this.onTap,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.075),
+      borderRadius: BorderRadius.circular(19),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(19),
+        onTap: onTap,
+        child: SizedBox(
+          width: 50,
+          height: 50,
+          child: Icon(
+            icon,
+            color: theme.textColor.withValues(alpha: 0.78),
+            size: 25,
           ),
         ),
       ),

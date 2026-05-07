@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -256,18 +256,47 @@ class PolytechnicImportService {
     final sharedStrings = _readSharedStrings(files['xl/sharedStrings.xml']);
     final sheetTargets = _readSheetTargets(files);
 
-    final mainSheetPath = sheetTargets[_mainSheetName];
-    if (mainSheetPath == null) {
-      throw StateError('No se encontro la hoja $_mainSheetName en el Excel.');
-    }
-
     final codesSheetPath = sheetTargets[_codesSheetName];
     final careerNames = codesSheetPath == null
         ? <String, String>{}
         : _readCareerCodes(files[codesSheetPath], sharedStrings);
     final grouped = <String, _CareerBucket>{};
 
-    for (final row in _readSheetRows(files[mainSheetPath], sharedStrings)) {
+    final mainSheetPath = sheetTargets[_mainSheetName];
+    if (mainSheetPath != null) {
+      _parseUnifiedSheet(
+        file: files[mainSheetPath],
+        sharedStrings: sharedStrings,
+        careerNames: careerNames,
+        grouped: grouped,
+      );
+    } else {
+      _parseCareerSheets(
+        files: files,
+        sheetTargets: sheetTargets,
+        sharedStrings: sharedStrings,
+        careerNames: careerNames,
+        grouped: grouped,
+      );
+    }
+
+    final careers = _buildCareers(grouped);
+
+    if (careers.isEmpty) {
+      throw StateError(
+          'No se encontraron materias válidas para importar en el Excel.');
+    }
+
+    return PolytechnicWorkbook(sourceName: sourceName, careers: careers);
+  }
+
+  void _parseUnifiedSheet({
+    required ArchiveFile? file,
+    required List<String> sharedStrings,
+    required Map<String, String> careerNames,
+    required Map<String, _CareerBucket> grouped,
+  }) {
+    for (final row in _readSheetRows(file, sharedStrings)) {
       final rowNumber = row.rowNumber;
       if (rowNumber <= 10) {
         continue;
@@ -301,29 +330,14 @@ class PolytechnicImportService {
       final schedules = _extractSchedules(row.values, defaultClassroom);
       final exams = _extractExams(row.values);
 
-      final careerBucket = grouped.putIfAbsent(
-        careerCode,
-        () => _CareerBucket(
-          code: careerCode,
-          name: careerNames[careerCode] ?? careerName,
-        ),
-      );
-      final semesterBucket = careerBucket.semesters.putIfAbsent(
-        semester,
-        () => _SemesterBucket(number: semester),
-      );
-      final subjectBucket = semesterBucket.subjects.putIfAbsent(
-        subjectName,
-        () => _SubjectBucket(
-          careerCode: careerCode,
-          careerName: careerBucket.name,
-          semester: semester,
-          name: subjectName,
-        ),
-      );
-
-      subjectBucket.sections.add(
-        PolytechnicSectionOption(
+      _addSection(
+        grouped: grouped,
+        careerNames: careerNames,
+        careerCode: careerCode,
+        careerName: careerName,
+        semester: semester,
+        subjectName: subjectName,
+        section: PolytechnicSectionOption(
           code: sectionCode,
           teacher: teacher,
           defaultClassroom:
@@ -334,8 +348,106 @@ class PolytechnicImportService {
         ),
       );
     }
+  }
 
-    final careers = grouped.values.map((career) {
+  void _parseCareerSheets({
+    required Map<String, ArchiveFile> files,
+    required Map<String, String> sheetTargets,
+    required List<String> sharedStrings,
+    required Map<String, String> careerNames,
+    required Map<String, _CareerBucket> grouped,
+  }) {
+    for (final entry in sheetTargets.entries) {
+      final sheetName = entry.key.trim();
+      if (sheetName == _codesSheetName || !careerNames.containsKey(sheetName)) {
+        continue;
+      }
+
+      for (final row in _readSheetRows(files[entry.value], sharedStrings)) {
+        if (row.rowNumber <= 11) {
+          continue;
+        }
+
+        final subjectName = _valueAt(row.values, 2);
+        final careerCode = _valueAt(row.values, 5).isNotEmpty
+            ? _valueAt(row.values, 5)
+            : sheetName;
+        final careerName = careerNames[careerCode] ?? careerCode;
+        final semester = _resolveSemester(
+          semGroup: _valueAt(row.values, 4),
+          level: _valueAt(row.values, 3),
+        );
+        final sectionCode = _valueAt(row.values, 9);
+
+        if (subjectName.isEmpty ||
+            careerCode.isEmpty ||
+            semester == null ||
+            sectionCode.isEmpty) {
+          continue;
+        }
+
+        final schedules = _extractLegacySchedules(row.values);
+        final exams = _extractLegacyExams(row.values);
+        final firstExamRoom = _valueAt(row.values, 17);
+        final defaultClassroom = schedules.firstOrNull?.classroom ??
+            (firstExamRoom.isNotEmpty
+                ? firstExamRoom
+                : _valueAt(row.values, 23));
+
+        _addSection(
+          grouped: grouped,
+          careerNames: careerNames,
+          careerCode: careerCode,
+          careerName: careerName,
+          semester: semester,
+          subjectName: subjectName,
+          section: PolytechnicSectionOption(
+            code: sectionCode,
+            teacher: _buildLegacyTeacher(row.values),
+            defaultClassroom: defaultClassroom,
+            shift: _valueAt(row.values, 8),
+            schedules: schedules,
+            exams: exams,
+          ),
+        );
+      }
+    }
+  }
+
+  void _addSection({
+    required Map<String, _CareerBucket> grouped,
+    required Map<String, String> careerNames,
+    required String careerCode,
+    required String careerName,
+    required int semester,
+    required String subjectName,
+    required PolytechnicSectionOption section,
+  }) {
+    final careerBucket = grouped.putIfAbsent(
+      careerCode,
+      () => _CareerBucket(
+        code: careerCode,
+        name: careerNames[careerCode] ?? careerName,
+      ),
+    );
+    final semesterBucket = careerBucket.semesters.putIfAbsent(
+      semester,
+      () => _SemesterBucket(number: semester),
+    );
+    final subjectBucket = semesterBucket.subjects.putIfAbsent(
+      subjectName,
+      () => _SubjectBucket(
+        careerCode: careerCode,
+        careerName: careerBucket.name,
+        semester: semester,
+        name: subjectName,
+      ),
+    );
+    subjectBucket.sections.add(section);
+  }
+
+  List<PolytechnicCareer> _buildCareers(Map<String, _CareerBucket> grouped) {
+    return grouped.values.map((career) {
       final semesters = career.semesters.values.map((semester) {
         final subjects = semester.subjects.values.map((subject) {
           subject.sections.sort((a, b) => a.code.compareTo(b.code));
@@ -359,13 +471,6 @@ class PolytechnicImportService {
       );
     }).toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-
-    if (careers.isEmpty) {
-      throw StateError(
-          'No se encontraron materias validas para importar en el Excel.');
-    }
-
-    return PolytechnicWorkbook(sourceName: sourceName, careers: careers);
   }
 
   Map<String, String> _readSheetTargets(Map<String, ArchiveFile> files) {
@@ -556,6 +661,37 @@ class PolytechnicImportService {
     return schedules;
   }
 
+  List<PolytechnicScheduleTemplate> _extractLegacySchedules(
+    Map<int, String> row,
+  ) {
+    const scheduleColumns = [
+      (day: 0, timeCol: 35, roomCol: 36),
+      (day: 1, timeCol: 37, roomCol: 38),
+      (day: 2, timeCol: 39, roomCol: 40),
+      (day: 3, timeCol: 41, roomCol: 42),
+      (day: 4, timeCol: 43, roomCol: 44),
+      (day: 5, timeCol: 45, roomCol: 44),
+    ];
+
+    final schedules = <PolytechnicScheduleTemplate>[];
+    for (final item in scheduleColumns) {
+      final rawTime = _valueAt(row, item.timeCol);
+      final range = _parseTimeRange(rawTime);
+      if (range == null) {
+        continue;
+      }
+      schedules.add(
+        PolytechnicScheduleTemplate(
+          dayOfWeek: item.day,
+          startTime: range.$1,
+          endTime: range.$2,
+          classroom: _valueAt(row, item.roomCol),
+        ),
+      );
+    }
+    return schedules;
+  }
+
   List<PolytechnicExamTemplate> _extractExams(Map<int, String> row) {
     final exams = <PolytechnicExamTemplate>[];
     const examColumns = [
@@ -601,11 +737,65 @@ class PolytechnicImportService {
     return exams;
   }
 
+  List<PolytechnicExamTemplate> _extractLegacyExams(Map<int, String> row) {
+    final exams = <PolytechnicExamTemplate>[];
+    const examColumns = [
+      (
+        type: 'partial',
+        label: 'Primer parcial',
+        dateCol: 15,
+        timeCol: 16,
+        roomCol: 17
+      ),
+      (
+        type: 'partial',
+        label: 'Segundo parcial',
+        dateCol: 18,
+        timeCol: 19,
+        roomCol: 20
+      ),
+      (type: 'final', label: 'Final 1', dateCol: 21, timeCol: 22, roomCol: 23),
+      (type: 'final', label: 'Final 2', dateCol: 26, timeCol: 27, roomCol: 28),
+    ];
+
+    for (final item in examColumns) {
+      final date = _parseDate(_valueAt(row, item.dateCol));
+      final time = _normalizeSingleTime(_valueAt(row, item.timeCol));
+      if (date == null || time == null) {
+        continue;
+      }
+      exams.add(
+        PolytechnicExamTemplate(
+          examType: item.type,
+          label: item.label,
+          date: date,
+          startTime: time,
+          classroom: _valueAt(row, item.roomCol),
+        ),
+      );
+    }
+    exams.sort((a, b) {
+      final dateComparison = a.date.compareTo(b.date);
+      if (dateComparison != 0) return dateComparison;
+      return a.startTime.compareTo(b.startTime);
+    });
+    return exams;
+  }
+
   String _buildTeacher(Map<int, String> row) {
     final parts = [
       _valueAt(row, 46),
       _valueAt(row, 48),
       _valueAt(row, 49),
+    ].where((item) => item.isNotEmpty).toList();
+    return parts.join(' ');
+  }
+
+  String _buildLegacyTeacher(Map<int, String> row) {
+    final parts = [
+      _valueAt(row, 11),
+      _valueAt(row, 13),
+      _valueAt(row, 12),
     ].where((item) => item.isNotEmpty).toList();
     return parts.join(' ');
   }
@@ -658,6 +848,16 @@ class PolytechnicImportService {
     if (raw.trim().isEmpty) {
       return null;
     }
+
+    final matches = RegExp(r'(\d{1,2}):(\d{2})').allMatches(raw).toList();
+    if (matches.length >= 2) {
+      final start = _normalizeSingleTime(matches[0].group(0)!);
+      final end = _normalizeSingleTime(matches[1].group(0)!);
+      if (start != null && end != null) {
+        return (start, end);
+      }
+    }
+
     final parts = raw.split('-');
     if (parts.length != 2) {
       return null;
@@ -769,3 +969,4 @@ class _SubjectBucket {
     required this.name,
   });
 }
+

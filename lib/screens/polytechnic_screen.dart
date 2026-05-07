@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -9,12 +9,15 @@ import '../models/exam.dart';
 import '../models/schedule.dart';
 import '../models/subject.dart';
 import '../providers/app_provider.dart';
+import '../services/notification_service.dart';
 import '../services/polytechnic_cache_service.dart';
 import '../services/polytechnic_import_service.dart';
 import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
+import 'grade_calculator_screen.dart';
+import 'subjects_screen.dart';
 
-enum _SubjectSelectionState { none, taking, completed }
+enum _SubjectSelectionState { none, taking }
 
 class PolytechnicScreen extends StatefulWidget {
   const PolytechnicScreen({super.key});
@@ -28,6 +31,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   PolytechnicWorkbook? _workbook;
   bool _loadingWorkbook = false;
   bool _importing = false;
+  bool _showImportFlow = false;
   String? _loadedFileName;
   String _loadingMessage = 'Procesando archivo...';
   int _currentStep = 0;
@@ -39,7 +43,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   Widget build(BuildContext context) {
     final workbook = _workbook;
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'subjects'),
+      drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
       appBar: AppBar(
         title: const Text('Politécnica'),
       ),
@@ -48,25 +52,27 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
           ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _HeroCard(
-                loadedFileName: _loadedFileName,
-                loading: _loadingWorkbook,
-                onLoadPressed: _pickWorkbook,
-                onReloadPressed: _pickWorkbook,
-              ),
-              if (workbook != null) ...[
+              if (!_showImportFlow &&
+                  workbook == null &&
+                  !_loadingWorkbook) ...[
+                const _CalculatorShortcutCard(),
                 const SizedBox(height: 12),
-                _WorkbookSummaryCard(workbook: workbook),
+                _ImportShortcutCard(
+                  onTap: () => setState(() => _showImportFlow = true),
+                ),
+              ] else ...[
+                _HeroCard(
+                  loadedFileName: _loadedFileName,
+                  loading: _loadingWorkbook,
+                  onLoadPressed: _pickWorkbook,
+                ),
+                if (workbook != null) ...[
+                  const SizedBox(height: 12),
+                  _WorkbookSummaryCard(workbook: workbook),
+                ],
               ],
-              const SizedBox(height: 16),
-              if (workbook == null)
-                const _EmptyStateCard(
-                  icon: Icons.auto_awesome_rounded,
-                  title: 'Carga el archivo oficial',
-                  message:
-                      'El estudiante solo necesita su Excel. La app convierte y optimiza el archivo por dentro para que después funcione más rápido.',
-                )
-              else ...[
+              if (workbook != null) ...[
+                const SizedBox(height: 16),
                 _WizardProgress(currentStep: _currentStep),
                 const SizedBox(height: 16),
                 if (_currentStep == 0) _buildCareerStep(workbook),
@@ -154,91 +160,139 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       );
     }
 
+    final availableSubjects = _selectedCareers
+        .expand((career) => career.semesters)
+        .expand((semester) => semester.subjects)
+        .length;
+    final selectedSubjects = _takingSubjects.length;
+
     return _StepCard(
       step: 'Paso 2',
-      title: 'Marca que materias vas a cursar',
+      title: 'Elige las materias que vas a cursar',
       subtitle:
-          'Puedes marcar una materia como `Cursar` o `Hecha`. Las materias marcadas como `Hecha` no pasan al paso de secciones.',
+          'Toca una materia para seleccionarla. Solo las seleccionadas pasarán al paso de profesor y sección.',
       child: Column(
-        children: _selectedCareers
-            .expand((career) => career.semesters)
-            .map((semester) {
-          final subjects = _selectedCareers
-              .expand((item) => item.semesters)
-              .where((item) => item.number == semester.number)
-              .expand((item) => item.subjects)
-              .toList();
-          if (subjects.isEmpty) {
-            return const SizedBox.shrink();
-          }
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Theme(
-              data:
-                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
-              child: ExpansionTile(
-                initiallyExpanded: false,
-                title: Text(
-                  'Semestre ${semester.number}',
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                subtitle: Text(_semesterSummary(subjects)),
-                children: subjects.map((subject) {
-                  final state = _subjectStates[subject.key] ??
-                      _SubjectSelectionState.none;
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(subject.name,
-                            style:
-                                const TextStyle(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Cursar'),
-                              selected: state == _SubjectSelectionState.taking,
-                              onSelected: (_) => setState(() {
-                                _subjectStates[subject.key] =
-                                    _SubjectSelectionState.taking;
-                                _selectedSectionCodes.putIfAbsent(
-                                  subject.key,
-                                  () => subject.sections.first.code,
-                                );
-                              }),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SelectionHint(
+            selected: selectedSubjects,
+            total: availableSubjects,
+          ),
+          const SizedBox(height: 12),
+          ..._selectedCareers
+              .expand((career) => career.semesters)
+              .map((semester) {
+            final subjects = _selectedCareers
+                .expand((item) => item.semesters)
+                .where((item) => item.number == semester.number)
+                .expand((item) => item.subjects)
+                .toList();
+            if (subjects.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Theme(
+                data: Theme.of(context)
+                    .copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: false,
+                  title: Text(
+                    'Semestre ${semester.number}',
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  subtitle: Text(_semesterSummary(subjects)),
+                  children: subjects.map((subject) {
+                    final state = _subjectStates[subject.key] ??
+                        _SubjectSelectionState.none;
+                    final selected = state == _SubjectSelectionState.taking;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _toggleSubject(subject),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            color: selected
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                    .withValues(alpha: 0.55)
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.25),
+                            border: Border.all(
+                              color: selected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .outlineVariant
+                                      .withValues(alpha: 0.45),
                             ),
-                            ChoiceChip(
-                              label: const Text('Hecha'),
-                              selected:
-                                  state == _SubjectSelectionState.completed,
-                              onSelected: (_) => setState(() {
-                                _subjectStates[subject.key] =
-                                    _SubjectSelectionState.completed;
-                                _selectedSectionCodes.remove(subject.key);
-                              }),
-                            ),
-                            ChoiceChip(
-                              label: const Text('Sin marcar'),
-                              selected: state == _SubjectSelectionState.none,
-                              onSelected: (_) => setState(() {
-                                _subjectStates.remove(subject.key);
-                                _selectedSectionCodes.remove(subject.key);
-                              }),
-                            ),
-                          ],
+                          ),
+                          child: Row(
+                            children: [
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: selected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .surfaceContainerHighest,
+                                ),
+                                child: Icon(
+                                  selected
+                                      ? Icons.check_rounded
+                                      : Icons.add_rounded,
+                                  color: selected
+                                      ? Colors.white
+                                      : Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      subject.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      selected
+                                          ? 'Se importará con horario, profesor, sección y exámenes.'
+                                          : 'Toca para agregarla a tu horario.',
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -249,11 +303,10 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       return const _StepCard(
         step: 'Paso 3',
         title: 'Profesor y sección',
-        subtitle:
-            'Solo las materias marcadas como `Cursar` llegan a este paso.',
+        subtitle: 'Solo las materias seleccionadas llegan a este paso.',
         child: _MutedHint(
           text:
-              'No hay materias para elegir sección. Marca al menos una materia como `Cursar` en el paso anterior.',
+              'No hay materias para elegir sección. Selecciona al menos una materia en el paso anterior.',
         ),
       );
     }
@@ -340,7 +393,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
             child: OutlinedButton.icon(
               onPressed: () => setState(() => _currentStep--),
               icon: const Icon(Icons.arrow_back_rounded),
-              label: const Text('Atras'),
+              label: const Text('Atrás'),
             ),
           ),
         if (_currentStep > 0) const SizedBox(width: 12),
@@ -353,8 +406,10 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
                 ? Icons.download_done_rounded
                 : Icons.arrow_forward_rounded),
             label: Text(isLastStep
-                ? (_importing ? 'Importando...' : 'Finalizar')
-                : 'Siguiente'),
+                ? (_importing ? 'Importando...' : 'Importar materias')
+                : _currentStep == 1
+                    ? 'Elegir secciones'
+                    : 'Siguiente'),
           ),
         ),
       ],
@@ -366,7 +421,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       case 0:
         return _selectedCareerCodes.isNotEmpty;
       case 1:
-        return _takingSubjects.isNotEmpty || _completedSubjects.isNotEmpty;
+        return _takingSubjects.isNotEmpty;
       case 2:
         return !_importing &&
             _takingSubjects.every(
@@ -379,6 +434,23 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
     if (_currentStep < 2) {
       setState(() => _currentStep++);
     }
+  }
+
+  void _toggleSubject(PolytechnicSubjectOption subject) {
+    final selected =
+        _subjectStates[subject.key] == _SubjectSelectionState.taking;
+    setState(() {
+      if (selected) {
+        _subjectStates.remove(subject.key);
+        _selectedSectionCodes.remove(subject.key);
+      } else {
+        _subjectStates[subject.key] = _SubjectSelectionState.taking;
+        _selectedSectionCodes.putIfAbsent(
+          subject.key,
+          () => subject.sections.first.code,
+        );
+      }
+    });
   }
 
   List<PolytechnicCareer> get _selectedCareers {
@@ -400,25 +472,14 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
         .toList();
   }
 
-  List<PolytechnicSubjectOption> get _completedSubjects {
-    return _selectedCareers
-        .expand((career) => career.semesters)
-        .expand((semester) => semester.subjects)
-        .where((subject) =>
-            _subjectStates[subject.key] == _SubjectSelectionState.completed)
-        .toList();
-  }
-
   String _semesterSummary(List<PolytechnicSubjectOption> subjects) {
     final taking = subjects
         .where((subject) =>
             _subjectStates[subject.key] == _SubjectSelectionState.taking)
         .length;
-    final completed = subjects
-        .where((subject) =>
-            _subjectStates[subject.key] == _SubjectSelectionState.completed)
-        .length;
-    return '$taking para cursar · $completed hechas';
+    return taking == 0
+        ? '${subjects.length} materias disponibles'
+        : '$taking seleccionadas de ${subjects.length}';
   }
 
   Future<void> _pickWorkbook() async {
@@ -454,7 +515,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       } else {
         setState(() => _loadingMessage = 'Calculando cache...');
         final hash = await _cacheService.hashBytes(bytes);
-        setState(() => _loadingMessage = 'Buscando version rapida...');
+        setState(() => _loadingMessage = 'Buscando versión rápida...');
         final cached = await _cacheService.load(hash);
         if (cached != null) {
           workbook = cached;
@@ -481,9 +542,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
         _workbook = workbook;
         _loadedFileName = pickedFile.name;
         _currentStep = 0;
-        _selectedCareerCodes
-          ..clear()
-          ..addAll(workbook.careers.take(1).map((career) => career.code));
+        _selectedCareerCodes.clear();
         _subjectStates.clear();
         _selectedSectionCodes.clear();
       });
@@ -514,7 +573,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       builder: (dialogContext) => AlertDialog(
         title: const Text('Importar horario Politécnica'),
         content: const Text(
-          'Se importarán solo las materias marcadas como `Cursar`. Las materias marcadas como `Hecha` no pedirán profesor ni sección y no se cargarán a la app.',
+          'Se importarán las materias seleccionadas con sus horarios, profesores, secciones y exámenes detectados.',
         ),
         actions: [
           TextButton(
@@ -631,6 +690,10 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
         }
       }
 
+      await provider.syncExamNotifications();
+      final pendingNotifications =
+          await NotificationService.pendingNotificationsCount();
+
       if (!mounted) {
         return;
       }
@@ -648,12 +711,16 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
               Text('Exámenes importados: $importedExams'),
               Text('Parciales: $importedPartials'),
               Text('Finales: $importedFinals'),
+              Text('Avisos pendientes: $pendingNotifications'),
             ],
           ),
           actions: [
             FilledButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Listo'),
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _goToSubjectsScreen();
+              },
+              child: const Text('Ver materias'),
             ),
           ],
         ),
@@ -711,6 +778,127 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       return 'payments';
     }
     return 'book';
+  }
+
+  void _goToSubjectsScreen() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const SubjectsScreen()),
+      (route) => false,
+    );
+  }
+}
+
+class _CalculatorShortcutCard extends StatelessWidget {
+  const _CalculatorShortcutCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const GradeCalculatorScreen()),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: primary.withValues(alpha: 0.14),
+                ),
+                child: Icon(Icons.calculate_rounded, color: primary, size: 30),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Calculadora Politécnica',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Calcula firma, ponderado y objetivos de nota para planificar mejor tus finales.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ImportShortcutCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ImportShortcutCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: primary.withValues(alpha: 0.14),
+                ),
+                child:
+                    Icon(Icons.upload_file_rounded, color: primary, size: 30),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Importación automática',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Carga el Excel oficial y elige carrera, materias, horarios, profesores, secciones y exámenes.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: primary),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -771,6 +959,54 @@ class _WorkbookChip extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _SelectionHint extends StatelessWidget {
+  final int selected;
+  final int total;
+
+  const _SelectionHint({
+    required this.selected,
+    required this.total,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: primary.withValues(alpha: 0.10),
+        border: Border.all(color: primary.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: primary,
+            child: Text(
+              '$selected',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              selected == 0
+                  ? 'Selecciona al menos una materia para continuar.'
+                  : '$selected de $total materias seleccionadas.',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -838,19 +1074,33 @@ class _HeroCard extends StatelessWidget {
   final String? loadedFileName;
   final bool loading;
   final VoidCallback onLoadPressed;
-  final VoidCallback onReloadPressed;
 
   const _HeroCard({
     required this.loadedFileName,
     required this.loading,
     required this.onLoadPressed,
-    required this.onReloadPressed,
   });
 
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    return Card(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark ? const Color(0xFF222222) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 24,
+              offset: const Offset(0, 14),
+            ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -867,36 +1117,35 @@ class _HeroCard extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              'Importación automática para Politécnica',
+              'Importación automática',
               style: Theme.of(context)
                   .textTheme
-                  .titleLarge
+                  .headlineSmall
                   ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             Text(
-              'El estudiante solo sube el Excel. La app lo interpreta, acelera internamente y te guía paso a paso hasta la importación final.',
+              'Subí el Excel oficial y Focus te guía para elegir carrera, materias, profesores, secciones, horarios y exámenes.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            const SizedBox(height: 14),
+            const Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                FilledButton.icon(
-                  onPressed: loading ? null : onLoadPressed,
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: Text(loadedFileName == null
-                      ? 'Cargar Excel'
-                      : 'Cambiar Excel'),
-                ),
-                if (loadedFileName != null)
-                  OutlinedButton.icon(
-                    onPressed: loading ? null : onReloadPressed,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Actualizar archivo'),
-                  ),
+                _ImportChip(text: '1. Carrera'),
+                _ImportChip(text: '2. Materias'),
+                _ImportChip(text: '3. Secciones'),
               ],
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: loading ? null : onLoadPressed,
+              icon: Icon(loadedFileName == null
+                  ? Icons.upload_file_rounded
+                  : Icons.change_circle_rounded),
+              label: Text(
+                  loadedFileName == null ? 'Cargar Excel' : 'Cambiar Excel'),
             ),
             if (loadedFileName != null) ...[
               const SizedBox(height: 14),
@@ -909,6 +1158,32 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImportChip extends StatelessWidget {
+  final String text;
+
+  const _ImportChip({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: primary.withValues(alpha: 0.10),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: primary,
+          fontWeight: FontWeight.w900,
+          fontSize: 12,
         ),
       ),
     );
@@ -956,42 +1231,6 @@ class _StepCard extends StatelessWidget {
   }
 }
 
-class _EmptyStateCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String message;
-
-  const _EmptyStateCard({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(26),
-        child: Column(
-          children: [
-            Icon(icon, size: 42),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MutedHint extends StatelessWidget {
   final String text;
 
@@ -1013,3 +1252,4 @@ class _MutedHint extends StatelessWidget {
     );
   }
 }
+

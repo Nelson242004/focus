@@ -1,5 +1,4 @@
-import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
+﻿import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/app_settings.dart';
 import '../models/exam.dart';
@@ -170,7 +169,7 @@ class AppProvider extends ChangeNotifier {
     resources = await db.getAllResources();
   }
 
-  Future<void> _syncExamNotifications() async {
+  Future<void> syncExamNotifications() async {
     if (!settings.notificationsEnabled) {
       for (final exam in exams) {
         if (exam.id != null) {
@@ -183,9 +182,13 @@ class AppProvider extends ChangeNotifier {
       if (combineDateAndTime(exam.date, exam.startTime)
           .isAfter(DateTime.now())) {
         await NotificationService.scheduleExamNotifications(exam);
+      } else if (exam.id != null) {
+        await NotificationService.cancelExamNotifications(exam.id!);
       }
     }
   }
+
+  Future<void> _syncExamNotifications() => syncExamNotifications();
 
   void _syncExamSubjectNames() {
     final subjectMap = {
@@ -316,7 +319,7 @@ class AppProvider extends ChangeNotifier {
       await _loadSchedules();
       notifyListeners();
       return savedSubject;
-    } on DatabaseException {
+    } catch (_) {
       throw StateError('No se pudo guardar la materia.');
     }
   }
@@ -325,7 +328,7 @@ class AppProvider extends ChangeNotifier {
     _ensureSubjectNameAvailable(s.name);
     try {
       await db.insertSubject(s);
-    } on DatabaseException {
+    } catch (_) {
       throw StateError('No se pudo guardar la materia.');
     }
     await _loadSubjects();
@@ -411,7 +414,9 @@ class AppProvider extends ChangeNotifier {
     final savedExam = _normalizeExam(e);
     final id = await db.insertExam(savedExam);
     savedExam.id = id;
-    await NotificationService.scheduleExamNotifications(savedExam);
+    if (settings.notificationsEnabled) {
+      await NotificationService.scheduleExamNotifications(savedExam);
+    }
     await _loadExams();
     _syncExamSubjectNames();
     notifyListeners();
@@ -648,10 +653,11 @@ class AppProvider extends ChangeNotifier {
   }
 
   int get weeklyPomodoros {
-    final startOfWeek =
-        DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
     return pomodoros
-        .where((p) => DateTime.parse(p.date).isAfter(startOfWeek))
+        .where((p) => !DateTime.parse(p.date).isBefore(startOfWeek))
         .length;
   }
 
@@ -666,10 +672,11 @@ class AppProvider extends ChangeNotifier {
       pomodoros.fold<double>(0, (sum, pomodoro) => sum + pomodoro.duration) /
       60;
   double get weeklyFocusHours {
-    final startOfWeek =
-        DateTime.now().subtract(Duration(days: DateTime.now().weekday - 1));
+    final now = DateTime.now();
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
     final minutes = pomodoros
-        .where((p) => DateTime.parse(p.date).isAfter(startOfWeek))
+        .where((p) => !DateTime.parse(p.date).isBefore(startOfWeek))
         .fold<int>(0, (sum, p) => sum + p.duration);
     return minutes / 60;
   }
@@ -716,3 +723,4 @@ class AppProvider extends ChangeNotifier {
     return DateTime(now.year, now.month, now.day + 7, hour, minute);
   }
 }
+

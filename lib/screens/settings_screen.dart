@@ -1,27 +1,22 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_settings.dart';
-import '../models/exam.dart';
-import '../models/habit.dart';
-import '../models/pomodoro.dart';
-import '../models/resource_link.dart';
-import '../models/schedule.dart';
-import '../models/subject.dart';
+import '../models/focus_mode_config.dart';
+import '../models/focus_mode_status.dart';
+import '../models/focus_shield_app.dart';
 import '../providers/app_provider.dart';
+import '../services/backup_service.dart';
+import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_links.dart';
 import '../utils/app_utils.dart';
 import 'app_tutorial_screen.dart';
+import 'focus_mode_setup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,6 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationsEnabled = true;
   bool _checkingUpdate = false;
   late String _accentColor;
+  FocusModeConfig _focusModeConfig = const FocusModeConfig();
+  FocusModeStatus _focusModeStatus = const FocusModeStatus();
+  bool _focusModePermissionGranted = false;
 
   static const List<String> _accentPalette = [
     '#1D4ED8',
@@ -71,6 +69,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _animationsEnabled = provider.settings.animationsEnabled;
     _notificationsEnabled = provider.settings.notificationsEnabled;
     _accentColor = provider.settings.accentColor;
+    _loadFocusModeConfig();
+  }
+
+  Future<void> _loadFocusModeConfig() async {
+    final config = await FocusModeService.loadConfig();
+    final permissionGranted = await FocusModeService.hasUsageAccessPermission();
+    final status = await FocusModeService.getStatus();
+    if (!mounted) return;
+    setState(() {
+      _focusModeConfig = config;
+      _focusModePermissionGranted = permissionGranted;
+      _focusModeStatus = status;
+    });
   }
 
   @override
@@ -82,6 +93,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _saveSettings() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
     final focusTime = int.tryParse(_focusController.text);
@@ -90,8 +108,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final goal = int.tryParse(_goalController.text);
 
     if ([focusTime, shortBreak, longBreak, goal].contains(null)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Revisa los valores numéricos.')),
+      _showMessage(
+        'Revisa los números: usa solo valores enteros en minutos.',
       );
       return;
     }
@@ -115,69 +133,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Configuración guardada.')),
-    );
+    _showMessage('Listo. Tu configuración quedó guardada.');
   }
 
   Future<void> _exportData() async {
     try {
       final provider = Provider.of<AppProvider>(context, listen: false);
-      final data = {
-        'app': 'focus_app',
-        'formatVersion': 5,
-        'exportDate': DateTime.now().toIso8601String(),
-        'settings': _repairJsonText(provider.settings.toMap()),
-        'pomodoros': provider.pomodoros
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-        'habits': provider.habits
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-        'subjects': provider.subjects
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-        'schedules': provider.schedules
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-        'exams': provider.exams
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-        'resources': provider.resources
-            .map((item) => _repairJsonText(item.toMap()))
-            .toList(),
-      };
-
-      final targetDirectory = await _backupDirectory();
-      final date = DateTime.now().toIso8601String().split('T')[0];
-      final file = File(
-        '${targetDirectory.path}${Platform.pathSeparator}focus_backup_$date.focusbackup.json',
-      );
-      final encodedBackup = const JsonEncoder.withIndent('  ').convert(data);
-      await file.writeAsString(encodedBackup, encoding: utf8, flush: true);
-
-      final latestFile = File(
-        '${targetDirectory.path}${Platform.pathSeparator}focus_backup_ultimo.json',
-      );
-      await latestFile.writeAsString(encodedBackup,
-          encoding: utf8, flush: true);
-
-      await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'application/json')],
-        subject: 'Backup de Focus',
-        text:
-            'Backup completo de Focus. Guarda este archivo para restaurarlo después.',
-      );
-
+      await BackupService.exportBackup(provider);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Backup creado. Puedes guardarlo o compartirlo.')),
-      );
+      _showMessage('Backup creado. Guárdalo en un lugar seguro.');
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo exportar el backup: $error')),
+      _showMessage(
+        'No se pudo exportar el backup. Revisa el espacio disponible e intenta otra vez.',
       );
     }
   }
@@ -188,9 +156,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final info = await UpdateService.checkForUpdates();
       if (!mounted) return;
       if (!info.available) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ya tienes la última versión beta.')),
-        );
+        _showMessage('Ya tienes la última versión beta disponible.');
         return;
       }
 
@@ -223,12 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No se pudo buscar actualización. Revisa tu conexión o el enlace beta.',
-          ),
-        ),
+      _showMessage(
+        'No pudimos revisar actualizaciones. Verifica tu conexión e intenta otra vez.',
       );
     } finally {
       if (mounted) setState(() => _checkingUpdate = false);
@@ -240,68 +202,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
         allowMultiple: false,
-        withData: false,
+        withData: true,
       );
-      final path = result?.files.single.path;
-      if (path == null) return;
-      await _restoreBackupFromFile(File(path));
+      final picked = result?.files.single;
+      if (picked == null || picked.bytes == null) return;
+      await _restoreBackupFromSelection(picked.bytes!, picked.name);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No se pudo importar el backup. Verifica que sea un archivo exportado por Focus. Detalle: $error',
-          ),
-        ),
-      );
+      _showMessage(BackupService.friendlyBackupError(error));
     }
   }
 
   Future<void> _importLatestBackup() async {
     try {
-      final targetDirectory = await _backupDirectory();
-
-      final latestFile = File(
-        '${targetDirectory.path}${Platform.pathSeparator}focus_backup_ultimo.json',
-      );
-      if (!await latestFile.exists()) {
-        throw const FileSystemException(
-          'No se encontró focus_backup_ultimo.json en Descargas.',
+      final latestData = await BackupService.latestBackupData();
+      if (latestData == null) {
+        throw const FormatException(
+          'No se encontró un backup reciente dentro de Focus.',
         );
       }
 
-      await _restoreBackupFromFile(latestFile);
+      await _restoreBackupFromData(
+        latestData,
+        'Último backup guardado en Focus',
+      );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('No se pudo restaurar el último backup: $error')),
-      );
+      _showMessage(BackupService.friendlyBackupError(error));
     }
   }
 
-  Future<Directory> _backupDirectory() async {
-    final baseDirectory = await getExternalStorageDirectory() ??
-        await getApplicationDocumentsDirectory();
-    final directory = Directory(
-      '${baseDirectory.path}${Platform.pathSeparator}FocusBackups',
-    );
-    if (!await directory.exists()) {
-      await directory.create(recursive: true);
-    }
-    return directory;
+  Future<void> _restoreBackupFromSelection(
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    final data = await BackupService.readBackupBytes(bytes);
+    await _restoreBackupFromData(data, fileName);
   }
 
-  Future<void> _restoreBackupFromFile(File file) async {
-    final raw = (await file.readAsString()).replaceFirst('\uFEFF', '');
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) {
-      throw const FormatException('El backup no tiene formato de objeto.');
-    }
-    final data = Map<String, dynamic>.from(_repairJsonText(decoded) as Map);
-    if (data['app'] != 'focus_app') {
-      throw Exception('El archivo seleccionado no pertenece a Focus.');
-    }
+  Future<void> _restoreBackupFromData(
+    Map<String, dynamic> data,
+    String sourceLabel,
+  ) async {
     if (!mounted) return;
 
     final confirm = await showDialog<bool>(
@@ -309,7 +251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Restaurar backup'),
         content: Text(
-          'Se reemplazarán tus datos actuales por el backup:\n${file.path}',
+          'Se reemplazarán tus datos actuales por el backup:\n$sourceLabel',
         ),
         actions: [
           TextButton(
@@ -325,180 +267,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (confirm != true || !mounted) return;
 
-    await _restoreBackupData(data);
-  }
-
-  Future<void> _restoreBackupData(Map<String, dynamic> data) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    await provider.clearAllData(reseed: false);
-
-    final importedSubjects = (data['subjects'] as List? ?? [])
-        .map((item) => Subject.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-    final importedSchedules = (data['schedules'] as List? ?? [])
-        .map((item) => Schedule.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-    final importedExams = (data['exams'] as List? ?? [])
-        .map((item) => Exam.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-    final importedPomodoros = (data['pomodoros'] as List? ?? [])
-        .map((item) => Pomodoro.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-    final importedHabits = (data['habits'] as List? ?? [])
-        .map((item) => Habit.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-    final importedResources = (data['resources'] as List? ?? [])
-        .map((item) =>
-            ResourceLink.fromMap(Map<String, dynamic>.from(item as Map)))
-        .toList();
-
-    final oldToNewSubjectId = <int, int>{};
-    final subjectScheduleMap = <int, List<Schedule>>{};
-    for (final schedule in importedSchedules) {
-      subjectScheduleMap
-          .putIfAbsent(schedule.subjectId, () => [])
-          .add(schedule);
-    }
-
-    for (final subject in importedSubjects) {
-      final seedSchedules = subject.id != null
-          ? (subjectScheduleMap[subject.id!] ?? [])
-          : <Schedule>[];
-      if (seedSchedules.isEmpty) {
-        await provider.addSubject(Subject(
-          name: subject.name,
-          color: subject.color,
-          icon: subject.icon,
-          defaultClassroom: subject.defaultClassroom,
-          professorName: subject.professorName,
-          sectionCode: subject.sectionCode,
-        ));
-        final created = provider.getSubjectByName(subject.name);
-        if (subject.id != null && created?.id != null) {
-          oldToNewSubjectId[subject.id!] = created!.id!;
-        }
-        continue;
-      }
-
-      final created = await provider.addSubjectWithInitialSchedule(
-        Subject(
-          name: subject.name,
-          color: subject.color,
-          icon: subject.icon,
-          defaultClassroom: subject.defaultClassroom,
-          professorName: subject.professorName,
-          sectionCode: subject.sectionCode,
-        ),
-        Schedule(
-          subjectId: -1,
-          dayOfWeek: seedSchedules.first.dayOfWeek,
-          startTime: seedSchedules.first.startTime,
-          endTime: seedSchedules.first.endTime,
-          classroom: seedSchedules.first.classroom,
-        ),
-      );
-      if (subject.id != null && created.id != null) {
-        oldToNewSubjectId[subject.id!] = created.id!;
-      }
-      for (final extra in seedSchedules.skip(1)) {
-        await provider.addSchedule(Schedule(
-          subjectId: created.id!,
-          dayOfWeek: extra.dayOfWeek,
-          startTime: extra.startTime,
-          endTime: extra.endTime,
-          classroom: extra.classroom,
-        ));
-      }
-    }
-
-    for (final pomodoro in importedPomodoros) {
-      await provider.addPomodoro(pomodoro);
-    }
-    for (final habit in importedHabits) {
-      await provider.addHabit(Habit(
-        name: habit.name,
-        identity: habit.identity,
-        history: habit.history,
-        streak: habit.streak,
-      ));
-    }
-    for (final exam in importedExams) {
-      final subjectId = oldToNewSubjectId[exam.subjectId] ??
-          provider.getSubjectByName(exam.subject)?.id;
-      await provider.addExam(Exam(
-        subject: exam.subject,
-        subjectId: subjectId,
-        examType: exam.examType,
-        examLabel: exam.examLabel,
-        date: exam.date,
-        startTime: exam.startTime,
-        classroom: exam.classroom,
-      ));
-    }
-    for (final resource in importedResources) {
-      await provider.addResource(ResourceLink(
-        title: resource.title,
-        url: resource.url,
-        category: resource.category,
-        subjectId: oldToNewSubjectId[resource.subjectId] ?? resource.subjectId,
-      ));
-    }
-
-    final importedSettings = data['settings'] != null
-        ? AppSettings.fromMap(
-            Map<String, dynamic>.from(data['settings'] as Map))
-        : provider.settings;
-    importedSettings.onboardingCompleted = true;
-    await provider.updateSettings(importedSettings);
+    await BackupService.restoreBackupData(provider, data);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Backup restaurado correctamente.')),
-    );
-  }
-
-  dynamic _repairJsonText(dynamic value) {
-    if (value is String) return _repairText(value);
-    if (value is List) return value.map(_repairJsonText).toList();
-    if (value is Map) {
-      return <String, dynamic>{
-        for (final entry in value.entries)
-          entry.key.toString(): _repairJsonText(entry.value),
-      };
-    }
-    return value;
-  }
-
-  String _repairText(String value) {
-    const mojibakeMarker = '\u00C3';
-    const latin1Marker = '\u00C2';
-    const replacementMarker = '\uFFFD';
-    if (!value.contains(mojibakeMarker) &&
-        !value.contains(latin1Marker) &&
-        !value.contains(replacementMarker)) {
-      return value;
-    }
-    try {
-      return utf8.decode(latin1.encode(value), allowMalformed: false);
-    } catch (_) {
-      return value
-          .replaceAll('\u00C3\u00A1', 'á')
-          .replaceAll('\u00C3\u00A9', 'é')
-          .replaceAll('\u00C3\u00AD', 'í')
-          .replaceAll('\u00C3\u00B3', 'ó')
-          .replaceAll('\u00C3\u00BA', 'ú')
-          .replaceAll('\u00C3\u00B1', 'ñ')
-          .replaceAll('\u00C3\u0081', 'Á')
-          .replaceAll('\u00C3\u0089', 'É')
-          .replaceAll('\u00C3\u008D', 'Í')
-          .replaceAll('\u00C3\u0093', 'Ó')
-          .replaceAll('\u00C3\u009A', 'Ú')
-          .replaceAll('\u00C3\u0091', 'Ñ')
-          .replaceAll('\u00C2\u00BF', '¿')
-          .replaceAll('\u00C2\u00A1', '¡')
-          .replaceAll('\u00C2\u00B7', '·')
-          .replaceAll(latin1Marker, '');
-    }
+    _showMessage('Backup restaurado. Tus datos ya están de vuelta.');
   }
 
   Future<void> _copyAppLink() async {
@@ -506,14 +279,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _openExternalUrl(AppLinks.appDownload);
       await Clipboard.setData(const ClipboardData(text: AppLinks.appDownload));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Página abierta y link copiado.')),
-      );
+      _showMessage('Página abierta. También copiamos el enlace.');
     } catch (error) {
       await Clipboard.setData(const ClipboardData(text: AppLinks.appDownload));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo abrir. Link copiado: $error')),
+      _showMessage(
+        'No pudimos abrir la página, pero el enlace quedó copiado.',
       );
     }
   }
@@ -550,9 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirm == true && mounted) {
       await provider.clearAllData();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Datos borrados.')),
-      );
+      _showMessage('Datos borrados. Focus quedó limpio.');
     }
   }
 
@@ -561,24 +330,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final granted = await NotificationService.ensurePermissions();
       if (!granted) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Activa los permisos de notificaciones.')),
+        _showMessage(
+          'Activa los permisos de notificaciones desde Android para probarlas.',
         );
         return;
       }
 
       await NotificationService.showTestNotification();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Notificación de prueba enviada.')),
-      );
+      _showMessage('Notificación de prueba enviada. Revisa la barra superior.');
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo lanzar la prueba: $error')),
+      _showMessage(
+        'No pudimos lanzar la prueba. Revisa permisos de notificación y batería.',
       );
     }
+  }
+
+  Future<void> _toggleFocusMode(bool value) async {
+    final config = _focusModeConfig.copyWith(enabled: value);
+    await FocusModeService.saveConfig(config);
+    if (!mounted) return;
+    setState(() => _focusModeConfig = config);
+  }
+
+  Future<void> _openFocusModePicker() async {
+    final selectedApps = await Navigator.of(context).push<List<FocusShieldApp>>(
+      MaterialPageRoute(
+        builder: (_) => FocusModeSetupScreen(
+          initiallySelected: _focusModeConfig.blockedApps,
+        ),
+      ),
+    );
+    if (selectedApps == null) return;
+    final config = _focusModeConfig.copyWith(blockedApps: selectedApps);
+    await FocusModeService.saveConfig(config);
+    if (!mounted) return;
+    setState(() => _focusModeConfig = config);
+  }
+
+  Future<void> _grantFocusModePermission() async {
+    await FocusModeService.openUsageAccessSettings();
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await _loadFocusModeConfig();
   }
 
   @override
@@ -762,6 +556,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
+              title: 'Modo Enfoque Total',
+              icon: Icons.shield_moon_rounded,
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Activar con Pomodoro'),
+                  subtitle: const Text(
+                    'Protege tus bloques de enfoque y vigila apps distractoras.',
+                  ),
+                  value: _focusModeConfig.enabled,
+                  onChanged: _toggleFocusMode,
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    _focusModePermissionGranted
+                        ? Icons.verified_user_rounded
+                        : Icons.warning_amber_rounded,
+                  ),
+                  title: Text(
+                    _focusModePermissionGranted
+                        ? 'Permiso de vigilancia activo'
+                        : 'Permiso pendiente',
+                  ),
+                  subtitle: Text(
+                    _focusModePermissionGranted
+                        ? 'Focus puede detectar qué app está al frente durante la sesión.'
+                        : 'Necesitas activar el acceso de uso para vigilar apps distractoras.',
+                  ),
+                ),
+                if (!_focusModePermissionGranted)
+                  FilledButton.icon(
+                    onPressed: _grantFocusModePermission,
+                    icon: const Icon(Icons.admin_panel_settings_rounded),
+                    label: const Text('Activar permiso'),
+                  ),
+                if (!_focusModePermissionGranted) const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _openFocusModePicker,
+                  icon: const Icon(Icons.apps_rounded),
+                  label: Text(
+                    _focusModeConfig.blockedApps.isEmpty
+                        ? 'Elegir apps distractoras'
+                        : 'Editar apps distractoras',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _focusModeConfig.blockedApps.isEmpty
+                      ? 'Todavía no elegiste apps para frenar.'
+                      : '${_focusModeConfig.blockedApps.length} apps elegidas. Intentos detectados: ${_focusModeStatus.blockedAttempts}.',
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _SettingsSection(
               title: 'Datos y backup',
               icon: Icons.backup_rounded,
               children: [
@@ -837,22 +687,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.share_rounded),
-                  title: const Text('Compartir app'),
-                  subtitle: const SelectableText(AppLinks.appDownload),
-                  onTap: _copyAppLink,
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.08),
+                    border: Border.all(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.14),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.ios_share_rounded),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Compartir Focus',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Comparte la beta con un compañero para que pueda descargar la app desde la página oficial.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: _copyAppLink,
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('Abrir y copiar link'),
+                      ),
+                    ],
+                  ),
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.code_rounded),
-                  title: const Text('Desarrollado por PoliCode'),
-                  subtitle: const Text(AppLinks.developerWebsite),
-                  onTap: () => _openExternalUrl(AppLinks.developerWebsite),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () => _openExternalUrl(AppLinks.developerWebsite),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.code_rounded, color: Colors.white),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Desarrollado por',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                AppLinks.developerName,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(Icons.arrow_forward_rounded, color: Colors.white),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
-                const Text('Versión beta ${AppLinks.currentVersion}'),
+                Text('Versión beta ${AppLinks.currentVersion}'),
               ],
             ),
             const SizedBox(height: 14),
@@ -954,37 +880,32 @@ class _SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = danger ? Colors.red : Theme.of(context).colorScheme.primary;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: accent.withValues(alpha: 0.12),
-                  ),
-                  child: Icon(icon, color: accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
+      clipBehavior: Clip.antiAlias,
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey<String>('settings-$title'),
+          initiallyExpanded: false,
+          maintainState: false,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              color: accent.withValues(alpha: 0.12),
             ),
-            const SizedBox(height: 14),
-            ...children,
-          ],
+            child: Icon(icon, color: accent),
+          ),
+          title: Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          children: children,
         ),
       ),
     );

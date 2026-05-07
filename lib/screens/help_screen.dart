@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../widgets/focus_drawer.dart';
 
@@ -7,6 +7,7 @@ class HelpScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'help'),
@@ -18,13 +19,13 @@ class HelpScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(30),
                 gradient: LinearGradient(
                   colors: isDark
                       ? const [Color(0xFF020617), Color(0xFF0F766E)]
-                      : const [Color(0xFFEFF6FF), Color(0xFFBFDBFE)],
+                      : const [Color(0xFFEFF6FF), Color(0xFFCCFBF1)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -32,12 +33,20 @@ class HelpScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.auto_stories_rounded,
-                    color: isDark ? Colors.white : const Color(0xFF1D4ED8),
-                    size: 38,
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color:
+                          Colors.white.withValues(alpha: isDark ? 0.14 : 0.7),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Icon(
+                      Icons.support_agent_rounded,
+                      color: isDark ? Colors.white : colorScheme.primary,
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
                   Text(
                     'Guía rápida de Focus',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -46,48 +55,111 @@ class HelpScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Todo lo importante para importar datos, organizar tu semana y proteger tu progreso.',
+                    'Si algo no se entiende en menos de un minuto, esta pantalla tiene que ayudarte. Empieza por lo básico y luego explora lo avanzado.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
+            const _HelpChecklist(),
+            const SizedBox(height: 16),
             const _HelpTopic(
-              icon: Icons.upload_file_rounded,
-              title: 'Importar Excel de Politécnica',
+              icon: Icons.rocket_launch_rounded,
+              title: 'Primera configuración recomendada',
               body:
-                  'En Materias toca el botón Excel, elige el archivo oficial y avanza paso a paso: carrera, materias y secciones. La importación carga materias, horarios, aulas, profesores, parciales y finales cuando estén disponibles.',
+                  '1. Carga tus materias o importa el Excel desde Politécnica. 2. Agrega tus exámenes importantes. 3. Activa recordatorios. 4. Exporta un backup cuando tengas todo listo.',
             ),
             const _HelpTopic(
-              icon: Icons.emoji_events_rounded,
-              title: 'Puntos, niveles y logros',
+              icon: Icons.school_rounded,
+              title: 'Politécnica',
               body:
-                  'Los puntos suben con hábitos completados, pomodoros terminados y constancia semanal. El nivel llega hasta 5 y la insignia central cambia para que tu progreso se sienta visible.',
+                  'Entra a Politécnica para usar la calculadora de firma y ponderado o para importar el Excel oficial. La importación va paso a paso: carrera, materias y secciones. Si una materia no tiene examen en el Excel, la app igual importa lo que encuentre.',
+            ),
+            const _HelpTopic(
+              icon: Icons.calculate_rounded,
+              title: 'Calculadora académica',
+              body:
+                  'Ponderado te dice cuánto necesitas en el final para nota 2, 3, 4 o 5. Si tu ponderado es menor a 50%, la app muestra que no habilita final. Firma te ayuda a estimar media firma o firma completa.',
+            ),
+            const _HelpTopic(
+              icon: Icons.calendar_month_rounded,
+              title: 'Horario semanal',
+              body:
+                  'En Materias, el horario semanal es la vista principal: puedes deslizar entre días, revisar tus bloques por jornada y compartir tu horario como imagen.',
+            ),
+            const _HelpTopic(
+              icon: Icons.assignment_rounded,
+              title: 'Exámenes y recordatorios',
+              body:
+                  'Agrega parciales y finales con lo mínimo: materia y fecha. Si tienes hora o aula, también puedes guardarlas. Activa las notificaciones desde Configuración para recibir avisos antes del examen.',
             ),
             const _HelpTopic(
               icon: Icons.timer_rounded,
               title: 'Pomodoro',
               body:
-                  'Configura enfoque, descanso corto, descanso largo y qué descanso sigue al terminar. Si sales de la app, revisa las notificaciones para mantener el ritmo.',
+                  'Configura enfoque, descanso corto, descanso largo y qué descanso sigue al terminar. Si sales de la app, Focus intenta mantener el estado y mostrar el temporizador en notificaciones.',
             ),
             const _HelpTopic(
               icon: Icons.backup_rounded,
               title: 'Backup e importación',
               body:
-                  'Exporta una copia antes de reinstalar, cambiar de celular o probar una beta nueva. Al restaurar, la app te pide confirmación porque puede reemplazar tus datos actuales.',
+                  'Exporta una copia antes de probar una beta nueva, cambiar de celular o borrar datos. Al restaurar, Focus te pide confirmación porque el backup reemplaza tus datos actuales.',
             ),
             const _HelpTopic(
-              icon: Icons.picture_as_pdf_rounded,
-              title: 'PDF y recursos',
+              icon: Icons.warning_amber_rounded,
+              title: 'Si algo falla en la beta',
               body:
-                  'Puedes exportar horarios y exámenes en PDF. En Recursos guarda playlists, cursos, herramientas y enlaces por materia para tener todo a mano.',
+                  'Prueba cerrar y abrir la app. Si el problema sigue, guarda una captura, anota qué estabas haciendo y compártelo con PoliCode. Eso ayuda muchísimo a mejorar Focus para todos.',
             ),
-            const _HelpTopic(
-              icon: Icons.system_update_alt_rounded,
-              title: 'Actualizaciones beta',
-              body:
-                  'Desde Configuración puedes buscar nuevas versiones. Si hay una beta disponible, la app abre el enlace de descarga para instalarla manualmente.',
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HelpChecklist extends StatelessWidget {
+  const _HelpChecklist();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    const items = [
+      'Carga horario o Excel',
+      'Agrega exámenes',
+      'Activa recordatorios',
+      'Exporta backup',
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Checklist beta',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: color),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        item,
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -121,10 +193,14 @@ class _HelpTopic extends StatelessWidget {
         children: [
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(body),
+            child: Text(
+              body,
+              style: const TextStyle(height: 1.35),
+            ),
           ),
         ],
       ),
     );
   }
 }
+

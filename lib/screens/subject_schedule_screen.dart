@@ -170,7 +170,7 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar horario'),
-        content: const Text('Este bloque horario se eliminara de la materia.'),
+        content: const Text('Este bloque horario se eliminará de la materia.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -212,7 +212,11 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                     leading: const Icon(Icons.schedule),
                     title: Text(
                         '${weekdayLabel(schedule.dayOfWeek)} - ${schedule.startTime} - ${schedule.endTime}'),
-                    subtitle: Text('Aula: ${schedule.classroom}'),
+                    subtitle: Text(
+                      schedule.classroom.trim().isEmpty
+                          ? 'Aula por confirmar'
+                          : 'Aula: ${schedule.classroom}',
+                    ),
                     trailing: Wrap(
                       spacing: 4,
                       children: [

@@ -1,4 +1,4 @@
-import '../models/resource_link.dart';
+﻿import '../models/resource_link.dart';
 import '../models/subject.dart';
 
 class ResourceCatalogEntry {
@@ -27,8 +27,25 @@ class ResourceCatalog {
   // - required: si es true, el recurso queda fijo y no se puede borrar
   static const List<ResourceCatalogEntry> defaults = [
     ResourceCatalogEntry(
+      title: 'Becas Itaipú - Simulacros',
+      url:
+          'https://drive.google.com/drive/folders/1GV2M_6hAw7IyqpeYoWtrCnkxBCq6oiBF?usp=sharing',
+      category: 'course',
+      required: true,
+      visible: true,
+    ),
+    ResourceCatalogEntry(
+      title: 'Brave (YouTube sin anuncios)',
+      url:
+          'https://play.google.com/store/apps/details?id=com.brave.browser&pcampaignid=web_share',
+      required: true,
+      category: 'tool',
+      visible: true,
+    ),
+    ResourceCatalogEntry(
       title: 'Spotify - Playlists para estudiar - Focus',
-      url: 'https://open.spotify.com/playlist/3qfeW1jkJty0kQLwGouhBS?si=6t1Wi9isQIuH0gpzm0b3bw',
+      url:
+          'https://open.spotify.com/playlist/3qfeW1jkJty0kQLwGouhBS?si=6t1Wi9isQIuH0gpzm0b3bw',
       category: 'playlist',
       required: true,
       visible: true,
@@ -39,18 +56,6 @@ class ResourceCatalog {
       category: 'playlist',
       required: true,
       visible: true,
-    ),
-    ResourceCatalogEntry(
-      title: 'Brain.fm',
-      url: 'https://www.brain.fm/',
-      category: 'playlist',
-      visible: false,
-    ),
-    ResourceCatalogEntry(
-      title: 'Khan Academy',
-      url: 'https://www.khanacademy.org/',
-      category: 'course',
-      visible: false,
     ),
     ResourceCatalogEntry(
       title: 'Coursera',
@@ -106,28 +111,26 @@ class ResourceCatalog {
   ];
 
   static List<ResourceLink> buildVisibleResources(List<Subject> subjects) {
-    return defaults
-        .where((entry) => entry.visible)
-        .map((entry) {
-          final subjectId = entry.subjectName == null
-              ? null
-              : subjects
-                  .where(
-                    (subject) =>
-                        subject.name.trim().toLowerCase() ==
-                        entry.subjectName!.trim().toLowerCase(),
-                  )
-                  .map((subject) => subject.id)
-                  .cast<int?>()
-                  .firstWhere((id) => id != null, orElse: () => null);
-          return ResourceLink(
-            title: entry.title,
-            url: entry.url,
-            category: entry.category,
-            subjectId: subjectId,
-            isDefault: entry.required,
-          );
-        })
-        .toList();
+    return defaults.where((entry) => entry.visible).map((entry) {
+      final subjectId = entry.subjectName == null
+          ? null
+          : subjects
+              .where(
+                (subject) =>
+                    subject.name.trim().toLowerCase() ==
+                    entry.subjectName!.trim().toLowerCase(),
+              )
+              .map((subject) => subject.id)
+              .cast<int?>()
+              .firstWhere((id) => id != null, orElse: () => null);
+      return ResourceLink(
+        title: entry.title,
+        url: entry.url,
+        category: entry.category,
+        subjectId: subjectId,
+        isDefault: entry.required,
+      );
+    }).toList();
   }
 }
+

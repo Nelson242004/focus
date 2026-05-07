@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/app_links.dart';
@@ -21,6 +22,13 @@ class AboutScreen extends StatelessWidget {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _shareApp() async {
+    await Share.share(
+      'Probá Focus, una app para organizar materias, exámenes, hábitos y Pomodoro:\n${AppLinks.appDownload}',
+      subject: 'Focus app',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -31,9 +39,7 @@ class AboutScreen extends StatelessWidget {
 
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'about'),
-      appBar: AppBar(
-        title: const Text('About'),
-      ),
+      appBar: AppBar(title: const Text('Acerca de Focus')),
       body: SafeArea(
         top: false,
         bottom: true,
@@ -116,72 +122,152 @@ class AboutScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
-              Card(
-                color: cardColor,
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1D4ED8).withValues(alpha: 0.22),
+                      blurRadius: 28,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(28),
                   onTap: _openDeveloperSite,
                   child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.all(22),
+                    child: Row(
                       children: [
-                        Text(
-                          'Desarrollado por',
-                          style: TextStyle(
-                            color: secondaryText,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.16),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.code_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                AppLinks.developerName,
+                        const SizedBox(width: 16),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Desarrollado por',
                                 style: TextStyle(
-                                  color: primaryText,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                            Icon(Icons.open_in_new_rounded,
-                                color: secondaryText),
-                          ],
+                              SizedBox(height: 4),
+                              Text(
+                                AppLinks.developerName,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.6,
+                                ),
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                'Tecnología y herramientas para estudiantes.',
+                                style: TextStyle(color: Colors.white70),
+                              ),
+                            ],
+                          ),
                         ),
+                        const Icon(Icons.arrow_forward_rounded,
+                            color: Colors.white),
                       ],
                     ),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
-                color: cardColor,
+              Container(
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                ),
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Compartir la app',
-                        style: TextStyle(
-                          color: primaryText,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563EB)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Icon(
+                              Icons.ios_share_rounded,
+                              color: Color(0xFF2563EB),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Compartir Focus',
+                              style: TextStyle(
+                                color: primaryText,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
+                      Text(
+                        'Invita a otros estudiantes a probar la beta y organizar mejor su rutina académica.',
+                        style: TextStyle(color: secondaryText, height: 1.45),
+                      ),
+                      const SizedBox(height: 14),
                       SelectableText(
                         AppLinks.appDownload,
                         style: TextStyle(color: secondaryText, height: 1.4),
                       ),
-                      const SizedBox(height: 14),
-                      OutlinedButton.icon(
-                        onPressed: () => _copyLink(context),
-                        icon: const Icon(Icons.copy_rounded),
-                        label: const Text('Copiar link'),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          FilledButton.icon(
+                            onPressed: _shareApp,
+                            icon: const Icon(Icons.share_rounded),
+                            label: const Text('Compartir'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => _copyLink(context),
+                            icon: const Icon(Icons.copy_rounded),
+                            label: const Text('Copiar link'),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -194,3 +280,4 @@ class AboutScreen extends StatelessWidget {
     );
   }
 }
+

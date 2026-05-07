@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -220,6 +220,31 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     return resource.category == _selectedFilter;
   }
 
+  List<ResourceLink> _sortResourcesForDisplay(List<ResourceLink> items) {
+    final sorted = [...items];
+    sorted.sort((a, b) {
+      if (a.isDefault != b.isDefault) {
+        return a.isDefault ? -1 : 1;
+      }
+      final byCategory = _categoryRank(a.category).compareTo(
+        _categoryRank(b.category),
+      );
+      if (byCategory != 0) return byCategory;
+      return a.title.toLowerCase().compareTo(b.title.toLowerCase());
+    });
+    return sorted;
+  }
+
+  int _categoryRank(String category) {
+    return switch (category) {
+      'playlist' => 0,
+      'course' => 1,
+      'tool' => 2,
+      'social' => 3,
+      _ => 4,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -238,19 +263,19 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         bottom: true,
         child: Consumer<AppProvider>(
           builder: (context, provider, _) {
-            final filteredResources = [
+            final filteredResources = _sortResourcesForDisplay([
               ...provider.resourcesByCategory('playlist'),
               ...provider.resourcesByCategory('course'),
               ...provider.resourcesByCategory('social'),
               ...provider.resourcesByCategory('tool'),
             ]
                 .where((item) => _matchesSearch(item) && _matchesFilter(item))
-                .toList();
+                .toList());
             final showGroupedBySubject =
                 _selectedFilter == 'all' || _selectedFilter == 'subject';
-            final generalResources = filteredResources
+            final generalResources = _sortResourcesForDisplay(filteredResources
                 .where((item) => item.subjectId == null)
-                .toList();
+                .toList());
             final subjectResourceIds = {
               for (final item
                   in filteredResources.where((item) => item.subjectId != null))
@@ -371,9 +396,10 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                       return subjectId != null &&
                           subjectResourceIds.containsKey(subjectId);
                     }).map((subject) {
-                      final subjectItems = filteredResources
-                          .where((item) => item.subjectId == subject.id)
-                          .toList();
+                      final subjectItems = _sortResourcesForDisplay(
+                          filteredResources
+                              .where((item) => item.subjectId == subject.id)
+                              .toList());
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: _ResourceSection(
@@ -613,3 +639,4 @@ class _ResourceSection extends StatelessWidget {
     };
   }
 }
+

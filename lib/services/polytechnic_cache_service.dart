@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'polytechnic_import_service.dart';
 
@@ -19,25 +18,20 @@ class PolytechnicCacheService {
   }
 
   Future<PolytechnicWorkbook?> load(String hash) async {
-    final file = await _cacheFile(hash);
-    if (!await file.exists()) {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_cacheKey(hash));
+    if (jsonString == null || jsonString.isEmpty) {
       return null;
     }
-    final jsonString = await file.readAsString();
     return PolytechnicWorkbook.fromJson(
       jsonDecode(jsonString) as Map<String, dynamic>,
     );
   }
 
   Future<void> save(String hash, PolytechnicWorkbook workbook) async {
-    final file = await _cacheFile(hash);
-    await file.parent.create(recursive: true);
-    await file.writeAsString(jsonEncode(workbook.toJson()));
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_cacheKey(hash), jsonEncode(workbook.toJson()));
   }
 
-  Future<File> _cacheFile(String hash) async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File(
-        '${dir.path}${Platform.pathSeparator}polytechnic_cache${Platform.pathSeparator}$hash.json');
-  }
+  String _cacheKey(String hash) => 'polytechnic_cache_$hash';
 }

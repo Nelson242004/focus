@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,12 +8,15 @@ import 'models/app_settings.dart';
 import 'providers/app_provider.dart';
 import 'screens/app_tutorial_screen.dart';
 import 'screens/main_navigation_screen.dart';
+import 'screens/web_focus_screen.dart';
 import 'services/notification_service.dart';
 import 'utils/app_utils.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
   await DatabaseHelper.instance.database;
   await NotificationService.initialize();
   runApp(const MyApp());
@@ -405,11 +409,13 @@ class MyApp extends StatelessWidget {
             },
             home: !provider.isLoaded
                 ? const _BootSplash()
-                : provider.settings.onboardingCompleted
-                    ? const MainNavigationScreen()
-                    : OnboardingScreen(
-                        onComplete: () => provider.completeOnboarding(),
-                      ),
+                : kIsWeb
+                    ? const WebFocusScreen()
+                    : provider.settings.onboardingCompleted
+                        ? const MainNavigationScreen()
+                        : OnboardingScreen(
+                            onComplete: () => provider.completeOnboarding(),
+                          ),
           );
         },
       ),
@@ -449,31 +455,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   static const _pages = [
     (
-      icon: Icons.dashboard_customize_rounded,
-      title: 'Organiza toda tu semana',
+      icon: Icons.auto_awesome_rounded,
+      title: 'Tu semestre en piloto automático',
       text:
-          'Materias, exámenes, recursos, hábitos y pomodoros reunidos en una sola app.',
+          'Focus junta horario, exámenes, hábitos, pomodoro y recursos para que estudies con menos caos y más claridad.',
+      highlights: ['Horario', 'Exámenes', 'Pomodoro'],
       colors: [Color(0xFF1D4ED8), Color(0xFF38BDF8)],
     ),
     (
       icon: Icons.calendar_month_rounded,
-      title: 'Sigue tu agenda completa',
+      title: 'Mira qué viene antes de que te alcance',
       text:
-          'El calendario mezcla clases, exámenes, hábitos y sesiones de estudio en una sola vista.',
+          'Ten clases, parciales, finales y recordatorios en un mismo lugar. Ideal para no depender de capturas sueltas.',
+      highlights: ['Calendario', 'Recordatorios', 'Agenda'],
       colors: [Color(0xFF0F766E), Color(0xFF10B981)],
     ),
     (
       icon: Icons.school_rounded,
-      title: 'Importa tu horario desde Politécnica',
+      title: 'Si eres de Politécnica, empieza más rápido',
       text:
-          'Si tienes el Excel oficial, puedes cargar materias, horarios, aulas, profesores y exámenes mucho más rápido.',
+          'Carga el Excel oficial, elige carrera, materias y secciones. Focus arma horarios, aulas, profesores y exámenes cuando estén disponibles.',
+      highlights: ['Excel', 'Calculadora', 'Secciones'],
       colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
     ),
     (
-      icon: Icons.auto_awesome_rounded,
-      title: 'Aprende la app en minutos',
+      icon: Icons.ios_share_rounded,
+      title: 'Comparte tu horario como imagen',
       text:
-          'Tienes un tutorial guiado para entender cada sección y empezar con claridad desde el primer uso.',
+          'Exporta PDF para imprimir o comparte una imagen bonita de tu horario por WhatsApp e Instagram.',
+      highlights: ['Imagen', 'PDF', 'Backup'],
       colors: [Color(0xFFF97316), Color(0xFFFACC15)],
     ),
   ];
@@ -493,6 +503,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final page = _pages[_page];
+    final size = MediaQuery.of(context).size;
+    final isCompact = size.height < 760 || size.width < 380;
+    final pageMinHeight = isCompact ? size.height * 0.34 : size.height * 0.45;
     return Scaffold(
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 320),
@@ -509,16 +522,33 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isCompact ? 18 : 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: TextButton(
-                    onPressed: () async => widget.onComplete(),
-                    child: const Text('Saltar'),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: page.colors.first.withValues(alpha: 0.12),
+                      ),
+                      child: Text(
+                        'Focus beta',
+                        style: TextStyle(
+                          color: page.colors.first,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () async => widget.onComplete(),
+                      child: const Text('Saltar'),
+                    ),
+                  ],
                 ),
                 Expanded(
                   child: PageView.builder(
@@ -530,43 +560,77 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 260),
                         curve: Curves.easeOutCubic,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Spacer(),
-                            Container(
-                              width: 92,
-                              height: 92,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(28),
-                                gradient: LinearGradient(colors: item.colors),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: item.colors.first
-                                        .withValues(alpha: 0.28),
-                                    blurRadius: 24,
-                                    offset: const Offset(0, 12),
-                                  ),
-                                ],
-                              ),
-                              child: Icon(item.icon,
-                                  color: Colors.white, size: 42),
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: pageMinHeight,
                             ),
-                            const SizedBox(height: 28),
-                            Text(
-                              item.title,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(height: isCompact ? 18 : 30),
+                                Container(
+                                  width: isCompact ? 76 : 92,
+                                  height: isCompact ? 76 : 92,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                        isCompact ? 24 : 28),
+                                    gradient:
+                                        LinearGradient(colors: item.colors),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: item.colors.first
+                                            .withValues(alpha: 0.28),
+                                        blurRadius: 24,
+                                        offset: const Offset(0, 12),
+                                      ),
+                                    ],
                                   ),
+                                  child: Icon(
+                                    item.icon,
+                                    color: Colors.white,
+                                    size: isCompact ? 34 : 42,
+                                  ),
+                                ),
+                                SizedBox(height: isCompact ? 20 : 28),
+                                Text(
+                                  item.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: isCompact ? 25 : null,
+                                      ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  item.text,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyLarge
+                                      ?.copyWith(
+                                          fontSize: isCompact ? 15 : null),
+                                ),
+                                const SizedBox(height: 20),
+                                Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: item.highlights
+                                      .map(
+                                        (highlight) => _OnboardingPill(
+                                          label: highlight,
+                                          color: item.colors.first,
+                                        ),
+                                      )
+                                      .toList(),
+                                ),
+                                SizedBox(height: isCompact ? 16 : 30),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            Text(item.text,
-                                style: Theme.of(context).textTheme.bodyLarge),
-                            const Spacer(),
-                          ],
+                          ),
                         ),
                       );
                     },
@@ -603,9 +667,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       },
                       icon: const Icon(Icons.play_lesson_rounded),
                       label: const Text('Ver tutorial'),
+                      style: OutlinedButton.styleFrom(
+                        visualDensity: isCompact ? VisualDensity.compact : null,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: isCompact ? 8 : 12),
                 ],
                 SizedBox(
                   width: double.infinity,
@@ -620,6 +687,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         );
                       }
                     },
+                    style: FilledButton.styleFrom(
+                      visualDensity: isCompact ? VisualDensity.compact : null,
+                    ),
                     child: Text(
                         _page == _pages.length - 1 ? 'Empezar' : 'Continuar'),
                   ),
@@ -627,6 +697,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingPill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _OnboardingPill({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );

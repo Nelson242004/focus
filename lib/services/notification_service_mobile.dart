@@ -1,0 +1,303 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+import '../models/exam.dart';
+import '../utils/app_utils.dart';
+
+class NotificationService {
+  NotificationService._();
+
+  static final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+  static const String _examChannelId = 'focus_exam_reminders';
+  static const String _examChannelName = 'Recordatorios de exámenes';
+  static const String _examChannelDescription =
+      'Avisos automáticos antes de parciales y finales';
+  static const String _pomodoroChannelId = 'focus_pomodoro_timer';
+  static const String _pomodoroChannelName = 'Temporizador Pomodoro';
+  static const String _pomodoroChannelDescription =
+      'Muestra el contador activo del Pomodoro';
+  static const int _pomodoroNotificationId = 880001;
+  static bool _initialized = false;
+
+  static Future<void> initialize() async {
+    if (_initialized) return;
+
+    tz.initializeTimeZones();
+    try {
+      final timezoneInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timezoneInfo.identifier));
+    } catch (_) {}
+
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: darwinSettings,
+    );
+
+    await _plugin.initialize(settings: settings);
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    await androidPlugin?.requestNotificationsPermission();
+    await androidPlugin?.requestExactAlarmsPermission();
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _examChannelId,
+        _examChannelName,
+        description: _examChannelDescription,
+        importance: Importance.max,
+        playSound: true,
+        enableVibration: true,
+        showBadge: true,
+      ),
+    );
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        _pomodoroChannelId,
+        _pomodoroChannelName,
+        description: _pomodoroChannelDescription,
+        importance: Importance.high,
+        playSound: false,
+        enableVibration: false,
+        showBadge: false,
+      ),
+    );
+
+    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    await iosPlugin?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    _initialized = true;
+  }
+
+  static Future<bool> ensurePermissions() async {
+    await initialize();
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final notificationPermission =
+        await androidPlugin?.requestNotificationsPermission();
+    final exactAlarmPermission =
+        await androidPlugin?.requestExactAlarmsPermission();
+
+    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    final iosPermissions = await iosPlugin?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    return (notificationPermission ?? true) &&
+        (exactAlarmPermission ?? true) &&
+        (iosPermissions ?? true);
+  }
+
+  static Future<void> showTestNotification() async {
+    await initialize();
+    await _plugin.show(
+      id: 999001,
+      title: 'Prueba de notificación',
+      body:
+          'Si ves este aviso, Focus ya puede enviar recordatorios correctamente.',
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          _examChannelId,
+          _examChannelName,
+          channelDescription: _examChannelDescription,
+          importance: Importance.max,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.reminder,
+          visibility: NotificationVisibility.public,
+          ticker: 'Prueba de Focus',
+          color: Color(0xFF1D4ED8),
+          playSound: true,
+          enableVibration: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          interruptionLevel: InterruptionLevel.active,
+        ),
+      ),
+    );
+  }
+
+  static Future<int> pendingNotificationsCount() async {
+    await initialize();
+    final pending = await _plugin.pendingNotificationRequests();
+    return pending.length;
+  }
+
+  static Future<void> showPomodoroTimerNotification({
+    required String mode,
+    required int remainingSeconds,
+    required int totalSeconds,
+    required String subject,
+  }) async {
+    await initialize();
+    final isFocus = mode == 'focus';
+    final isLongBreak = mode == 'longBreak';
+    final modeLabel = isFocus
+        ? 'Enfoque'
+        : isLongBreak
+            ? 'Descanso largo'
+            : 'Descanso corto';
+    final timeLeft = _formatDuration(remainingSeconds);
+    final progress = totalSeconds <= 0
+        ? 0
+        : ((1 - (remainingSeconds / totalSeconds)) * 100).clamp(0, 100).round();
+    final title = '$modeLabel · $timeLeft';
+    final body = isFocus
+        ? (subject.trim().isEmpty ? 'Materia: General' : subject.trim())
+        : 'Descanso activo';
+
+    await _plugin.show(
+      id: _pomodoroNotificationId,
+      title: title,
+      body: body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          _pomodoroChannelId,
+          _pomodoroChannelName,
+          channelDescription: _pomodoroChannelDescription,
+          importance: Importance.high,
+          priority: Priority.high,
+          category: AndroidNotificationCategory.progress,
+          visibility: NotificationVisibility.public,
+          ongoing: true,
+          autoCancel: false,
+          onlyAlertOnce: true,
+          showProgress: true,
+          maxProgress: 100,
+          progress: progress,
+          showWhen: false,
+          usesChronometer: false,
+          chronometerCountDown: false,
+          ticker: 'Pomodoro activo',
+          subText: body,
+          color: isFocus ? const Color(0xFF2563EB) : const Color(0xFF10B981),
+          playSound: false,
+          enableVibration: false,
+          timeoutAfter: remainingSeconds * 1000,
+          styleInformation: BigTextStyleInformation(
+            body,
+            contentTitle: title,
+            summaryText: body,
+          ),
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: false,
+          presentBadge: false,
+          presentSound: false,
+        ),
+      ),
+    );
+  }
+
+  static String _formatDuration(int seconds) {
+    final safeSeconds = seconds.clamp(0, 24 * 60 * 60);
+    final minutes = safeSeconds ~/ 60;
+    final remaining = safeSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${remaining.toString().padLeft(2, '0')}';
+  }
+
+  static Future<void> cancelPomodoroTimerNotification() async {
+    await initialize();
+    await _plugin.cancel(id: _pomodoroNotificationId);
+  }
+
+  static Future<void> scheduleExamNotifications(Exam exam) async {
+    if (exam.id == null) return;
+
+    await initialize();
+    await cancelExamNotifications(exam.id!);
+
+    final hasDefinedTime = exam.startTime.trim().isNotEmpty;
+    final examDateTime = combineExamDateAndTime(exam);
+    final classroom =
+        exam.classroom.trim().isEmpty ? 'aula por confirmar' : exam.classroom;
+    final dayBefore = hasDefinedTime
+        ? examDateTime.subtract(const Duration(days: 1))
+        : DateTime(
+            examDateTime.year,
+            examDateTime.month,
+            examDateTime.day - 1,
+            20,
+          );
+    final reminders =
+        <({int suffix, DateTime when, String title, String body})>[
+      (
+        suffix: 1,
+        when: dayBefore,
+        title: 'Examen mañana',
+        body: hasDefinedTime
+            ? '${exam.subject} mañana a las ${exam.startTime} en $classroom'
+            : '${exam.subject} mañana con hora por confirmar en $classroom',
+      ),
+      if (hasDefinedTime)
+        (
+          suffix: 2,
+          when: examDateTime.subtract(const Duration(hours: 2)),
+          title: 'Examen próximamente',
+          body: '${exam.subject} hoy a las ${exam.startTime} en $classroom',
+        ),
+    ];
+
+    for (final reminder in reminders) {
+      if (!reminder.when.isAfter(DateTime.now())) continue;
+
+      await _plugin.zonedSchedule(
+        id: exam.id! * 10 + reminder.suffix,
+        title: reminder.title,
+        body: reminder.body,
+        scheduledDate: tz.TZDateTime.from(reminder.when, tz.local),
+        notificationDetails: NotificationDetails(
+          android: AndroidNotificationDetails(
+            _examChannelId,
+            _examChannelName,
+            channelDescription: _examChannelDescription,
+            importance: Importance.max,
+            priority: Priority.high,
+            category: AndroidNotificationCategory.reminder,
+            visibility: NotificationVisibility.public,
+            ticker: 'Recordatorio académico',
+            color: const Color(0xFF1D4ED8),
+            playSound: true,
+            enableVibration: true,
+            styleInformation: BigTextStyleInformation(reminder.body),
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+            interruptionLevel: InterruptionLevel.active,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      );
+    }
+  }
+
+  static Future<void> cancelExamNotifications(int examId) async {
+    await initialize();
+    await _plugin.cancel(id: examId * 10 + 1);
+    await _plugin.cancel(id: examId * 10 + 2);
+  }
+}
+

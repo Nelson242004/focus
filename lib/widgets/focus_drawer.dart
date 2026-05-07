@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../screens/about_screen.dart';
 import '../screens/achievements_screen.dart';
-import '../screens/calendar_screen.dart';
 import '../screens/exams_screen.dart';
 import '../screens/help_screen.dart';
 import '../screens/main_navigation_screen.dart';
+import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
 import '../screens/subjects_screen.dart';
 
@@ -124,18 +124,18 @@ class FocusDrawer extends StatelessWidget {
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.calendar_month_rounded,
-                    label: 'Calendario',
-                    selected: selectedRoute == 'calendar',
-                    onTap: () => _replace(context, const CalendarScreen()),
-                  ),
-                  _tile(
-                    context,
-                    duration: duration,
                     icon: Icons.link_rounded,
                     label: 'Recursos',
                     selected: selectedRoute == 'resources',
                     onTap: () => _replace(context, const ResourcesScreen()),
+                  ),
+                  _tile(
+                    context,
+                    duration: duration,
+                    icon: Icons.school_rounded,
+                    label: 'Politécnica',
+                    selected: selectedRoute == 'polytechnic',
+                    onTap: () => _replace(context, const PolytechnicScreen()),
                   ),
                   _tile(
                     context,
@@ -259,3 +259,4 @@ class FocusDrawer extends StatelessWidget {
     );
   }
 }
+

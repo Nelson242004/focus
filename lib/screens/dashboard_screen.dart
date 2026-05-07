@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
@@ -277,7 +277,7 @@ class _MetricGrid extends StatelessWidget {
         Icons.task_alt_rounded,
         const Color(0xFF7C3AED),
         '${provider.weeklyPomodoros}',
-        'Semana',
+        'Pomodoros semana',
       ),
     ];
 
@@ -305,8 +305,8 @@ class _MetricGrid extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
@@ -316,19 +316,21 @@ class _MetricGrid extends StatelessWidget {
                     ),
                     child: Icon(item.icon, color: item.color),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.value,
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(item.label),
-                    ],
+                  const SizedBox(height: 16),
+                  Text(
+                    item.value,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -423,3 +425,4 @@ class _MetricData {
 
   const _MetricData(this.icon, this.color, this.value, this.label);
 }
+

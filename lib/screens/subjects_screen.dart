@@ -8,7 +8,6 @@ import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
-import 'polytechnic_screen.dart';
 import 'subject_schedule_screen.dart';
 
 class SubjectsScreen extends StatefulWidget {
@@ -36,6 +35,10 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     _professorController.dispose();
     _sectionController.dispose();
     super.dispose();
+  }
+
+  String _friendlyError(Object error) {
+    return error.toString().replaceFirst('Bad state: ', '');
   }
 
   Future<void> _showSubjectDialog({Subject? subject}) async {
@@ -160,7 +163,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                       children: [
                         Expanded(
                           child: TimePickerField(
-                            label: 'Inicio (opcional)',
+                            label: 'Inicio',
                             value: _startTime,
                             onChanged: (value) =>
                                 setDialogState(() => _startTime = value),
@@ -169,7 +172,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: TimePickerField(
-                            label: 'Fin (opcional)',
+                            label: 'Fin',
                             value: _endTime,
                             onChanged: (value) =>
                                 setDialogState(() => _endTime = value),
@@ -181,7 +184,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Solo el nombre y el día son obligatorios. La hora, aula, profesor y sección pueden quedar sin definir.',
+                        'Solo el nombre y el día son obligatorios. Puedes ajustar aula, profesor, sección y color cuando quieras.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -317,11 +320,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 } catch (error) {
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        error.toString().replaceFirst('Bad state: ', ''),
-                      ),
-                    ),
+                    SnackBar(content: Text(_friendlyError(error))),
                   );
                 }
               },
@@ -388,16 +387,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
         title: const Text('Materias'),
         actions: [
           IconButton(
-            tooltip: 'Cargar Excel de Politécnica',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const PolytechnicScreen()),
-              );
-            },
-            icon: const Icon(Icons.upload_file_rounded),
-          ),
-          IconButton(
             onPressed: () => _showSubjectDialog(),
             icon: const Icon(Icons.add),
           ),
@@ -448,19 +437,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                               icon: const Icon(Icons.add),
                               label: const Text('Nueva'),
                             ),
-                            const SizedBox(width: 8),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const PolytechnicScreen(),
-                                  ),
-                                );
-                              },
-                              icon: const Icon(Icons.upload_file_rounded),
-                              label: const Text('Excel'),
-                            ),
                           ],
                         ),
                       ),
@@ -483,7 +459,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 const Text(
-                                  'Crea tu primera materia con lo mínimo o importa el Excel de Politécnica si ya tienes tu horario completo.',
+                                  'Crea tu primera materia con lo mínimo necesario. Si sos estudiante de Politécnica, usa la sección Politécnica para importar el Excel.',
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -541,6 +517,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                                   ?.copyWith(
                                                     fontWeight: FontWeight.w800,
                                                   ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 4),
                                             if (subject.defaultClassroom !=
@@ -549,6 +527,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                                     .isNotEmpty)
                                               Text(
                                                 'Aula base: ${subject.defaultClassroom}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             if (subject.sectionCode != null &&
                                                 subject.sectionCode!
@@ -556,6 +536,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                                     .isNotEmpty)
                                               Text(
                                                 'Sección: ${subject.sectionCode}',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             if (subject.professorName != null &&
                                                 subject.professorName!
@@ -563,6 +545,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                                     .isNotEmpty)
                                               Text(
                                                 'Profesor: ${subject.professorName}',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                           ],
                                         ),
@@ -607,6 +591,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                         style: const TextStyle(
                                           fontWeight: FontWeight.w600,
                                         ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
