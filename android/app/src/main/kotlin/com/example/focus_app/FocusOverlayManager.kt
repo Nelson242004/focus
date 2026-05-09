@@ -23,6 +23,8 @@ import androidx.core.content.ContextCompat
 import kotlin.random.Random
 
 class FocusOverlayManager(private val context: Context) {
+    data class Quote(val text: String, val author: String)
+
     private val handler = Handler(Looper.getMainLooper())
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private var overlayView: View? = null
@@ -88,13 +90,25 @@ class FocusOverlayManager(private val context: Context) {
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         }
 
+        val featuredQuote = randomQuote()
+
         val quoteText = TextView(context).apply {
-            text = randomQuote()
+            text = "\"${featuredQuote.text}\""
             setTextColor(Color.parseColor("#E5E7EB"))
-            textSize = 18f
+            textSize = 22f
             gravity = Gravity.CENTER
             setLineSpacing(0f, 1.2f)
-            setPadding(dp(28), dp(60), dp(28), dp(12))
+            setPadding(dp(28), dp(24), dp(28), dp(24))
+            setTypeface(typeface, Typeface.BOLD_ITALIC)
+        }
+
+        val quoteAuthorText = TextView(context).apply {
+            text = "— ${featuredQuote.author}"
+            setTextColor(Color.parseColor("#FFA5B4FC"))
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(dp(28), 0, dp(28), dp(24))
+            setTypeface(typeface, Typeface.BOLD)
         }
 
         val card = LinearLayout(context).apply {
@@ -167,7 +181,7 @@ class FocusOverlayManager(private val context: Context) {
         }
 
         val infoText = TextView(context).apply {
-            text = "Es hora de concentrarse. Esta aplicación está pausada para ayudarte a mantenerte en el camino y aprovechar al máximo tu sesión de $subject."
+            text = "${entryPhrase(subject)} Esta aplicación está pausada para ayudarte a mantenerte en el camino."
             setTextColor(Color.parseColor("#FFE5E7EB"))
             textSize = 14f
             setLineSpacing(0f, 1.2f)
@@ -217,8 +231,20 @@ class FocusOverlayManager(private val context: Context) {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-            ),
+                Gravity.CENTER,
+            ).apply {
+                bottomMargin = dp(120)
+            },
+        )
+        root.addView(
+            quoteAuthorText,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER,
+            ).apply {
+                topMargin = dp(76)
+            },
         )
         root.addView(
             card,
@@ -244,13 +270,26 @@ class FocusOverlayManager(private val context: Context) {
                     ?: context.packageManager.getApplicationIcon(context.packageName)
             }
 
-    private fun randomQuote(): String {
+    private fun randomQuote(): Quote {
         val quotes = listOf(
-            "Toma tu tiempo para sanar y volver al foco.",
-            "Cada vez que vuelves al estudio, ganas terreno.",
-            "Tu sesión importa más que la distracción del momento.",
+            Quote("La concentración es la raíz de todas las capacidades superiores del ser humano.", "Bruce Lee"),
+            Quote("Lo que importa es poner atención en lo que estás haciendo.", "John Dewey"),
+            Quote("La gente exitosa mantiene el enfoque positivo en la vida.", "Joyce Meyer"),
+            Quote("Concentrar la mente es el secreto de la fuerza.", "Ralph Waldo Emerson"),
+            Quote("Haz cada acto de tu vida como si fuera el último.", "Marco Aurelio"),
         )
         return quotes[Random.nextInt(quotes.size)]
+    }
+
+    private fun entryPhrase(subject: String): String {
+        val cleanedSubject = subject.trim().ifBlank { "tu sesión" }
+        val phrases = listOf(
+            "Respira. Vuelve a $cleanedSubject.",
+            "Tu enfoque va primero. Sigue con $cleanedSubject.",
+            "No rompas el ritmo ahora. Regresa a $cleanedSubject.",
+            "Este momento cuenta. Vuelve a $cleanedSubject.",
+        )
+        return phrases[Random.nextInt(phrases.size)]
     }
 
     private fun layoutParams() = WindowManager.LayoutParams(

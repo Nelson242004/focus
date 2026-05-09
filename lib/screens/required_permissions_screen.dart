@@ -1,8 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
 import 'main_navigation_screen.dart';
+
+const _permissionsCompletedKey = 'required_permissions_completed';
+
+class RequiredPermissionsGate extends StatelessWidget {
+  const RequiredPermissionsGate({super.key});
+
+  static Future<bool> isSetupCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_permissionsCompletedKey) ?? false;
+  }
+
+  static Future<bool> shouldSkipSetup() async {
+    final completed = await isSetupCompleted();
+    if (completed) return true;
+    final notificationsGranted = await NotificationService.hasPermissions();
+    final accessibilityGranted =
+        await FocusModeService.hasAccessibilityPermission();
+    final overlayGranted = await FocusModeService.hasOverlayPermission();
+    final batteryGranted =
+        await FocusModeService.hasIgnoreBatteryOptimizationPermission();
+    final allGranted = notificationsGranted &&
+        accessibilityGranted &&
+        overlayGranted &&
+        batteryGranted;
+    if (allGranted) {
+      await markSetupCompleted();
+    }
+    return allGranted;
+  }
+
+  static Future<void> markSetupCompleted() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_permissionsCompletedKey, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<bool>(
+      future: shouldSkipSetup(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return snapshot.data! == true
+            ? const MainNavigationScreen()
+            : const RequiredPermissionsScreen();
+      },
+    );
+  }
+}
 
 class RequiredPermissionsScreen extends StatefulWidget {
   const RequiredPermissionsScreen({super.key});
@@ -63,6 +116,12 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
       _batteryGranted = batteryGranted;
       _loading = false;
     });
+    if (notificationsGranted &&
+        accessibilityGranted &&
+        overlayGranted &&
+        batteryGranted) {
+      await RequiredPermissionsGate.markSetupCompleted();
+    }
   }
 
   Future<void> _requestNotifications() async {

@@ -12,10 +12,23 @@ class FocusAccessibilityService : AccessibilityService() {
     private val homePackages by lazy { resolveHomePackages() }
     private var lastBlockedPackage = ""
     private var lastBlockedAt = 0L
+    private val activeWindowMonitor =
+        object : Runnable {
+            override fun run() {
+                runCatching { inspectCurrentWindow() }
+                handler.postDelayed(this, 800L)
+            }
+        }
 
     override fun onCreate() {
         super.onCreate()
         overlayManager = FocusOverlayManager(applicationContext)
+    }
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        handler.removeCallbacks(activeWindowMonitor)
+        handler.post(activeWindowMonitor)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -33,8 +46,20 @@ class FocusAccessibilityService : AccessibilityService() {
             ?.toString()
             ?.takeIf { it.isNotBlank() }
             ?.let(packageCandidates::add)
-        val packageName = packageCandidates.firstOrNull { !shouldIgnorePackage(it) } ?: return
+        inspectPackages(packageCandidates)
+    }
 
+    private fun inspectCurrentWindow() {
+        val packageCandidates = linkedSetOf<String>()
+        rootInActiveWindow?.packageName
+            ?.toString()
+            ?.takeIf { it.isNotBlank() }
+            ?.let(packageCandidates::add)
+        inspectPackages(packageCandidates)
+    }
+
+    private fun inspectPackages(packageCandidates: Set<String>) {
+        val packageName = packageCandidates.firstOrNull { !shouldIgnorePackage(it) } ?: return
         val prefs = getSharedPreferences(FocusShieldService.PREFS_NAME, MODE_PRIVATE)
         val active = prefs.getBoolean(FocusShieldService.KEY_ACTIVE, false)
         if (!active) {
@@ -111,6 +136,7 @@ class FocusAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        handler.removeCallbacks(activeWindowMonitor)
         handler.removeCallbacksAndMessages(null)
         overlayManager.dismissOverlay()
         super.onDestroy()

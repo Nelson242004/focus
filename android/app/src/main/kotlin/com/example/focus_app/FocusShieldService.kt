@@ -125,7 +125,6 @@ class FocusShieldService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val elapsedSeconds = (totalDurationSeconds - remainingSeconds).coerceAtLeast(0)
         val title = "Enfoque · ${formatTime(remainingSeconds)}"
 
         return NotificationCompat.Builder(this, CHANNEL_SESSION)
@@ -143,7 +142,6 @@ class FocusShieldService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setShowWhen(false)
-            .setProgress(totalDurationSeconds, elapsedSeconds, false)
             .build()
     }
 

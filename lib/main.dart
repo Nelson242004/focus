@@ -412,7 +412,7 @@ class MyApp extends StatelessWidget {
                 : kIsWeb
                     ? const WebFocusScreen()
                     : provider.settings.onboardingCompleted
-                        ? const RequiredPermissionsScreen()
+                        ? const RequiredPermissionsGate()
                         : OnboardingScreen(
                             onComplete: () => provider.completeOnboarding(),
                           ),

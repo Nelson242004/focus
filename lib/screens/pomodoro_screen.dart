@@ -386,7 +386,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'El Pomodoro quedÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ abierto mucho tiempo. Guardamos lo seguro y pausamos el ciclo.',
+              'El Pomodoro quedó abierto mucho tiempo. Guardamos lo seguro y pausamos el ciclo.',
             ),
           ),
         );
@@ -415,8 +415,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-              'Restauramos tu Pomodoro segÃƒÆ’Ã‚Âºn el tiempo real pasado.'),
+          content: Text('Restauramos tu Pomodoro según el tiempo real pasado.'),
         ),
       );
     }
@@ -565,7 +564,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'Modo Enfoque Total no pudo iniciarse. El Pomodoro seguirÃ¡ funcionando normal.',
+                'Modo Enfoque Total no pudo iniciarse. El Pomodoro seguirá funcionando normal.',
               ),
             ),
           );
@@ -581,7 +580,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'El bloqueo de distracciones fallÃ³ al arrancar. La sesiÃ³n de Pomodoro sigue activa.',
+              'El bloqueo de distracciones falló al arrancar. La sesión de Pomodoro sigue activa.',
             ),
           ),
         );
@@ -627,6 +626,19 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     await FocusModeService.saveConfig(newConfig);
     if (!mounted) return;
     setState(() => _focusModeConfig = newConfig);
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    if (!value) {
+      await _stopFocusModeShield();
+      await NotificationService.cancelPomodoroTimerNotification();
+      if (_isRunning) {
+        unawaited(_showPomodoroNotification(provider));
+      }
+      return;
+    }
+    if (_isRunning && _mode == 'focus') {
+      await _syncFocusModeShield(provider);
+      unawaited(_showPomodoroNotification(provider));
+    }
   }
 
   Future<void> _handleBlockedAttempt(FocusModeStatus status) async {
@@ -1021,7 +1033,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             Text(
                               _mode == 'focus'
                                   ? 'Activa tu pomodoro y entra en tu bloque de enfoque sin distracciones.'
-                                  : 'Recupera energÃƒÆ’Ã‚Â­a mientras Focus prepara el siguiente bloque.',
+                                  : 'Recupera energía mientras Focus prepara el siguiente bloque.',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -1213,9 +1225,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                       label: Text(
                         _isRunning
-                            ? 'Pausar sesiÃ³n'
+                            ? 'Pausar sesión'
                             : _mode == 'focus'
-                                ? 'Iniciar sesiÃ³n de enfoque'
+                                ? 'Iniciar sesión de enfoque'
                                 : 'Empezar descanso',
                       ),
                     ),
@@ -1314,12 +1326,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 DropdownButtonFormField<String>(
                   initialValue: provider.settings.breakAfterFocus,
                   decoration: const InputDecoration(
-                    labelText: 'DespuÃ©s del enfoque',
+                    labelText: 'Después del enfoque',
                   ),
                   items: const [
                     DropdownMenuItem(
                       value: 'auto',
-                      child: Text('AutomÃ¡tico cada 4 ciclos'),
+                      child: Text('Automático cada 4 ciclos'),
                     ),
                     DropdownMenuItem(
                       value: 'shortBreak',
@@ -1352,7 +1364,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Cada enfoque completado se guarda automÃ¡ticamente para tus estadÃ­sticas.',
+                    'Cada enfoque completado se guarda automáticamente para tus estadísticas.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 14),
@@ -1452,7 +1464,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       decoration: const InputDecoration(
         labelText: 'Materia asociada',
         prefixIcon: Icon(Icons.menu_book_rounded),
-        helperText: 'Opcional. Se guarda en tus estadÃ­sticas del Pomodoro.',
+        helperText: 'Opcional. Se guarda en tus estadísticas del Pomodoro.',
       ),
       items: [
         const DropdownMenuItem(
@@ -1611,7 +1623,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               .withValues(alpha: 0.34),
         ),
         child: const Center(
-          child: Text('TodavÃ­a no hay sesiones registradas hoy.'),
+          child: Text('Todavía no hay sesiones registradas hoy.'),
         ),
       );
     }
@@ -1721,7 +1733,7 @@ class _LastFocusSummaryBanner extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Ãšltimo bloque: ${summary.earnedPoints} puntos Â· ${summary.blockedAttempts} interrupciones',
+              'Último bloque: ${summary.earnedPoints} puntos · ${summary.blockedAttempts} interrupciones',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
@@ -1754,7 +1766,7 @@ class _FocusSummarySheet extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'SesiÃ³n completada',
+            'Sesión completada',
             style: Theme.of(context)
                 .textTheme
                 .headlineSmall
