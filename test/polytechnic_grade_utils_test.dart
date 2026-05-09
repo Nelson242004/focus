@@ -3,6 +3,14 @@ import 'package:focus_app/utils/polytechnic_grade_utils.dart';
 
 void main() {
   group('Calculadora Politécnica', () {
+    test('parse de nota acepta solo valores entre 0 y 100', () {
+      expect(parsePolytechnicScore('60'), 60);
+      expect(parsePolytechnicScore('72,5'), 72.5);
+      expect(parsePolytechnicScore('-1'), isNull);
+      expect(parsePolytechnicScore('101'), isNull);
+      expect(parsePolytechnicScore('abc'), isNull);
+    });
+
     test('menor a 50 de ponderado no habilita final', () {
       expect(habilitatesFinal(49.99), isFalse);
       expect(habilitatesFinal(50), isTrue);

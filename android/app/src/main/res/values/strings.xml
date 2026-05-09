@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Focus</string>
+    <string name="focus_accessibility_description">Ayuda a Focus a detectar y bloquear apps distractoras durante tu sesión.</string>
+</resources>

@@ -40,7 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late String _accentColor;
   FocusModeConfig _focusModeConfig = const FocusModeConfig();
   FocusModeStatus _focusModeStatus = const FocusModeStatus();
-  bool _focusModePermissionGranted = false;
 
   static const List<String> _accentPalette = [
     '#1D4ED8',
@@ -74,12 +73,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadFocusModeConfig() async {
     final config = await FocusModeService.loadConfig();
-    final permissionGranted = await FocusModeService.hasUsageAccessPermission();
     final status = await FocusModeService.getStatus();
     if (!mounted) return;
     setState(() {
       _focusModeConfig = config;
-      _focusModePermissionGranted = permissionGranted;
       _focusModeStatus = status;
     });
   }
@@ -369,12 +366,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _focusModeConfig = config);
   }
 
-  Future<void> _grantFocusModePermission() async {
-    await FocusModeService.openUsageAccessSettings();
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    await _loadFocusModeConfig();
-  }
-
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -568,31 +559,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _focusModeConfig.enabled,
                   onChanged: _toggleFocusMode,
                 ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    _focusModePermissionGranted
-                        ? Icons.verified_user_rounded
-                        : Icons.warning_amber_rounded,
-                  ),
-                  title: Text(
-                    _focusModePermissionGranted
-                        ? 'Permiso de vigilancia activo'
-                        : 'Permiso pendiente',
-                  ),
-                  subtitle: Text(
-                    _focusModePermissionGranted
-                        ? 'Focus puede detectar qué app está al frente durante la sesión.'
-                        : 'Necesitas activar el acceso de uso para vigilar apps distractoras.',
-                  ),
+                Text(
+                  'Los permisos obligatorios de enfoque y notificaciones se configuran al entrar a la app.',
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                if (!_focusModePermissionGranted)
-                  FilledButton.icon(
-                    onPressed: _grantFocusModePermission,
-                    icon: const Icon(Icons.admin_panel_settings_rounded),
-                    label: const Text('Activar permiso'),
-                  ),
-                if (!_focusModePermissionGranted) const SizedBox(height: 12),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _openFocusModePicker,
                   icon: const Icon(Icons.apps_rounded),

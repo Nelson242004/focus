@@ -7,7 +7,7 @@ import 'database/database_helper.dart';
 import 'models/app_settings.dart';
 import 'providers/app_provider.dart';
 import 'screens/app_tutorial_screen.dart';
-import 'screens/main_navigation_screen.dart';
+import 'screens/required_permissions_screen.dart';
 import 'screens/web_focus_screen.dart';
 import 'services/notification_service.dart';
 import 'utils/app_utils.dart';
@@ -412,7 +412,7 @@ class MyApp extends StatelessWidget {
                 : kIsWeb
                     ? const WebFocusScreen()
                     : provider.settings.onboardingCompleted
-                        ? const MainNavigationScreen()
+                        ? const RequiredPermissionsScreen()
                         : OnboardingScreen(
                             onComplete: () => provider.completeOnboarding(),
                           ),

@@ -6,6 +6,7 @@ class NotificationService {
   static Future<void> initialize() async {}
 
   static Future<bool> ensurePermissions() async => true;
+  static Future<bool> hasPermissions() async => true;
 
   static Future<void> showTestNotification() async {}
 

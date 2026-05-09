@@ -2,7 +2,8 @@ import 'dart:math' as math;
 
 double? parsePolytechnicScore(String value) {
   final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
-  return parsed?.clamp(0, 100).toDouble();
+  if (parsed == null || parsed < 0 || parsed > 100) return null;
+  return parsed;
 }
 
 double calculatePonderedAverageFromPartials(

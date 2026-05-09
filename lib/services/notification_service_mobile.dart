@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
@@ -35,9 +35,9 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
     const settings = InitializationSettings(
       android: androidSettings,
@@ -48,8 +48,6 @@ class NotificationService {
 
     final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
-    await androidPlugin?.requestExactAlarmsPermission();
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
         _examChannelId,
@@ -71,14 +69,6 @@ class NotificationService {
         enableVibration: false,
         showBadge: false,
       ),
-    );
-
-    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    await iosPlugin?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
     );
 
     _initialized = true;
@@ -105,6 +95,34 @@ class NotificationService {
     return (notificationPermission ?? true) &&
         (exactAlarmPermission ?? true) &&
         (iosPermissions ?? true);
+  }
+
+  static Future<bool> hasPermissions() async {
+    await initialize();
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final notificationsEnabled =
+        await androidPlugin?.areNotificationsEnabled() ?? true;
+    bool exactAlarmAllowed = true;
+    try {
+      exactAlarmAllowed =
+          await androidPlugin?.canScheduleExactNotifications() ?? true;
+    } catch (_) {
+      exactAlarmAllowed = true;
+    }
+
+    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    bool iosAllowed = true;
+    try {
+      final permissions = await iosPlugin?.checkPermissions();
+      iosAllowed = permissions?.isEnabled ?? true;
+    } catch (_) {
+      iosAllowed = true;
+    }
+
+    return notificationsEnabled && exactAlarmAllowed && iosAllowed;
   }
 
   static Future<void> showTestNotification() async {
@@ -194,7 +212,6 @@ class NotificationService {
           color: isFocus ? const Color(0xFF2563EB) : const Color(0xFF10B981),
           playSound: false,
           enableVibration: false,
-          timeoutAfter: remainingSeconds * 1000,
           styleInformation: BigTextStyleInformation(
             body,
             contentTitle: title,
@@ -300,4 +317,3 @@ class NotificationService {
     await _plugin.cancel(id: examId * 10 + 2);
   }
 }
-

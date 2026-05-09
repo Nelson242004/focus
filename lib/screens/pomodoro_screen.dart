@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -55,6 +54,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _focusModePermissionGranted = false;
   bool _loadingFocusMode = true;
   Timer? _focusModeStatusTimer;
+  int _lastHandledBlockedAtMillis = 0;
+  bool _showingDistractionPrompt = false;
+  _FocusSessionSummary? _lastFocusSummary;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -114,15 +116,25 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _loadFocusModeConfig() async {
     final config = await FocusModeService.loadConfig();
-    final permissionGranted = await FocusModeService.hasUsageAccessPermission();
+    final permissionGranted = await FocusModeService.hasCorePermissions();
     final status = await FocusModeService.getStatus();
     if (!mounted) return;
+    final provider = Provider.of<AppProvider>(context, listen: false);
     setState(() {
-      _focusModeConfig = config;
+      _focusModeConfig = config.copyWith(protectionLevel: 'strict');
       _focusModePermissionGranted = permissionGranted;
       _focusModeStatus = status;
       _loadingFocusMode = false;
     });
+    _lastHandledBlockedAtMillis = status.lastBlockedAtMillis;
+    if (_isRunning &&
+        _mode == 'focus' &&
+        config.enabled &&
+        config.blockedApps.isNotEmpty &&
+        permissionGranted &&
+        !status.active) {
+      unawaited(_syncFocusModeShield(provider));
+    }
     if (status.active || (_isRunning && _mode == 'focus')) {
       _startFocusModeStatusPolling();
     }
@@ -286,6 +298,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       return;
     }
 
+    final nativeShieldOwnsNotification = _mode == 'focus' &&
+        _focusModeConfig.enabled &&
+        _focusModePermissionGranted &&
+        _focusModeConfig.blockedApps.isNotEmpty;
+    if (nativeShieldOwnsNotification) {
+      await NotificationService.cancelPomodoroTimerNotification();
+      return;
+    }
+
     await NotificationService.showPomodoroTimerNotification(
       mode: _mode,
       remainingSeconds: _remainingSeconds,
@@ -365,7 +386,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'El Pomodoro quedó abierto mucho tiempo. Guardamos lo seguro y pausamos el ciclo.',
+              'El Pomodoro quedÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ abierto mucho tiempo. Guardamos lo seguro y pausamos el ciclo.',
             ),
           ),
         );
@@ -394,7 +415,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Restauramos tu Pomodoro según el tiempo real pasado.'),
+          content: Text(
+              'Restauramos tu Pomodoro segÃƒÆ’Ã‚Âºn el tiempo real pasado.'),
         ),
       );
     }
@@ -448,6 +470,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       await _playBell();
 
       if (_mode == 'focus') {
+        final summary = _buildFocusSessionSummary(provider);
         await _stopFocusModeShield();
         final subjectName = _activeSubjectName(provider);
         await provider.addPomodoro(
@@ -476,7 +499,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               ),
             ),
           );
+          unawaited(_showFocusSummary(summary));
         }
+        _lastFocusSummary = summary;
       } else {
         await _stopFocusModeShield();
         if (mounted) {
@@ -518,7 +543,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Activa el permiso de uso para que Modo Enfoque Total pueda vigilar apps distractoras.',
+              'Completa los permisos obligatorios desde el inicio de Focus para usar Modo Enfoque Total.',
             ),
           ),
         );
@@ -526,13 +551,42 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       return;
     }
 
-    await FocusModeService.startFocusSession(
-      subject: _activeSubjectName(provider),
-      durationSeconds: _remainingSeconds,
-      blockedApps: _focusModeConfig.blockedApps,
-    );
-    _startFocusModeStatusPolling();
-    await _refreshFocusModeStatus();
+    try {
+      await NotificationService.cancelPomodoroTimerNotification();
+      final started = await FocusModeService.startFocusSession(
+        subject: _activeSubjectName(provider),
+        durationSeconds: _remainingSeconds,
+        blockedApps: _focusModeConfig.blockedApps,
+      );
+      if (!started) {
+        _focusModeStatusTimer?.cancel();
+        _focusModeStatusTimer = null;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Modo Enfoque Total no pudo iniciarse. El Pomodoro seguirÃ¡ funcionando normal.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      _startFocusModeStatusPolling();
+      await _refreshFocusModeStatus();
+    } catch (_) {
+      _focusModeStatusTimer?.cancel();
+      _focusModeStatusTimer = null;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'El bloqueo de distracciones fallÃ³ al arrancar. La sesiÃ³n de Pomodoro sigue activa.',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _stopFocusModeShield() async {
@@ -557,6 +611,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final status = await FocusModeService.getStatus();
     if (!mounted) return;
     setState(() => _focusModeStatus = status);
+    if (status.lastBlockedAtMillis > _lastHandledBlockedAtMillis) {
+      _lastHandledBlockedAtMillis = status.lastBlockedAtMillis;
+      unawaited(_handleBlockedAttempt(status));
+    }
     if (!status.active) {
       _focusModeStatusTimer?.cancel();
       _focusModeStatusTimer = null;
@@ -564,13 +622,65 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _toggleFocusModeEnabled(bool value) async {
-    final newConfig = _focusModeConfig.copyWith(enabled: value);
+    final newConfig =
+        _focusModeConfig.copyWith(enabled: value, protectionLevel: 'strict');
     await FocusModeService.saveConfig(newConfig);
     if (!mounted) return;
     setState(() => _focusModeConfig = newConfig);
   }
 
+  Future<void> _handleBlockedAttempt(FocusModeStatus status) async {
+    if (!mounted || !_isRunning || _mode != 'focus') {
+      return;
+    }
+
+    final appName = status.lastBlockedApp.trim();
+    if (appName.isEmpty || _showingDistractionPrompt) return;
+
+    _showingDistractionPrompt = true;
+    try {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Bloqueo activo: $appName'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    } finally {
+      _showingDistractionPrompt = false;
+    }
+  }
+
+  _FocusSessionSummary _buildFocusSessionSummary(AppProvider provider) {
+    final distractionFree = _focusModeStatus.blockedAttempts == 0;
+    final earnedPoints = 10 + (distractionFree ? 5 : 0);
+    return _FocusSessionSummary(
+      subject: _activeSubjectName(provider),
+      blockedAppsCount: _focusModeConfig.blockedApps.length,
+      blockedAttempts: _focusModeStatus.blockedAttempts,
+      earnedPoints: earnedPoints,
+      distractionFree: distractionFree,
+    );
+  }
+
+  Future<void> _showFocusSummary(_FocusSessionSummary summary) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          child: _FocusSummarySheet(summary: summary),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFocusModeSetup() async {
+    if (!mounted) return;
     final selectedApps = await Navigator.of(context).push<List<FocusShieldApp>>(
       MaterialPageRoute(
         builder: (_) => FocusModeSetupScreen(
@@ -583,22 +693,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     await FocusModeService.saveConfig(newConfig);
     if (!mounted) return;
     setState(() => _focusModeConfig = newConfig);
-  }
-
-  Future<void> _grantFocusModePermission() async {
-    await FocusModeService.openUsageAccessSettings();
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    final granted = await FocusModeService.hasUsageAccessPermission();
-    if (!mounted) return;
-    setState(() => _focusModePermissionGranted = granted);
-    if (granted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Permiso activado. Focus ya puede vigilar apps abiertas.'),
-        ),
-      );
-    }
   }
 
   Future<void> _toggleHorizontalFocusMode() async {
@@ -901,7 +995,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         ),
                         child: Icon(
                           _mode == 'focus'
-                              ? Icons.flash_on_rounded
+                              ? Icons.school_rounded
                               : Icons.spa_rounded,
                           color: Colors.white,
                           size: 28,
@@ -914,7 +1008,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           children: [
                             Text(
                               _mode == 'focus'
-                                  ? 'Bloque de enfoque'
+                                  ? 'Concentrarse ahora'
                                   : _mode == 'shortBreak'
                                       ? 'Descanso breve'
                                       : 'Descanso largo',
@@ -926,8 +1020,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             const SizedBox(height: 4),
                             Text(
                               _mode == 'focus'
-                                  ? 'Tu ciclo sigue solo: enfoque, timbre, descanso y vuelta al estudio.'
-                                  : 'Recupera energía mientras Focus prepara el siguiente bloque.',
+                                  ? 'Activa tu pomodoro y entra en tu bloque de enfoque sin distracciones.'
+                                  : 'Recupera energÃƒÆ’Ã‚Â­a mientras Focus prepara el siguiente bloque.',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -1089,29 +1183,49 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   const SizedBox(height: 18),
+                  if (_mode == 'focus') ...[
+                    if (subjects.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _subjectSelector(provider, subjects),
+                    ],
+                    if (!_isRunning && _lastFocusSummary != null) ...[
+                      const SizedBox(height: 14),
+                      _LastFocusSummaryBanner(summary: _lastFocusSummary!),
+                    ],
+                    const SizedBox(height: 16),
+                  ],
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: themePalette.accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 16,
+                        ),
+                      ),
+                      onPressed: _isRunning ? _pauseTimer : () => _startTimer(),
+                      icon: Icon(
+                        _isRunning
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                      label: Text(
+                        _isRunning
+                            ? 'Pausar sesiÃ³n'
+                            : _mode == 'focus'
+                                ? 'Iniciar sesiÃ³n de enfoque'
+                                : 'Empezar descanso',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
                     alignment: WrapAlignment.center,
                     children: [
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: themePalette.accent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                        ),
-                        onPressed:
-                            _isRunning ? _pauseTimer : () => _startTimer(),
-                        icon: Icon(
-                          _isRunning
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                        ),
-                        label: Text(_isRunning ? 'Pausar' : 'Empezar'),
-                      ),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(
@@ -1136,18 +1250,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                     ],
                   ),
-                  if (subjects.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _subjectSelector(provider, subjects),
-                  ],
                 ],
               ),
             ),
             const SizedBox(height: 14),
-            _glassCard(
+            _expandableGlassCard(
               context,
-              padding: const EdgeInsets.all(18),
-              child: _buildFocusModeTotalCard(provider),
+              title: 'Modo Enfoque Total',
+              subtitle: 'Activa el bloqueo y elige tus apps.',
+              children: [
+                _buildFocusModeTotalCard(provider),
+              ],
             ),
             const SizedBox(height: 14),
             _expandableGlassCard(
@@ -1201,12 +1314,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 DropdownButtonFormField<String>(
                   initialValue: provider.settings.breakAfterFocus,
                   decoration: const InputDecoration(
-                    labelText: 'Después del enfoque',
+                    labelText: 'DespuÃ©s del enfoque',
                   ),
                   items: const [
                     DropdownMenuItem(
                       value: 'auto',
-                      child: Text('Automático cada 4 ciclos'),
+                      child: Text('AutomÃ¡tico cada 4 ciclos'),
                     ),
                     DropdownMenuItem(
                       value: 'shortBreak',
@@ -1239,7 +1352,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Cada enfoque completado se guarda automáticamente para tus estadísticas.',
+                    'Cada enfoque completado se guarda automÃ¡ticamente para tus estadÃ­sticas.',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 14),
@@ -1339,7 +1452,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       decoration: const InputDecoration(
         labelText: 'Materia asociada',
         prefixIcon: Icon(Icons.menu_book_rounded),
-        helperText: 'Opcional. Se guarda en tus estadísticas del Pomodoro.',
+        helperText: 'Opcional. Se guarda en tus estadÃ­sticas del Pomodoro.',
       ),
       items: [
         const DropdownMenuItem(
@@ -1369,161 +1482,84 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Widget _buildFocusModeTotalCard(AppProvider provider) {
     final blockedApps = _focusModeConfig.blockedApps;
     final isEnabled = _focusModeConfig.enabled;
-    final activeNow = _focusModeStatus.active && _isRunning && _mode == 'focus';
+    final accent = const Color(0xFF7C3AED);
+    final appsLabel = blockedApps.isEmpty
+        ? 'Sin apps elegidas'
+        : '${blockedApps.length} app${blockedApps.length == 1 ? '' : 's'}';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Modo Enfoque Total',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Vigila apps distractoras mientras corre tu sesión de enfoque y te avisa si intentas abrirlas.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: isEnabled,
-              onChanged: _toggleFocusModeEnabled,
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            accent.withValues(alpha: 0.16),
+            accent.withValues(alpha: 0.06),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        const SizedBox(height: 14),
-        if (_loadingFocusMode)
-          const Center(child: CircularProgressIndicator())
-        else ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: _focusModePermissionGranted
-                  ? const Color(0xFF10B981).withValues(alpha: 0.10)
-                  : const Color(0xFFF59E0B).withValues(alpha: 0.12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _focusModePermissionGranted
-                      ? Icons.verified_user_rounded
-                      : Icons.security_rounded,
-                  color: _focusModePermissionGranted
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFF59E0B),
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  color: accent.withValues(alpha: 0.14),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _focusModePermissionGranted
-                        ? 'Permiso activo. Focus puede revisar qué app está al frente.'
-                        : 'Falta activar el permiso de uso. Sin eso no podemos vigilar otras apps.',
-                  ),
+                child: const Icon(
+                  Icons.shield_moon_rounded,
+                  color: Color(0xFF7C3AED),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (!_focusModePermissionGranted)
-            FilledButton.icon(
-              onPressed: _grantFocusModePermission,
-              icon: const Icon(Icons.admin_panel_settings_rounded),
-              label: const Text('Activar permiso de vigilancia'),
-            ),
-          if (!_focusModePermissionGranted) const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _openFocusModeSetup,
-            icon: const Icon(Icons.apps_rounded),
-            label: Text(
-              blockedApps.isEmpty
-                  ? 'Elegir apps distractoras'
-                  : 'Editar apps bloqueadas',
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (blockedApps.isEmpty)
-            Text(
-              'Todavía no elegiste apps. Añade Instagram, TikTok, YouTube o las que más te saquen del ritmo.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: blockedApps
-                  .take(8)
-                  .map(
-                    (app) => Chip(
-                      label: Text(
-                        app.label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          if (blockedApps.length > 8) ...[
-            const SizedBox(height: 8),
-            Text(
-              '+${blockedApps.length - 8} apps más',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Theme.of(context)
-                    .colorScheme
-                    .outlineVariant
-                    .withValues(alpha: 0.32),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  activeNow ? 'Sesión protegida ahora' : 'Estado de protección',
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Bloqueo total',
                   style: Theme.of(context)
                       .textTheme
-                      .titleSmall
+                      .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w900),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  activeNow
-                      ? 'Apps frenadas: ${_focusModeStatus.blockedAttempts}. Tiempo restante: ${_formatTime(_focusModeStatus.remainingSeconds)}.'
-                      : isEnabled
-                          ? 'Se activará automáticamente cuando inicies un bloque de enfoque.'
-                          : 'Actívalo cuando quieras estudiar sin tentaciones.',
+              ),
+              Switch(
+                value: isEnabled,
+                onChanged: _toggleFocusModeEnabled,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            appsLabel,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
-                if (_focusModeStatus.lastBlockedApp.trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Último intento detectado: ${_focusModeStatus.lastBlockedApp}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _loadingFocusMode ? null : _openFocusModeSetup,
+              icon: _loadingFocusMode
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    )
+                  : const Icon(Icons.apps_rounded),
+              label: Text(blockedApps.isEmpty ? 'Elegir apps' : 'Editar apps'),
             ),
           ),
         ],
-      ],
+      ),
     );
   }
 
@@ -1533,28 +1569,28 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         return const _PomodoroPalette(
           accent: Color(0xFF10B981),
           accentSecondary: Color(0xFF34D399),
-          backgroundStart: Color(0xFFF0FDF4),
-          backgroundMiddle: Color(0xFFE6FCF3),
-          backgroundEnd: Color(0xFFD1FAE5),
-          surfaceTint: Color(0xFFF3FFFB),
+          backgroundStart: Color(0xFFF3FBF7),
+          backgroundMiddle: Color(0xFFE7F8EF),
+          backgroundEnd: Color(0xFFD9F3E6),
+          surfaceTint: Color(0xFFECFDF5),
         );
       case 'longBreak':
         return const _PomodoroPalette(
           accent: Color(0xFFF59E0B),
           accentSecondary: Color(0xFFFB923C),
-          backgroundStart: Color(0xFFFFFBEB),
+          backgroundStart: Color(0xFFFFF8EE),
           backgroundMiddle: Color(0xFFFFF1D6),
-          backgroundEnd: Color(0xFFFDE68A),
-          surfaceTint: Color(0xFFFFF8EB),
+          backgroundEnd: Color(0xFFFFE5BF),
+          surfaceTint: Color(0xFFFFF7ED),
         );
       default:
         return const _PomodoroPalette(
           accent: Color(0xFF2563EB),
-          accentSecondary: Color(0xFF7C3AED),
-          backgroundStart: Color(0xFFF8FAFC),
-          backgroundMiddle: Color(0xFFEFF6FF),
-          backgroundEnd: Color(0xFFE0EAFF),
-          surfaceTint: Color(0xFFF8FBFF),
+          accentSecondary: Color(0xFF4F46E5),
+          backgroundStart: Color(0xFFF4F8FF),
+          backgroundMiddle: Color(0xFFEAF1FF),
+          backgroundEnd: Color(0xFFDDE8FF),
+          surfaceTint: Color(0xFFF8FAFF),
         );
     }
   }
@@ -1575,7 +1611,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               .withValues(alpha: 0.34),
         ),
         child: const Center(
-          child: Text('Todavía no hay sesiones registradas hoy.'),
+          child: Text('TodavÃ­a no hay sesiones registradas hoy.'),
         ),
       );
     }
@@ -1636,6 +1672,164 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
         );
       },
+    );
+  }
+}
+
+class _FocusSessionSummary {
+  final String subject;
+  final int blockedAppsCount;
+  final int blockedAttempts;
+  final int earnedPoints;
+  final bool distractionFree;
+
+  const _FocusSessionSummary({
+    required this.subject,
+    required this.blockedAppsCount,
+    required this.blockedAttempts,
+    required this.earnedPoints,
+    required this.distractionFree,
+  });
+}
+
+class _LastFocusSummaryBanner extends StatelessWidget {
+  final _FocusSessionSummary summary;
+
+  const _LastFocusSummaryBanner({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = summary.distractionFree
+        ? const Color(0xFF10B981)
+        : const Color(0xFF7C3AED);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color: accent.withValues(alpha: 0.12),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            summary.distractionFree
+                ? Icons.verified_rounded
+                : Icons.bolt_rounded,
+            color: accent,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Ãšltimo bloque: ${summary.earnedPoints} puntos Â· ${summary.blockedAttempts} interrupciones',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusSummarySheet extends StatelessWidget {
+  final _FocusSessionSummary summary;
+
+  const _FocusSummarySheet({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = summary.distractionFree
+        ? const Color(0xFF10B981)
+        : const Color(0xFF7C3AED);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SesiÃ³n completada',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            summary.subject,
+            style: TextStyle(color: accent, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              _SummaryChip(
+                label: 'Apps bloqueadas',
+                value: '${summary.blockedAppsCount}',
+              ),
+              _SummaryChip(
+                label: 'Interrupciones',
+                value: '${summary.blockedAttempts}',
+              ),
+              _SummaryChip(
+                label: 'Puntos',
+                value: '${summary.earnedPoints}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cerrar'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _SummaryChip({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.28),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../utils/polytechnic_grade_utils.dart';
 import '../widgets/focus_drawer.dart';
@@ -11,90 +12,100 @@ class GradeCalculatorScreen extends StatefulWidget {
 }
 
 class _GradeCalculatorScreenState extends State<GradeCalculatorScreen> {
-  final _directFirstController = TextEditingController();
-  final _directSecondController = TextEditingController();
-  final _ponderedController = TextEditingController();
-  final _firstPartialController = TextEditingController();
+  final _firstController = TextEditingController();
+  final _secondController = TextEditingController();
 
-  int _selectedMode = 0;
-  double? _directFirstPartial;
-  double? _directSecondPartial;
-  double? _ponderedAverage;
-  double? _firstPartialScore;
+  double? _firstPartial;
+  double? _secondPartial;
+  String? _firstError;
+  String? _secondError;
+  int _selectedTab = 0;
 
   @override
   void dispose() {
-    _directFirstController.dispose();
-    _directSecondController.dispose();
-    _ponderedController.dispose();
-    _firstPartialController.dispose();
+    _firstController.dispose();
+    _secondController.dispose();
     super.dispose();
   }
 
-  void _calculateDirect() {
+  void _selectTab(int index) {
     FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _selectedTab = index);
+  }
+
+  void _calculateCurrentTab() {
+    final requireSecond = _selectedTab != 0;
+    _validateAndStore(requireSecond: requireSecond);
+  }
+
+  bool _validateAndStore({required bool requireSecond}) {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final firstText = _firstController.text.trim();
+    final secondText = _secondController.text.trim();
+
+    final firstError = _validateScoreText(
+      firstText,
+      label: 'Parcial 1',
+      required: true,
+    );
+    final secondError = _validateScoreText(
+      secondText,
+      label: 'Parcial 2',
+      required: requireSecond,
+    );
+
+    final firstValue = firstError == null && firstText.isNotEmpty
+        ? parsePolytechnicScore(firstText)
+        : null;
+    final secondValue = secondError == null && secondText.isNotEmpty
+        ? parsePolytechnicScore(secondText)
+        : null;
+
     setState(() {
-      _directFirstPartial = _parseScore(_directFirstController.text);
-      _directSecondPartial = _parseScore(_directSecondController.text);
+      _firstError = firstError;
+      _secondError = secondError;
+      _firstPartial = firstValue;
+      _secondPartial = secondValue;
     });
+
+    return firstError == null && secondError == null;
   }
 
-  void _calculatePondered() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _ponderedAverage = _parseScore(_ponderedController.text));
+  String? _validateScoreText(
+    String value, {
+    required String label,
+    required bool required,
+  }) {
+    if (value.isEmpty) {
+      return required ? 'Ingresa $label.' : null;
+    }
+
+    final normalized = value.replaceAll(',', '.');
+    final parsed = double.tryParse(normalized);
+    if (parsed == null) {
+      return 'Usa solo números válidos.';
+    }
+    if (parsed < 0 || parsed > 100) {
+      return 'Debe estar entre 0 y 100.';
+    }
+    return null;
   }
 
-  void _calculateSignature() {
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(
-      () => _firstPartialScore = _parseScore(_firstPartialController.text),
-    );
+  String _signatureStatusLabel(int total) {
+    if (total >= 119) return 'Firma completa';
+    if (total >= 99) return 'Media firma';
+    return 'Aún no firma';
   }
 
-  double? _parseScore(String value) {
-    return parsePolytechnicScore(value);
-  }
-
-  int _requiredFinal(double currentAverage, int targetGrade) {
-    return requiredFinalScore(currentAverage, targetGrade);
-  }
-
-  int _requiredSecondPartial(double firstPartial, int targetTotal) {
-    return requiredSecondPartialForSignature(
-      firstPartial,
-      targetTotal >= 119 ? SignatureGoal.full : SignatureGoal.media,
-    );
+  Color _signatureStatusColor(int total) {
+    if (total >= 119) return const Color(0xFF7C3AED);
+    if (total >= 99) return const Color(0xFF0EA5E9);
+    return const Color(0xFFF59E0B);
   }
 
   @override
   Widget build(BuildContext context) {
-    final panel = switch (_selectedMode) {
-      0 => _DirectPanel(
-          key: const ValueKey('direct'),
-          firstController: _directFirstController,
-          secondController: _directSecondController,
-          firstPartial: _directFirstPartial,
-          secondPartial: _directSecondPartial,
-          onCalculate: _calculateDirect,
-          requiredFinal: _requiredFinal,
-          requiredSecondPartial: _requiredSecondPartial,
-        ),
-      1 => _PonderedPanel(
-          key: const ValueKey('pondered'),
-          controller: _ponderedController,
-          average: _ponderedAverage,
-          onCalculate: _calculatePondered,
-          requiredFinal: _requiredFinal,
-        ),
-      _ => _SignaturePanel(
-          key: const ValueKey('signature'),
-          controller: _firstPartialController,
-          firstPartial: _firstPartialScore,
-          onCalculate: _calculateSignature,
-          requiredSecondPartial: _requiredSecondPartial,
-        ),
-    };
-
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
       appBar: AppBar(title: const Text('Calculadora Politécnica')),
@@ -107,18 +118,50 @@ class _GradeCalculatorScreenState extends State<GradeCalculatorScreen> {
             const _HeroPanel(
               title: 'Calcula rápido antes de rendir',
               subtitle:
-                  'Carga tus parciales y Focus te muestra firma, ponderado actual y lo que necesitarías en el final.',
+                  'Firma, final y detalles separados para ver solo lo importante.',
             ),
             const SizedBox(height: 14),
-            _ModeSelector(
-              selectedMode: _selectedMode,
-              onChanged: (value) => setState(() => _selectedMode = value),
+            _CalculatorTabSelector(
+              selectedIndex: _selectedTab,
+              onSelected: _selectTab,
             ),
             const SizedBox(height: 14),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              child: panel,
+            _InputsCard(
+              firstController: _firstController,
+              secondController: _secondController,
+              firstError: _firstError,
+              secondError: _secondError,
+              showSecondField: _selectedTab != 0,
+              requireSecond: _selectedTab != 0,
+              buttonLabel: switch (_selectedTab) {
+                0 => 'Calcular firma',
+                1 => 'Calcular final',
+                _ => 'Ver detalles',
+              },
+              helperText: switch (_selectedTab) {
+                0 => 'Para firma solo necesitas el parcial 1.',
+                1 => 'Para final necesitas parcial 1 y parcial 2.',
+                _ => 'Detalles muestra ponderado y suma de parciales.',
+              },
+              onPressed: _calculateCurrentTab,
             ),
+            const SizedBox(height: 14),
+            if (_selectedTab == 0)
+              _FirmaTab(
+                firstPartial: _firstPartial,
+              )
+            else if (_selectedTab == 1)
+              _FinalTab(
+                firstPartial: _firstPartial,
+                secondPartial: _secondPartial,
+              )
+            else
+              _DetailsTab(
+                firstPartial: _firstPartial,
+                secondPartial: _secondPartial,
+                statusLabel: _signatureStatusLabel,
+                statusColor: _signatureStatusColor,
+              ),
           ],
         ),
       ),
@@ -185,114 +228,133 @@ class _HeroPanel extends StatelessWidget {
   }
 }
 
-class _ModeSelector extends StatelessWidget {
-  final int selectedMode;
-  final ValueChanged<int> onChanged;
+class _CalculatorTabSelector extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
 
-  const _ModeSelector({required this.selectedMode, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return SegmentedButton<int>(
-      segments: const [
-        ButtonSegment(
-          value: 0,
-          icon: Icon(Icons.bolt_rounded),
-          label: Text('Directo'),
-        ),
-        ButtonSegment(
-          value: 1,
-          icon: Icon(Icons.timeline_rounded),
-          label: Text('Ponderado'),
-        ),
-        ButtonSegment(
-          value: 2,
-          icon: Icon(Icons.edit_note_rounded),
-          label: Text('Firma'),
-        ),
-      ],
-      selected: {selectedMode},
-      onSelectionChanged: (selection) => onChanged(selection.first),
-    );
-  }
-}
-
-class _DirectPanel extends StatelessWidget {
-  final TextEditingController firstController;
-  final TextEditingController secondController;
-  final double? firstPartial;
-  final double? secondPartial;
-  final VoidCallback onCalculate;
-  final int Function(double currentAverage, int targetGrade) requiredFinal;
-  final int Function(double firstPartial, int targetTotal)
-      requiredSecondPartial;
-
-  const _DirectPanel({
-    super.key,
-    required this.firstController,
-    required this.secondController,
-    required this.firstPartial,
-    required this.secondPartial,
-    required this.onCalculate,
-    required this.requiredFinal,
-    required this.requiredSecondPartial,
+  const _CalculatorTabSelector({
+    required this.selectedIndex,
+    required this.onSelected,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasFirst = firstPartial != null;
-    final hasBoth = firstPartial != null && secondPartial != null;
-    final ponderedAverage = hasBoth
-        ? calculatePonderedAverageFromPartials(firstPartial!, secondPartial!)
-        : null;
-    final signatureSum = hasBoth
-        ? calculateSignaturePoints(firstPartial!, secondPartial!)
-        : null;
-    final blocked =
-        ponderedAverage != null && !habilitatesFinal(ponderedAverage);
-    final finalGoals = ponderedAverage == null || blocked
-        ? const <_GradeGoal>[]
-        : [
-            _GradeGoal(
-                'Nota 2', requiredFinal(ponderedAverage, 2), Colors.green),
-            _GradeGoal(
-                'Nota 3', requiredFinal(ponderedAverage, 3), Colors.blue),
-            _GradeGoal(
-                'Nota 4', requiredFinal(ponderedAverage, 4), Colors.orange),
-            _GradeGoal(
-                'Nota 5', requiredFinal(ponderedAverage, 5), Colors.purple),
-          ];
-    final signatureGoals = hasFirst
-        ? [
-            _GradeGoal(
-              'Media firma',
-              requiredSecondPartial(firstPartial!, 99),
-              Colors.cyan,
-            ),
-            _GradeGoal(
-              'Firma completa',
-              requiredSecondPartial(firstPartial!, 119),
-              Colors.indigo,
-            ),
-          ]
-        : const <_GradeGoal>[];
+    return _SurfaceCard(
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          _TabPill(
+            label: 'Firma',
+            icon: Icons.verified_rounded,
+            selected: selectedIndex == 0,
+            onTap: () => onSelected(0),
+          ),
+          _TabPill(
+            label: 'Final',
+            icon: Icons.flag_rounded,
+            selected: selectedIndex == 1,
+            onTap: () => onSelected(1),
+          ),
+          _TabPill(
+            label: 'Detalles',
+            icon: Icons.insights_rounded,
+            selected: selectedIndex == 2,
+            onTap: () => onSelected(2),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
+class _TabPill extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TabPill({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color:
+              selected ? primary.withValues(alpha: 0.14) : Colors.transparent,
+          border: Border.all(
+            color: selected ? primary : Theme.of(context).dividerColor,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: selected ? primary : null),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? primary : null,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InputsCard extends StatelessWidget {
+  final TextEditingController firstController;
+  final TextEditingController secondController;
+  final String? firstError;
+  final String? secondError;
+  final bool showSecondField;
+  final bool requireSecond;
+  final String buttonLabel;
+  final String helperText;
+  final VoidCallback onPressed;
+
+  const _InputsCard({
+    required this.firstController,
+    required this.secondController,
+    required this.firstError,
+    required this.secondError,
+    required this.showSecondField,
+    required this.requireSecond,
+    required this.buttonLabel,
+    required this.helperText,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return _SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Cálculo directo con parcial 1 y 2',
+            'Carga tus parciales',
             style: Theme.of(context)
                 .textTheme
                 .headlineSmall
                 ?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
-          Text(
-            'Carga tus dos parciales y te mostramos firma, ponderado actual y cuánto necesitas en el final.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
+          Text(helperText, style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 18),
           Row(
             children: [
@@ -301,133 +363,195 @@ class _DirectPanel extends StatelessWidget {
                   controller: firstController,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  onSubmitted: (_) => onCalculate(),
-                  decoration: const InputDecoration(
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                  ],
+                  onSubmitted: (_) => onPressed(),
+                  decoration: InputDecoration(
                     labelText: 'Parcial 1',
-                    hintText: 'Ejemplo: 60',
-                    prefixIcon: Icon(Icons.filter_1_rounded),
+                    hintText: '0 a 100',
+                    errorText: firstError,
+                    prefixIcon: const Icon(Icons.filter_1_rounded),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextField(
-                  controller: secondController,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  onSubmitted: (_) => onCalculate(),
-                  decoration: const InputDecoration(
-                    labelText: 'Parcial 2',
-                    hintText: 'Ejemplo: 72',
-                    prefixIcon: Icon(Icons.filter_2_rounded),
+              if (showSecondField) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: secondController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                    ],
+                    onSubmitted: (_) => onPressed(),
+                    decoration: InputDecoration(
+                      labelText:
+                          requireSecond ? 'Parcial 2' : 'Parcial 2 (opcional)',
+                      hintText: '0 a 100',
+                      errorText: secondError,
+                      prefixIcon: const Icon(Icons.filter_2_rounded),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: onCalculate,
+              onPressed: onPressed,
               icon: const Icon(Icons.auto_graph_rounded),
-              label: const Text('Calcular todo'),
+              label: Text(buttonLabel),
             ),
           ),
-          const SizedBox(height: 18),
-          if (!hasFirst)
-            const _EmptyResult(
-              title: 'Empieza con tu primer parcial',
-              text:
-                  'Con el parcial 1 ya puedes ver cuánto te faltaría para media firma y firma completa. Si además cargas el parcial 2, sale todo el panorama del final.',
+        ],
+      ),
+    );
+  }
+}
+
+class _FirmaTab extends StatelessWidget {
+  final double? firstPartial;
+
+  const _FirmaTab({
+    required this.firstPartial,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (firstPartial == null) {
+      return const _EmptyResult(
+        title: 'Empieza con tu primer parcial',
+        text:
+            'Ingresa tu parcial 1 para ver cuánto te faltaría para media firma y firma completa.',
+      );
+    }
+
+    final mediaGoal =
+        requiredSecondPartialForSignature(firstPartial!, SignatureGoal.media);
+    final fullGoal =
+        requiredSecondPartialForSignature(firstPartial!, SignatureGoal.full);
+
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Firma',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Lo esencial: cuánto necesitas en el parcial 2 para llegar a firma.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 1.34,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            children: [
+              _GoalCard(
+                goal: _GradeGoal(
+                  'Media firma',
+                  mediaGoal,
+                  const Color(0xFF0EA5E9),
+                ),
+              ),
+              _GoalCard(
+                goal: _GradeGoal(
+                  'Firma completa',
+                  fullGoal,
+                  const Color(0xFF7C3AED),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinalTab extends StatelessWidget {
+  final double? firstPartial;
+  final double? secondPartial;
+
+  const _FinalTab({
+    required this.firstPartial,
+    required this.secondPartial,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (firstPartial == null || secondPartial == null) {
+      return const _EmptyResult(
+        title: 'Faltan datos para el final',
+        text:
+            'Carga ambos parciales para ver cuánto necesitas en el examen final.',
+      );
+    }
+
+    final pondered = calculatePonderedAverageFromPartials(
+      firstPartial!,
+      secondPartial!,
+    );
+    final enabled = habilitatesFinal(pondered);
+    final goals = enabled
+        ? [
+            _GradeGoal('Nota 2', requiredFinalScore(pondered, 2), Colors.green),
+            _GradeGoal('Nota 3', requiredFinalScore(pondered, 3), Colors.blue),
+            _GradeGoal(
+                'Nota 4', requiredFinalScore(pondered, 4), Colors.orange),
+            _GradeGoal(
+                'Nota 5', requiredFinalScore(pondered, 5), Colors.purple),
+          ]
+        : const <_GradeGoal>[];
+
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Final',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Lo esencial: si habilitas y qué necesitas en el final.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          if (!enabled)
+            const _BlockedResult(
+              title: 'No habilita final',
+              text: 'Con ponderado menor a 50% no se habilita el examen final.',
             )
           else ...[
-            if (hasBoth)
-              _SummaryStrip(
-                items: [
-                  _SummaryItem(
-                    label: 'Ponderado actual',
-                    value: ponderedAverage!.toStringAsFixed(1),
-                    accent: const Color(0xFF2563EB),
-                  ),
-                  _SummaryItem(
-                    label: 'Suma de parciales',
-                    value: '$signatureSum',
-                    accent: const Color(0xFF0EA5E9),
-                  ),
-                  _SummaryItem(
-                    label: 'Firma',
-                    value: signatureSum! >= 119
-                        ? 'Completa'
-                        : signatureSum >= 99
-                            ? 'Media'
-                            : 'Pendiente',
-                    accent: const Color(0xFF7C3AED),
-                  ),
-                ],
-              )
-            else
-              const _EmptyResult(
-                title: 'Falta tu segundo parcial',
-                text:
-                    'Ya puedes ver cuánto necesitarías en el parcial 2 para firma. Cuando lo cargues, Focus calcula también tu ponderado y el final.',
-              ),
-            const SizedBox(height: 16),
-            Text(
-              'Objetivo de firma',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 10),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: signatureGoals.length,
+              itemCount: goals.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 childAspectRatio: 1.34,
                 crossAxisSpacing: 12,
                 mainAxisSpacing: 12,
               ),
-              itemBuilder: (context, index) {
-                return _GoalCard(goal: signatureGoals[index]);
-              },
+              itemBuilder: (context, index) => _GoalCard(goal: goals[index]),
             ),
-            if (hasBoth) ...[
-              const SizedBox(height: 18),
-              if (blocked)
-                const _BlockedResult(
-                  title: 'No habilita final',
-                  text:
-                      'Con ponderado menor a 50% no se habilita el examen final.',
-                )
-              else ...[
-                Text(
-                  'Objetivos para el final',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 10),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: finalGoals.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.34,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemBuilder: (context, index) {
-                    return _GoalCard(goal: finalGoals[index]);
-                  },
-                ),
-              ],
-            ],
           ],
         ],
       ),
@@ -435,188 +559,73 @@ class _DirectPanel extends StatelessWidget {
   }
 }
 
-class _PonderedPanel extends StatelessWidget {
-  final TextEditingController controller;
-  final double? average;
-  final VoidCallback onCalculate;
-  final int Function(double currentAverage, int targetGrade) requiredFinal;
-
-  const _PonderedPanel({
-    super.key,
-    required this.controller,
-    required this.average,
-    required this.onCalculate,
-    required this.requiredFinal,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final blocked = average != null && !habilitatesFinal(average!);
-    final results = average == null
-        ? const <_GradeGoal>[]
-        : blocked
-            ? const <_GradeGoal>[]
-            : [
-                _GradeGoal('Nota 2', requiredFinal(average!, 2), Colors.green),
-                _GradeGoal('Nota 3', requiredFinal(average!, 3), Colors.blue),
-                _GradeGoal('Nota 4', requiredFinal(average!, 4), Colors.orange),
-                _GradeGoal('Nota 5', requiredFinal(average!, 5), Colors.purple),
-              ];
-
-    return _CalculatorPanel(
-      title: 'Promedio ponderado',
-      subtitle:
-          'Si ya tienes tu ponderado calculado, aquí puedes ver rápidamente cuánto necesitarías en el final.',
-      inputLabel: 'Promedio ponderado',
-      hint: 'Ejemplo: 60',
-      controller: controller,
-      onCalculate: onCalculate,
-      emptyTitle: 'Todavía no hay cálculo',
-      emptyText: 'Carga tu ponderado para ver objetivos de nota 2, 3, 4 y 5.',
-      blockedTitle: 'No habilita final',
-      blockedText: 'Con ponderado menor a 50% no se habilita el examen final.',
-      blocked: blocked,
-      results: results,
-    );
-  }
-}
-
-class _SignaturePanel extends StatelessWidget {
-  final TextEditingController controller;
+class _DetailsTab extends StatelessWidget {
   final double? firstPartial;
-  final VoidCallback onCalculate;
-  final int Function(double firstPartial, int targetTotal)
-      requiredSecondPartial;
+  final double? secondPartial;
+  final String Function(int total) statusLabel;
+  final Color Function(int total) statusColor;
 
-  const _SignaturePanel({
-    super.key,
-    required this.controller,
+  const _DetailsTab({
     required this.firstPartial,
-    required this.onCalculate,
-    required this.requiredSecondPartial,
+    required this.secondPartial,
+    required this.statusLabel,
+    required this.statusColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    final results = firstPartial == null
-        ? const <_GradeGoal>[]
-        : [
-            _GradeGoal(
-              'Media firma',
-              requiredSecondPartial(firstPartial!, 99),
-              Colors.cyan,
-            ),
-            _GradeGoal(
-              'Firma completa',
-              requiredSecondPartial(firstPartial!, 119),
-              Colors.indigo,
-            ),
-          ];
+    if (firstPartial == null || secondPartial == null) {
+      return const _EmptyResult(
+        title: 'Faltan datos para detalles',
+        text:
+            'Carga ambos parciales para ver ponderado actual, suma de parciales y estado de firma.',
+      );
+    }
 
-    return _CalculatorPanel(
-      title: 'Firma',
-      subtitle:
-          'Si solo tienes el primer parcial, aquí puedes estimar lo necesario en el segundo.',
-      inputLabel: 'Primer parcial',
-      hint: 'Ejemplo: 60',
-      controller: controller,
-      onCalculate: onCalculate,
-      emptyTitle: 'Esperando puntaje',
-      emptyText:
-          'Cuando cargues tu primer parcial verás media firma y firma completa.',
-      blockedTitle: '',
-      blockedText: '',
-      blocked: false,
-      results: results,
+    final pondered = calculatePonderedAverageFromPartials(
+      firstPartial!,
+      secondPartial!,
     );
-  }
-}
+    final sum = calculateSignaturePoints(firstPartial!, secondPartial!);
+    final label = statusLabel(sum);
+    final accent = statusColor(sum);
 
-class _CalculatorPanel extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String inputLabel;
-  final String hint;
-  final TextEditingController controller;
-  final VoidCallback onCalculate;
-  final String emptyTitle;
-  final String emptyText;
-  final String blockedTitle;
-  final String blockedText;
-  final bool blocked;
-  final List<_GradeGoal> results;
-
-  const _CalculatorPanel({
-    required this.title,
-    required this.subtitle,
-    required this.inputLabel,
-    required this.hint,
-    required this.controller,
-    required this.onCalculate,
-    required this.emptyTitle,
-    required this.emptyText,
-    required this.blockedTitle,
-    required this.blockedText,
-    required this.blocked,
-    required this.results,
-  });
-
-  @override
-  Widget build(BuildContext context) {
     return _SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            title,
+            'Detalles',
             style: Theme.of(context)
                 .textTheme
                 .headlineSmall
                 ?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
-          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 18),
-          TextField(
-            controller: controller,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onSubmitted: (_) => onCalculate(),
-            decoration: InputDecoration(
-              labelText: inputLabel,
-              hintText: hint,
-              prefixIcon: const Icon(Icons.numbers_rounded),
-            ),
+          Text(
+            'Aquí va lo complementario.',
+            style: Theme.of(context).textTheme.bodyMedium,
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: onCalculate,
-              icon: const Icon(Icons.auto_graph_rounded),
-              label: const Text('Calcular'),
-            ),
-          ),
-          const SizedBox(height: 18),
-          if (blocked)
-            _BlockedResult(title: blockedTitle, text: blockedText)
-          else if (results.isEmpty)
-            _EmptyResult(title: emptyTitle, text: emptyText)
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: results.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 1.34,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
+          const SizedBox(height: 16),
+          _SummaryStrip(
+            items: [
+              _SummaryItem(
+                label: 'Ponderado actual',
+                value: pondered.toStringAsFixed(1),
+                accent: const Color(0xFF2563EB),
               ),
-              itemBuilder: (context, index) {
-                final result = results[index];
-                return _GoalCard(goal: result);
-              },
-            ),
+              _SummaryItem(
+                label: 'Suma de parciales',
+                value: '$sum',
+                accent: const Color(0xFF0EA5E9),
+              ),
+              _SummaryItem(
+                label: 'Estado de firma',
+                value: label,
+                accent: accent,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -677,11 +686,15 @@ class _SummaryStrip extends StatelessWidget {
         }
         return Row(
           children: items
+              .asMap()
+              .entries
               .map(
-                (item) => Expanded(
+                (entry) => Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 10),
-                    child: _SummaryCard(item: item),
+                    padding: EdgeInsets.only(
+                      right: entry.key == items.length - 1 ? 0 : 10,
+                    ),
+                    child: _SummaryCard(item: entry.value),
                   ),
                 ),
               )
@@ -752,16 +765,7 @@ class _EmptyResult extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.32),
-      ),
+    return _SurfaceCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
