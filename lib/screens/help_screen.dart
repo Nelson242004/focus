@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../widgets/focus_drawer.dart';
 
@@ -203,4 +203,3 @@ class _HelpTopic extends StatelessWidget {
     );
   }
 }
-

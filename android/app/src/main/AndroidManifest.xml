@@ -64,7 +64,11 @@
             android:name=".FocusShieldService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="focus_mode_total_session" />
+        </service>
         <service
             android:name=".FocusAccessibilityService"
             android:enabled="true"
@@ -78,6 +82,16 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/focus_accessibility_config" />
         </service>
+        <receiver
+            android:name=".FocusMiniHomeWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/focus_home_widget_mini_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

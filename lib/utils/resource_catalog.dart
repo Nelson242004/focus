@@ -1,4 +1,4 @@
-﻿import '../models/resource_link.dart';
+import '../models/resource_link.dart';
 import '../models/subject.dart';
 
 class ResourceCatalogEntry {
@@ -133,4 +133,3 @@ class ResourceCatalog {
     }).toList();
   }
 }
-

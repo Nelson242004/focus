@@ -14,6 +14,7 @@ import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 
@@ -116,7 +117,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _loadFocusModeConfig() async {
     final config = await FocusModeService.loadConfig();
-    final permissionGranted = await FocusModeService.hasCorePermissions();
+    final permissionGranted = await _refreshFocusModePermissionState();
     final status = await FocusModeService.getStatus();
     if (!mounted) return;
     final provider = Provider.of<AppProvider>(context, listen: false);
@@ -138,6 +139,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (status.active || (_isRunning && _mode == 'focus')) {
       _startFocusModeStatusPolling();
     }
+  }
+
+  Future<bool> _refreshFocusModePermissionState() async {
+    final granted = await FocusModeService.hasCorePermissions();
+    if (!mounted) {
+      _focusModePermissionGranted = granted;
+      return granted;
+    }
+    setState(() => _focusModePermissionGranted = granted);
+    return granted;
   }
 
   int _totalSecondsForMode(AppProvider provider, [String? mode]) {
@@ -269,6 +280,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _persistState();
     }
     unawaited(_showPomodoroNotification(provider));
+    unawaited(_syncPomodoroWidget(provider));
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remainingSeconds <= 1) {
         if (mounted) {
@@ -288,8 +300,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       }
       _refreshHorizontalMode();
       unawaited(_showPomodoroNotification(provider));
+      unawaited(_syncPomodoroWidget(provider));
       _persistState();
     });
+  }
+
+  Future<void> _syncPomodoroWidget(AppProvider provider) {
+    return WidgetSyncService.syncPomodoroState(
+      mode: _mode,
+      isRunning: _isRunning,
+      remainingSeconds: _remainingSeconds,
+      totalSeconds: _totalSecondsForMode(provider),
+      subject: _activeSubjectName(provider),
+      currentStreak: provider.currentStreak,
+    );
   }
 
   Future<void> _showPomodoroNotification(AppProvider provider) async {
@@ -322,6 +346,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   void _pauseTimer() {
+    final provider = Provider.of<AppProvider>(context, listen: false);
     _timer?.cancel();
     unawaited(NotificationService.cancelPomodoroTimerNotification());
     if (mounted) {
@@ -331,6 +356,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
+    unawaited(WidgetSyncService.syncFromProvider(provider));
     _persistState();
   }
 
@@ -355,6 +381,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     });
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
+    unawaited(WidgetSyncService.syncFromProvider(
+        Provider.of<AppProvider>(context, listen: false)));
     _persistState();
   }
 
@@ -537,12 +565,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!_focusModeConfig.enabled || _focusModeConfig.blockedApps.isEmpty) {
       return;
     }
-    if (!_focusModePermissionGranted) {
+    final permissionGranted = await _refreshFocusModePermissionState();
+    if (!permissionGranted) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Completa los permisos obligatorios desde el inicio de Focus para usar Modo Enfoque Total.',
+              'Activa Accesibilidad, superposición y acceso de uso.',
             ),
           ),
         );
@@ -635,6 +664,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       }
       return;
     }
+    await _refreshFocusModePermissionState();
     if (_isRunning && _mode == 'focus') {
       await _syncFocusModeShield(provider);
       unawaited(_showPomodoroNotification(provider));

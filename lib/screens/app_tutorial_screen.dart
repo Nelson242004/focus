@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class AppTutorialScreen extends StatefulWidget {
   const AppTutorialScreen({super.key});
@@ -256,4 +256,3 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 }
-

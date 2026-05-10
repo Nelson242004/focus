@@ -2,4 +2,5 @@
 <resources>
     <string name="app_name">Focus</string>
     <string name="focus_accessibility_description">Ayuda a Focus a detectar y bloquear apps distractoras durante tu sesión.</string>
+    <string name="focus_widget_description">Resumen rápido de tu próxima prioridad en Focus.</string>
 </resources>

@@ -16,18 +16,17 @@ class RequiredPermissionsGate extends StatelessWidget {
   }
 
   static Future<bool> shouldSkipSetup() async {
-    final completed = await isSetupCompleted();
-    if (completed) return true;
     final notificationsGranted = await NotificationService.hasPermissions();
     final accessibilityGranted =
         await FocusModeService.hasAccessibilityPermission();
     final overlayGranted = await FocusModeService.hasOverlayPermission();
-    final batteryGranted =
-        await FocusModeService.hasIgnoreBatteryOptimizationPermission();
+    final usageGranted = await FocusModeService.hasUsageAccessPermission();
     final allGranted = notificationsGranted &&
         accessibilityGranted &&
         overlayGranted &&
-        batteryGranted;
+        usageGranted;
+    final completed = await isSetupCompleted();
+    if (completed && allGranted) return true;
     if (allGranted) {
       await markSetupCompleted();
     }
@@ -72,13 +71,14 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
   bool _notificationsGranted = false;
   bool _accessibilityGranted = false;
   bool _overlayGranted = false;
+  bool _usageGranted = false;
   bool _batteryGranted = false;
 
   bool get _allGranted =>
       _notificationsGranted &&
       _accessibilityGranted &&
       _overlayGranted &&
-      _batteryGranted;
+      _usageGranted;
 
   @override
   void initState() {
@@ -105,6 +105,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
     final accessibilityGranted =
         await FocusModeService.hasAccessibilityPermission();
     final overlayGranted = await FocusModeService.hasOverlayPermission();
+    final usageGranted = await FocusModeService.hasUsageAccessPermission();
     final batteryGranted =
         await FocusModeService.hasIgnoreBatteryOptimizationPermission();
 
@@ -113,13 +114,12 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
       _notificationsGranted = notificationsGranted;
       _accessibilityGranted = accessibilityGranted;
       _overlayGranted = overlayGranted;
+      _usageGranted = usageGranted;
       _batteryGranted = batteryGranted;
       _loading = false;
     });
-    if (notificationsGranted &&
-        accessibilityGranted &&
-        overlayGranted &&
-        batteryGranted) {
+
+    if (_allGranted) {
       await RequiredPermissionsGate.markSetupCompleted();
     }
   }
@@ -141,6 +141,12 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
     await _refreshStatus();
   }
 
+  Future<void> _requestUsageAccess() async {
+    await FocusModeService.openUsageAccessSettings();
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await _refreshStatus();
+  }
+
   Future<void> _requestBattery() async {
     await FocusModeService.openIgnoreBatteryOptimizationSettings();
     await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -153,6 +159,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
       if (!_notificationsGranted) await _requestNotifications();
       if (!_accessibilityGranted) await _requestAccessibility();
       if (!_overlayGranted) await _requestOverlay();
+      if (!_usageGranted) await _requestUsageAccess();
       if (!_batteryGranted) await _requestBattery();
     } finally {
       if (mounted) setState(() => _requesting = false);
@@ -188,7 +195,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                'Activa todo antes de entrar. Así Focus podrá mantener vivo el Pomodoro, mostrar el bloqueo y cerrar apps distractoras al instante.',
+                'Activa lo esencial antes de entrar. Así Focus podrá mantener vivo el Pomodoro y bloquear distracciones al instante.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 22),
@@ -224,12 +231,22 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                     ),
                     const SizedBox(height: 12),
                     _PermissionStatusCard(
+                      icon: Icons.manage_search_rounded,
+                      title: 'Acceso de uso',
+                      subtitle:
+                          'Permite saber qué app está abierta para bloquearla al instante.',
+                      granted: _usageGranted,
+                      onTap: _requestUsageAccess,
+                    ),
+                    const SizedBox(height: 12),
+                    _PermissionStatusCard(
                       icon: Icons.battery_charging_full_rounded,
                       title: 'Ignorar optimización de batería',
                       subtitle:
-                          'Ayuda a que el bloqueo y el Pomodoro sigan vivos fuera de la app.',
+                          'Opcional, pero ayuda a que el bloqueo dure mejor fuera de la app.',
                       granted: _batteryGranted,
                       onTap: _requestBattery,
+                      required: false,
                     ),
                   ],
                 ),
@@ -275,6 +292,7 @@ class _PermissionStatusCard extends StatelessWidget {
   final String subtitle;
   final bool granted;
   final VoidCallback onTap;
+  final bool required;
 
   const _PermissionStatusCard({
     required this.icon,
@@ -282,6 +300,7 @@ class _PermissionStatusCard extends StatelessWidget {
     required this.subtitle,
     required this.granted,
     required this.onTap,
+    this.required = true,
   });
 
   @override
@@ -360,7 +379,11 @@ class _PermissionStatusCard extends StatelessWidget {
                     Text(subtitle),
                     const SizedBox(height: 10),
                     Text(
-                      granted ? 'Listo' : 'Toca para activarlo',
+                      granted
+                          ? 'Listo'
+                          : required
+                              ? 'Toca para activarlo'
+                              : 'Opcional, pero recomendado',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: accent,
                             fontWeight: FontWeight.w800,

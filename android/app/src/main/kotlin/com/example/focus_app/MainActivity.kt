@@ -1,6 +1,8 @@
 ﻿package com.example.focus_app
 
+import android.appwidget.AppWidgetManager
 import android.app.usage.UsageStatsManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -24,6 +26,7 @@ import kotlin.concurrent.thread
 
 class MainActivity : FlutterActivity() {
     private val channelName = "focus_mode_total"
+    private val widgetChannelName = "focus_home_widget"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -90,6 +93,62 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, widgetChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "updateWidget" -> {
+                        updateWidgetState(
+                            widgetMode = call.argument<String>("widgetMode").orEmpty(),
+                            classTitle = call.argument<String>("classTitle").orEmpty(),
+                            classDetail = call.argument<String>("classDetail").orEmpty(),
+                            examTitle = call.argument<String>("examTitle").orEmpty(),
+                            examDetail = call.argument<String>("examDetail").orEmpty(),
+                            examNote = call.argument<String>("examNote").orEmpty(),
+                            examAtMillis = call.argument<Long>("examAtMillis")
+                                ?: call.argument<Int>("examAtMillis")?.toLong()
+                                ?: 0L,
+                            meta = call.argument<String>("meta").orEmpty(),
+                        )
+                        result.success(null)
+                    }
+
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    private fun updateWidgetState(
+        widgetMode: String,
+        classTitle: String,
+        classDetail: String,
+        examTitle: String,
+        examDetail: String,
+        examNote: String,
+        examAtMillis: Long,
+        meta: String,
+    ) {
+        val prefs = getSharedPreferences(FocusHomeWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs
+            .edit()
+            .putString(FocusHomeWidgetProvider.KEY_WIDGET_MODE, widgetMode)
+            .putString(FocusHomeWidgetProvider.KEY_CLASS_TITLE, classTitle)
+            .putString(FocusHomeWidgetProvider.KEY_CLASS_DETAIL, classDetail)
+            .putString(FocusHomeWidgetProvider.KEY_EXAM_TITLE, examTitle)
+            .putString(FocusHomeWidgetProvider.KEY_EXAM_DETAIL, examDetail)
+            .putString(FocusHomeWidgetProvider.KEY_EXAM_NOTE, examNote)
+            .putLong(FocusHomeWidgetProvider.KEY_EXAM_AT_MILLIS, examAtMillis)
+            .putString(FocusHomeWidgetProvider.KEY_META, meta)
+            .apply()
+
+        val manager = AppWidgetManager.getInstance(this)
+        val miniComponent = ComponentName(this, FocusMiniHomeWidgetProvider::class.java)
+        FocusHomeWidgetProvider.updateWidgets(
+            this,
+            manager,
+            manager.getAppWidgetIds(miniComponent),
+            R.layout.focus_home_widget_mini,
+        )
     }
 
     private fun getInstalledApps(): List<Map<String, String>> {
@@ -213,7 +272,12 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun hasAccessibilityPermission(): Boolean {
-        val expectedService = "$packageName/${FocusAccessibilityService::class.java.name}"
+        val component = ComponentName(this, FocusAccessibilityService::class.java)
+        val expectedServices = setOf(
+            component.flattenToString(),
+            component.flattenToShortString(),
+            "$packageName/${FocusAccessibilityService::class.java.name}",
+        )
         val enabledServices = Settings.Secure.getString(
             contentResolver,
             Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
@@ -221,7 +285,8 @@ class MainActivity : FlutterActivity() {
         val splitter = TextUtils.SimpleStringSplitter(':')
         splitter.setString(enabledServices)
         while (splitter.hasNext()) {
-            if (splitter.next().equals(expectedService, ignoreCase = true)) {
+            val enabledService = splitter.next()
+            if (expectedServices.any { enabledService.equals(it, ignoreCase = true) }) {
                 return true
             }
         }

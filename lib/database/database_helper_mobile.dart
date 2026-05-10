@@ -235,6 +235,7 @@ class DatabaseHelper {
       s.notificationsEnabled ? 1 : 0,
       s.onboardingCompleted ? 1 : 0,
       s.breakAfterFocus,
+      s.userName,
     ].join('|');
   }
 
@@ -269,6 +270,7 @@ class DatabaseHelper {
         breakAfterFocus: (parts.elementAtOrNull(13) ?? '').trim().isNotEmpty
             ? parts[13]
             : 'auto',
+        userName: parts.elementAtOrNull(14) ?? '',
       );
     } catch (_) {
       return AppSettings();

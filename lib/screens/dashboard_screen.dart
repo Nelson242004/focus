@@ -1,16 +1,24 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  bool _askedForName = false;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
+        _maybeAskForUserName(provider);
         final nextExam = provider.nextUpcomingExam;
         final nextClass = provider.nextScheduleEntry;
         final nextExamMeta = nextExam == null
@@ -60,6 +68,58 @@ class DashboardScreen extends StatelessWidget {
       },
     );
   }
+
+  void _maybeAskForUserName(AppProvider provider) {
+    if (_askedForName || provider.settings.userName.trim().isNotEmpty) return;
+    _askedForName = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showUserNameDialog(provider);
+    });
+  }
+
+  Future<void> _showUserNameDialog(AppProvider provider) async {
+    final controller = TextEditingController();
+    try {
+      final name = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('¿Cómo te llamas?'),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Tu nombre',
+                hintText: 'Ej. Nelson',
+              ),
+              onSubmitted: (value) =>
+                  Navigator.of(dialogContext).pop(value.trim()),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(''),
+                child: const Text('Después'),
+              ),
+              FilledButton(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop(controller.text.trim()),
+                child: const Text('Guardar'),
+              ),
+            ],
+          );
+        },
+      );
+      final cleaned = (name ?? '').trim();
+      if (cleaned.isNotEmpty) {
+        await provider.updateUserName(cleaned);
+      }
+    } finally {
+      controller.dispose();
+    }
+  }
 }
 
 class _PremiumHero extends StatelessWidget {
@@ -71,6 +131,10 @@ class _PremiumHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final remaining =
         (provider.nextLevelTarget - provider.gamifiedPoints).clamp(0, 999999);
+    final userName = provider.settings.userName.trim();
+    final greeting =
+        userName.isEmpty ? '👋 Hola, vamos con todo' : '👋 Hola, $userName';
+
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: provider.levelProgress),
       duration: const Duration(milliseconds: 750),
@@ -85,12 +149,12 @@ class _PremiumHero extends StatelessWidget {
                   ? const [
                       Color(0xFF020617),
                       Color(0xFF0F172A),
-                      Color(0xFF1D4ED8)
+                      Color(0xFF1D4ED8),
                     ]
                   : const [
                       Color(0xFF0F172A),
                       Color(0xFF1D4ED8),
-                      Color(0xFF38BDF8)
+                      Color(0xFF38BDF8),
                     ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -112,9 +176,11 @@ class _PremiumHero extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Rendimiento general',
-                          style: TextStyle(
+                        Text(
+                          greeting,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
                             color: Colors.white70,
                             fontWeight: FontWeight.w600,
                           ),
@@ -204,7 +270,7 @@ class _LevelMedallion extends StatelessWidget {
       1 => (icon: Icons.rocket_launch_rounded, color: const Color(0xFF93C5FD)),
       2 => (
           icon: Icons.workspace_premium_rounded,
-          color: const Color(0xFF86EFAC)
+          color: const Color(0xFF86EFAC),
         ),
       3 => (icon: Icons.shield_rounded, color: const Color(0xFFFDE68A)),
       4 => (icon: Icons.auto_awesome_rounded, color: const Color(0xFFF9A8D4)),
@@ -425,4 +491,3 @@ class _MetricData {
 
   const _MetricData(this.icon, this.color, this.value, this.label);
 }
-

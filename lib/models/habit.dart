@@ -1,4 +1,4 @@
-﻿class Habit {
+class Habit {
   int? id;
   String name;
   String identity;
@@ -96,4 +96,3 @@
     );
   }
 }
-

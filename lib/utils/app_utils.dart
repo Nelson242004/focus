@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../models/exam.dart';
@@ -71,4 +71,3 @@ String weekdayLabel(int dayOfWeek) {
   if (dayOfWeek < 0 || dayOfWeek >= days.length) return 'Día desconocido';
   return days[dayOfWeek];
 }
-

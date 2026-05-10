@@ -1,8 +1,9 @@
-﻿import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../services/progress_share_service.dart';
 
 class StatisticsScreen extends StatelessWidget {
   const StatisticsScreen({super.key});
@@ -90,6 +91,7 @@ class StatisticsScreen extends StatelessWidget {
                 'Tu rendimiento concentrado en una lectura visual más clara.'),
             const SizedBox(height: 16),
             _StatsHero(
+              provider: provider,
               totalHours: totalHours,
               strongestSubject: strongestSubject.key,
               bestDay: bestDay.toInt(),
@@ -323,11 +325,13 @@ class _SubjectLegendChip extends StatelessWidget {
 }
 
 class _StatsHero extends StatelessWidget {
+  final AppProvider provider;
   final double totalHours;
   final String strongestSubject;
   final int bestDay;
 
   const _StatsHero({
+    required this.provider,
     required this.totalHours,
     required this.strongestSubject,
     required this.bestDay,
@@ -355,8 +359,23 @@ class _StatsHero extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Lectura general del rendimiento',
-              style: TextStyle(color: Colors.white70)),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Lectura general del rendimiento',
+                    style: TextStyle(color: Colors.white70)),
+              ),
+              IconButton(
+                tooltip: 'Compartir progreso',
+                onPressed: () =>
+                    ProgressShareService.shareWeeklyProgress(context, provider),
+                icon: const Icon(
+                  Icons.ios_share_rounded,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           Text(
             '${totalHours.toStringAsFixed(1)} horas acumuladas',
@@ -442,4 +461,3 @@ class _ChartShell extends StatelessWidget {
     );
   }
 }
-

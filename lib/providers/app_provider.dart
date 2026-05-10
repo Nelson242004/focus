@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/app_settings.dart';
 import '../models/exam.dart';
@@ -8,6 +8,7 @@ import '../models/resource_link.dart';
 import '../models/schedule.dart';
 import '../models/subject.dart';
 import '../services/notification_service.dart';
+import '../services/widget_sync_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/resource_catalog.dart';
 
@@ -138,7 +139,13 @@ class AppProvider extends ChangeNotifier {
     } finally {
       isLoaded = true;
       notifyListeners();
+      await WidgetSyncService.syncFromProvider(this);
     }
+  }
+
+  Future<void> _notifyAndSyncWidget() async {
+    notifyListeners();
+    await WidgetSyncService.syncFromProvider(this);
   }
 
   Future<void> _loadPomodoros() async {
@@ -224,31 +231,31 @@ class AppProvider extends ChangeNotifier {
   Future<void> addPomodoro(Pomodoro p) async {
     await db.insertPomodoro(p);
     await _loadPomodoros();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> deletePomodoro(int id) async {
     await db.deletePomodoro(id);
     await _loadPomodoros();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> addHabit(Habit h) async {
     await db.insertHabit(h);
     await _loadHabits();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> updateHabit(Habit h) async {
     await db.updateHabit(h);
     await _loadHabits();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> deleteHabit(int id) async {
     await db.deleteHabit(id);
     await _loadHabits();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   List<ResourceLink> resourcesByCategory(String category, {int? subjectId}) {
@@ -272,13 +279,13 @@ class AppProvider extends ChangeNotifier {
   Future<void> addResource(ResourceLink resource) async {
     await db.insertResource(resource);
     await _loadResources();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> deleteResource(int id) async {
     await db.deleteResource(id);
     await _loadResources();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   void _ensureSubjectNameAvailable(String name, {int? ignoreId}) {
@@ -317,7 +324,7 @@ class AppProvider extends ChangeNotifier {
       await db.insertSchedule(scheduleToSave);
       await _loadSubjects();
       await _loadSchedules();
-      notifyListeners();
+      await _notifyAndSyncWidget();
       return savedSubject;
     } catch (_) {
       throw StateError('No se pudo guardar la materia.');
@@ -332,7 +339,7 @@ class AppProvider extends ChangeNotifier {
       throw StateError('No se pudo guardar la materia.');
     }
     await _loadSubjects();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> updateSubject(Subject s) async {
@@ -345,7 +352,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadSubjects();
     await _loadExams();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> deleteSubject(int id) async {
@@ -353,7 +360,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSubjects();
     await _loadSchedules();
     await _loadExams();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   bool hasScheduleConflict(Schedule candidate, {int? ignoreId}) {
@@ -375,7 +382,7 @@ class AppProvider extends ChangeNotifier {
     }
     await db.insertSchedule(s);
     await _loadSchedules();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> updateSchedule(Schedule s) async {
@@ -384,13 +391,13 @@ class AppProvider extends ChangeNotifier {
     }
     await db.updateSchedule(s);
     await _loadSchedules();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> deleteSchedule(int id) async {
     await db.deleteSchedule(id);
     await _loadSchedules();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<List<Schedule>> getSchedulesForSubject(int subjectId) async {
@@ -419,7 +426,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> updateExam(Exam e) async {
@@ -434,7 +441,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Exam _normalizeExam(Exam exam) {
@@ -456,7 +463,7 @@ class AppProvider extends ChangeNotifier {
     await db.deleteExam(id);
     await NotificationService.cancelExamNotifications(id);
     await _loadExams();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> clearAcademicData() async {
@@ -470,7 +477,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSchedules();
     await _loadExams();
     await _loadResources();
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   Future<void> updateSettings(
@@ -482,7 +489,7 @@ class AppProvider extends ChangeNotifier {
     if (syncNotifications) {
       await _syncExamNotifications();
     }
-    notifyListeners();
+    await _notifyAndSyncWidget();
   }
 
   AppSettings _settingsCopy({
@@ -500,6 +507,7 @@ class AppProvider extends ChangeNotifier {
     bool? notificationsEnabled,
     bool? onboardingCompleted,
     String? breakAfterFocus,
+    String? userName,
   }) {
     return AppSettings(
       themeMode: themeMode ?? settings.themeMode,
@@ -517,6 +525,7 @@ class AppProvider extends ChangeNotifier {
           notificationsEnabled ?? settings.notificationsEnabled,
       onboardingCompleted: onboardingCompleted ?? settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? settings.breakAfterFocus,
+      userName: userName ?? settings.userName,
     );
   }
 
@@ -529,6 +538,10 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> updateSelectedIdentity(String identity) async {
     await updateSettings(_settingsCopy(selectedIdentity: identity));
+  }
+
+  Future<void> updateUserName(String userName) async {
+    await updateSettings(_settingsCopy(userName: userName.trim()));
   }
 
   Future<void> updateStartScreen(String startScreen) async {
@@ -686,12 +699,15 @@ class AppProvider extends ChangeNotifier {
 
   Exam? get nextUpcomingExam {
     final now = DateTime.now();
-    for (final exam in exams) {
-      if (!combineDateAndTime(exam.date, exam.startTime).isBefore(now)) {
-        return exam;
-      }
-    }
-    return null;
+    final upcoming = exams
+        .where((exam) =>
+            !combineDateAndTime(exam.date, exam.startTime).isBefore(now))
+        .toList()
+      ..sort(
+        (a, b) => combineDateAndTime(a.date, a.startTime)
+            .compareTo(combineDateAndTime(b.date, b.startTime)),
+      );
+    return upcoming.isEmpty ? null : upcoming.first;
   }
 
   UpcomingScheduleEntry? get nextScheduleEntry {
@@ -723,4 +739,3 @@ class AppProvider extends ChangeNotifier {
     return DateTime(now.year, now.month, now.day + 7, hour, minute);
   }
 }
-

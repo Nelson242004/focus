@@ -33,7 +33,7 @@ class NotificationService {
     } catch (_) {}
 
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_stat_focus');
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -193,6 +193,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           _pomodoroChannelId,
           _pomodoroChannelName,
+          icon: 'ic_stat_focus',
           channelDescription: _pomodoroChannelDescription,
           importance: Importance.high,
           priority: Priority.high,
@@ -207,7 +208,7 @@ class NotificationService {
           showWhen: false,
           usesChronometer: false,
           chronometerCountDown: false,
-          ticker: 'Pomodoro activo',
+          ticker: 'Focus activo',
           subText: body,
           color: isFocus ? const Color(0xFF2563EB) : const Color(0xFF10B981),
           playSound: false,

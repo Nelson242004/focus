@@ -1,4 +1,4 @@
-﻿class AppLinks {
+class AppLinks {
   const AppLinks._();
 
   static const String developerName = 'PoliCode';
@@ -17,4 +17,3 @@
   static const String updateManifest =
       'https://policode.netlify.app/focus-update.json';
 }
-

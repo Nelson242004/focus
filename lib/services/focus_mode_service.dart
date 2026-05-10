@@ -141,8 +141,8 @@ class FocusModeService {
     if (kIsWeb) return false;
     final accessibility = await hasAccessibilityPermission();
     final overlay = await hasOverlayPermission();
-    final battery = await hasIgnoreBatteryOptimizationPermission();
-    return accessibility && overlay && battery;
+    final usageAccess = await hasUsageAccessPermission();
+    return accessibility && overlay && usageAccess;
   }
 
   static Future<void> openIgnoreBatteryOptimizationSettings() async {

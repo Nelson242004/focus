@@ -15,6 +15,7 @@ class AppSettings {
   bool notificationsEnabled;
   bool onboardingCompleted;
   String breakAfterFocus;
+  String userName;
 
   AppSettings({
     this.themeMode = ThemeModeSetting.light,
@@ -32,6 +33,7 @@ class AppSettings {
     this.notificationsEnabled = true,
     this.onboardingCompleted = false,
     this.breakAfterFocus = 'auto',
+    this.userName = '',
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +52,7 @@ class AppSettings {
       'notificationsEnabled': notificationsEnabled,
       'onboardingCompleted': onboardingCompleted,
       'breakAfterFocus': breakAfterFocus,
+      'userName': userName,
     };
   }
 
@@ -75,6 +78,7 @@ class AppSettings {
       onboardingCompleted:
           _boolFromMap(map['onboardingCompleted'], fallback: false),
       breakAfterFocus: '${map['breakAfterFocus'] ?? 'auto'}',
+      userName: '${map['userName'] ?? ''}',
     );
   }
 

@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
@@ -23,6 +24,7 @@ import androidx.core.content.ContextCompat
 import kotlin.random.Random
 
 class FocusOverlayManager(private val context: Context) {
+    private val tag = "FocusOverlay"
     data class Quote(val text: String, val author: String)
 
     private val handler = Handler(Looper.getMainLooper())
@@ -34,12 +36,20 @@ class FocusOverlayManager(private val context: Context) {
         appLabel: String,
         subject: String,
         onCloseApp: () -> Unit,
+        onFailed: (() -> Unit)? = null,
     ) {
-        if (!Settings.canDrawOverlays(context)) return
-        if (overlayView != null) return
+        if (overlayView != null) {
+            dismissOverlay(immediate = true)
+        }
 
         handler.post {
             runCatching {
+                if (!canShowOverlay()) {
+                    warnLog("Overlay unavailable for current device/service state")
+                    onFailed?.invoke()
+                    return@post
+                }
+                debugLog("Adding overlay for package=$packageName")
                 val root = buildOverlayView(packageName, appLabel, subject, onCloseApp)
                 overlayView = root
                 windowManager.addView(root, layoutParams())
@@ -51,13 +61,24 @@ class FocusOverlayManager(private val context: Context) {
                     .setDuration(420)
                     .setInterpolator(OvershootInterpolator(0.8f))
                     .start()
+            }.onFailure {
+                errorLog("Failed to show overlay", it)
+                onFailed?.invoke()
             }
         }
     }
 
-    fun dismissOverlay() {
+    fun dismissOverlay(immediate: Boolean = false) {
         handler.post {
             val current = overlayView ?: return@post
+            debugLog("Dismissing overlay")
+            if (immediate) {
+                runCatching { windowManager.removeView(current) }
+                if (overlayView === current) {
+                    overlayView = null
+                }
+                return@post
+            }
             current.animate()
                 .alpha(0f)
                 .translationY(48f)
@@ -292,10 +313,20 @@ class FocusOverlayManager(private val context: Context) {
         return phrases[Random.nextInt(phrases.size)]
     }
 
+    private fun canShowOverlay(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            true
+        } else {
+            Settings.canDrawOverlays(context)
+        }
+    }
+
     private fun layoutParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.MATCH_PARENT,
         WindowManager.LayoutParams.MATCH_PARENT,
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
         } else {
             WindowManager.LayoutParams.TYPE_PHONE
@@ -317,5 +348,17 @@ class FocusOverlayManager(private val context: Context) {
             LinearLayout.LayoutParams.MATCH_PARENT,
             height,
         )
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) Log.d(tag, message)
+    }
+
+    private fun warnLog(message: String) {
+        if (BuildConfig.DEBUG) Log.w(tag, message)
+    }
+
+    private fun errorLog(message: String, error: Throwable) {
+        if (BuildConfig.DEBUG) Log.e(tag, message, error)
     }
 }

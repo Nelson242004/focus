@@ -5,30 +5,49 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
 class FocusShieldService : Service() {
+    private val tag = "FocusShieldService"
     private var blockedAppsRaw: String = ""
+    private var blockedApps: Map<String, String> = emptyMap()
     private var subject: String = "General"
     private var totalDurationSeconds: Int = 0
     private var endAtMillis: Long = 0L
     private var timerExecutor: ScheduledExecutorService? = null
+    private var foregroundAppExecutor: ScheduledExecutorService? = null
+    private var overlayManager: FocusOverlayManager? = null
+    private var lastBlockedPackage = ""
+    private var lastBlockedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        overlayManager = FocusOverlayManager(this)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        blockedAppsRaw = parseBlockedApps(intent).joinToString("||") { "${it.first}::${it.second}" }
+        debugLog("onStartCommand called")
+        blockedApps = parseBlockedApps(intent).toMap()
+        blockedAppsRaw = blockedApps.entries.joinToString("||") { "${it.key}::${it.value}" }
         subject = intent?.getStringExtra(EXTRA_SUBJECT)?.takeIf { it.isNotBlank() } ?: "General"
         totalDurationSeconds = intent?.getIntExtra(EXTRA_DURATION_SECONDS, 0) ?: 0
+        debugLog("session payload duration=$totalDurationSeconds blockedCount=${blockedApps.size}")
 
         if (blockedAppsRaw.isBlank() || totalDurationSeconds <= 0) {
+            warnLog("Invalid session payload; stopping service")
             stopSelf()
             return START_NOT_STICKY
         }
@@ -40,14 +59,20 @@ class FocusShieldService : Service() {
             remainingSeconds = totalDurationSeconds,
             resetCounters = true,
         )
-        startForeground(NOTIFICATION_ID, buildOngoingNotification(totalDurationSeconds))
+        startFocusForeground(totalDurationSeconds)
         startTimer()
+        startForegroundAppMonitor()
+        debugLog("Foreground service started successfully")
         return START_STICKY
     }
 
     override fun onDestroy() {
+        debugLog("onDestroy called")
         timerExecutor?.shutdownNow()
         timerExecutor = null
+        foregroundAppExecutor?.shutdownNow()
+        foregroundAppExecutor = null
+        overlayManager?.dismissOverlay(immediate = true)
         persistSessionState(active = false, remainingSeconds = 0, keepCounters = true)
         stopForeground(STOP_FOREGROUND_REMOVE)
         super.onDestroy()
@@ -67,6 +92,7 @@ class FocusShieldService : Service() {
     private fun onTick() {
         val remainingMs = endAtMillis - System.currentTimeMillis()
         if (remainingMs <= 0L) {
+            debugLog("Session finished; stopping service")
             persistSessionState(active = false, remainingSeconds = 0, keepCounters = true)
             stopSelf()
             return
@@ -78,12 +104,96 @@ class FocusShieldService : Service() {
         persistSessionState(active = true, remainingSeconds = remainingSeconds, keepCounters = true)
     }
 
+    private fun startForegroundAppMonitor() {
+        foregroundAppExecutor?.shutdownNow()
+        foregroundAppExecutor = Executors.newSingleThreadScheduledExecutor()
+        foregroundAppExecutor?.scheduleWithFixedDelay(
+            { runCatching { inspectForegroundApp() }.onFailure { warnLog("Foreground monitor failed: ${it.message}") } },
+            250L,
+            650L,
+            TimeUnit.MILLISECONDS,
+        )
+    }
+
+    private fun inspectForegroundApp() {
+        if (blockedApps.isEmpty() || endAtMillis <= System.currentTimeMillis()) return
+        val packageName = currentForegroundPackage() ?: return
+        if (shouldIgnorePackage(packageName)) return
+        val appLabel = blockedApps[packageName] ?: return
+        val now = System.currentTimeMillis()
+        if (packageName == lastBlockedPackage && now - lastBlockedAt < 1800L) return
+
+        debugLog("Usage monitor blocked package=$packageName")
+        lastBlockedPackage = packageName
+        lastBlockedAt = now
+        val prefs = prefs()
+        prefs.edit()
+            .putInt(KEY_BLOCKED_ATTEMPTS, prefs.getInt(KEY_BLOCKED_ATTEMPTS, 0) + 1)
+            .putString(KEY_LAST_BLOCKED_APP, appLabel)
+            .putLong(KEY_LAST_BLOCKED_AT_MILLIS, now)
+            .apply()
+
+        overlayManager?.showBlockedOverlay(
+            packageName = packageName,
+            appLabel = appLabel,
+            subject = subject,
+            onCloseApp = {
+                launchHome()
+                overlayManager?.dismissOverlay()
+                lastBlockedPackage = ""
+            },
+            onFailed = {
+                launchHome()
+                lastBlockedPackage = ""
+            },
+        )
+    }
+
+    private fun currentForegroundPackage(): String? {
+        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val now = System.currentTimeMillis()
+        val events = usageStatsManager.queryEvents(now - 8_000L, now)
+        val event = android.app.usage.UsageEvents.Event()
+        var latestPackage: String? = null
+        var latestTime = 0L
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            val isForegroundEvent =
+                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
+                    event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
+            if (isForegroundEvent && event.timeStamp >= latestTime) {
+                latestTime = event.timeStamp
+                latestPackage = event.packageName
+            }
+        }
+
+        return latestPackage
+    }
+
+    private fun launchHome() {
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        runCatching { startActivity(homeIntent) }
+    }
+
+    private fun shouldIgnorePackage(packageName: String): Boolean {
+        return packageName == this.packageName ||
+            packageName == "android" ||
+            packageName == "com.android.systemui" ||
+            packageName.contains("permissioncontroller") ||
+            packageName.contains("packageinstaller")
+    }
+
     private fun persistSessionState(
         active: Boolean,
         remainingSeconds: Int,
         resetCounters: Boolean = false,
         keepCounters: Boolean = false,
     ) {
+        debugLog("persistSessionState active=$active remaining=$remainingSeconds reset=$resetCounters keep=$keepCounters")
         val prefs = prefs()
         val editor = prefs.edit()
             .putBoolean(KEY_ACTIVE, active)
@@ -125,15 +235,11 @@ class FocusShieldService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val title = "Enfoque · ${formatTime(remainingSeconds)}"
-
         return NotificationCompat.Builder(this, CHANNEL_SESSION)
             .setSmallIcon(R.drawable.ic_stat_focus)
-            .setContentTitle(title)
+            .setContentTitle("Enfoque · ${formatTime(remainingSeconds)}")
             .setContentText(subject)
-            .setStyle(
-                NotificationCompat.BigTextStyle().bigText(subject),
-            )
+            .setStyle(NotificationCompat.BigTextStyle().bigText(subject))
             .setSubText(subject)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -159,12 +265,34 @@ class FocusShieldService : Service() {
         manager.createNotificationChannel(sessionChannel)
     }
 
+    private fun startFocusForeground(remainingSeconds: Int) {
+        val notification = buildOngoingNotification(remainingSeconds)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceCompat.startForeground(
+                this,
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun prefs() = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun formatTime(totalSeconds: Int): String {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return String.format("%02d:%02d", minutes, seconds)
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) Log.d(tag, message)
+    }
+
+    private fun warnLog(message: String) {
+        if (BuildConfig.DEBUG) Log.w(tag, message)
     }
 
     companion object {

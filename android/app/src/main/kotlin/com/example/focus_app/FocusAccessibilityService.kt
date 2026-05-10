@@ -4,29 +4,35 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 class FocusAccessibilityService : AccessibilityService() {
+    private val tag = "FocusAccessibility"
     private lateinit var overlayManager: FocusOverlayManager
     private val handler = Handler(Looper.getMainLooper())
     private val homePackages by lazy { resolveHomePackages() }
     private var lastBlockedPackage = ""
     private var lastBlockedAt = 0L
+    private var pendingOverlayRunnable: Runnable? = null
+
     private val activeWindowMonitor =
         object : Runnable {
             override fun run() {
                 runCatching { inspectCurrentWindow() }
-                handler.postDelayed(this, 800L)
+                handler.postDelayed(this, 450L)
             }
         }
 
     override fun onCreate() {
         super.onCreate()
-        overlayManager = FocusOverlayManager(applicationContext)
+        overlayManager = FocusOverlayManager(this)
+        debugLog("Accessibility service created")
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        debugLog("Accessibility service connected")
         handler.removeCallbacks(activeWindowMonitor)
         handler.post(activeWindowMonitor)
     }
@@ -46,6 +52,9 @@ class FocusAccessibilityService : AccessibilityService() {
             ?.toString()
             ?.takeIf { it.isNotBlank() }
             ?.let(packageCandidates::add)
+        if (packageCandidates.isNotEmpty()) {
+            debugLog("Accessibility event packages=$packageCandidates type=${event.eventType}")
+        }
         inspectPackages(packageCandidates)
     }
 
@@ -62,7 +71,9 @@ class FocusAccessibilityService : AccessibilityService() {
         val packageName = packageCandidates.firstOrNull { !shouldIgnorePackage(it) } ?: return
         val prefs = getSharedPreferences(FocusShieldService.PREFS_NAME, MODE_PRIVATE)
         val active = prefs.getBoolean(FocusShieldService.KEY_ACTIVE, false)
+        debugLog("inspectPackages package=$packageName active=$active")
         if (!active) {
+            clearPendingOverlay()
             overlayManager.dismissOverlay()
             lastBlockedPackage = ""
             return
@@ -71,7 +82,9 @@ class FocusAccessibilityService : AccessibilityService() {
         val blockedApps = parseBlockedApps(
             prefs.getString(FocusShieldService.KEY_BLOCKED_APPS_RAW, "").orEmpty(),
         )
+        debugLog("blocked apps loaded=${blockedApps.keys}")
         if (blockedApps.isEmpty()) {
+            clearPendingOverlay()
             overlayManager.dismissOverlay()
             lastBlockedPackage = ""
             return
@@ -79,6 +92,7 @@ class FocusAccessibilityService : AccessibilityService() {
 
         val blockedPackage = packageCandidates.firstOrNull { blockedApps.containsKey(it) }
         if (blockedPackage == null) {
+            debugLog("Package not blocked: $packageName")
             if (overlayManager.isShowing() &&
                 packageName != lastBlockedPackage &&
                 !homePackages.contains(packageName)
@@ -92,10 +106,8 @@ class FocusAccessibilityService : AccessibilityService() {
         }
 
         val now = System.currentTimeMillis()
-        if (overlayManager.isShowing() &&
-            blockedPackage == lastBlockedPackage &&
-            now - lastBlockedAt < 2500L
-        ) {
+        if (blockedPackage == lastBlockedPackage && now - lastBlockedAt < 1800L) {
+            debugLog("Ignoring repeated block event for $blockedPackage")
             return
         }
 
@@ -112,32 +124,52 @@ class FocusAccessibilityService : AccessibilityService() {
         lastBlockedPackage = blockedPackage
         lastBlockedAt = now
 
-        handler.removeCallbacksAndMessages(null)
-        handler.postDelayed({
-            val stillActive = prefs.getBoolean(FocusShieldService.KEY_ACTIVE, false)
-            if (!stillActive) return@postDelayed
+        clearPendingOverlay()
+        debugLog("Blocked package detected=$blockedPackage showing overlay soon")
 
-            overlayManager.showBlockedOverlay(
-                packageName = blockedPackage,
-                appLabel = appLabel,
-                subject = prefs.getString(FocusShieldService.KEY_SUBJECT, "General")
-                    ?: "General",
-                onCloseApp = {
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    handler.postDelayed({
-                        overlayManager.dismissOverlay()
-                        lastBlockedPackage = ""
-                    }, 140L)
-                },
-            )
-        }, 120L)
+        val runnable =
+            Runnable {
+                val stillActive = prefs.getBoolean(FocusShieldService.KEY_ACTIVE, false)
+                if (!stillActive) return@Runnable
+                debugLog("Triggering overlay for $blockedPackage")
+
+                overlayManager.showBlockedOverlay(
+                    packageName = blockedPackage,
+                    appLabel = appLabel,
+                    subject = prefs.getString(FocusShieldService.KEY_SUBJECT, "General")
+                        ?: "General",
+                    onCloseApp = {
+                        debugLog("Overlay requested close for $blockedPackage")
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                        handler.postDelayed({
+                            overlayManager.dismissOverlay()
+                            lastBlockedPackage = ""
+                        }, 180L)
+                    },
+                    onFailed = {
+                        warnLog("Overlay could not be shown; using HOME fallback for $blockedPackage")
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                        handler.postDelayed({
+                            lastBlockedPackage = ""
+                        }, 220L)
+                    },
+                )
+            }
+        pendingOverlayRunnable = runnable
+        handler.postDelayed(runnable, 120L)
+    }
+
+    private fun clearPendingOverlay() {
+        pendingOverlayRunnable?.let(handler::removeCallbacks)
+        pendingOverlayRunnable = null
     }
 
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        debugLog("Accessibility service destroyed")
         handler.removeCallbacks(activeWindowMonitor)
-        handler.removeCallbacksAndMessages(null)
+        clearPendingOverlay()
         overlayManager.dismissOverlay()
         super.onDestroy()
     }
@@ -174,5 +206,13 @@ class FocusAccessibilityService : AccessibilityService() {
                 .mapNotNull { it.activityInfo?.packageName }
                 .toSet()
         }.getOrDefault(emptySet())
+    }
+
+    private fun debugLog(message: String) {
+        if (BuildConfig.DEBUG) Log.d(tag, message)
+    }
+
+    private fun warnLog(message: String) {
+        if (BuildConfig.DEBUG) Log.w(tag, message)
     }
 }
