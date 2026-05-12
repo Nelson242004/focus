@@ -17,7 +17,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> with SingleTi
   Timer? _refreshTimer;
   DateTime _nextUpdate = RankingService.nextHourlyUpdate();
   int _currentTabIndex = 0;
-  LeagueType? _selectedLeague;
+  String? _selectedLeague;
   bool _signingIn = false;
   late TabController _tabController;
 
@@ -143,7 +143,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> with SingleTi
         Expanded(
           child: StreamBuilder<List<RankingEntry>>(
             stream: _selectedLeague != null
-                ? RankingService.leagueLeaderboardStream(league: LeagueInfo.getLeagueByType(_selectedLeague!).name)
+                ? RankingService.leagueLeaderboardStream(league: _selectedLeague!)
                 : RankingService.globalLeaderboardStream(),
             builder: (context, snapshot) {
               return _RankingContent(
@@ -151,7 +151,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> with SingleTi
                 entries: snapshot.data ?? [],
                 isLoading: snapshot.connectionState == ConnectionState.waiting,
                 viewTitle: _selectedLeague != null 
-                    ? 'Liga ${LeagueInfo.getLeagueByType(_selectedLeague!).name}'
+                    ? 'Liga $_selectedLeague'
                     : 'Todas las Ligas',
                 showLeagueSelector: false,
               );
@@ -205,12 +205,12 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> with SingleTi
 
 class _SignInPanel extends StatelessWidget {
   final Future<void> Function() onSignIn;
+  final bool signingIn;
 
-  const _SignInPanel({required this.onSignIn});
+  const _SignInPanel({required this.onSignIn, required this.signingIn});
 
   @override
   Widget build(BuildContext context) {
-    final state = context.findAncestorStateOfType<_GlobalRankingScreenState>();
     return ListView(
       padding: const EdgeInsets.all(18),
       children: [
@@ -222,8 +222,8 @@ class _SignInPanel extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
-          onPressed: state?._signingIn == true ? null : onSignIn,
-          icon: state?._signingIn == true
+          onPressed: signingIn ? null : onSignIn,
+          icon: signingIn
               ? const SizedBox(
                   width: 18,
                   height: 18,
