@@ -14,6 +14,7 @@ import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
@@ -506,6 +507,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             subject: subjectName,
             duration: provider.settings.focusTime,
           ),
+        );
+        unawaited(
+          RankingService.submitPomodoro(
+            durationMinutes: provider.settings.focusTime,
+            distractionFree: summary.blockedAttempts == 0,
+          ).catchError((Object error) {
+            debugPrint('[FocusRanking] No se pudo enviar el Pomodoro: $error');
+          }),
         );
         _completedFocusSessions++;
         final nextMode = _nextBreakMode(provider);

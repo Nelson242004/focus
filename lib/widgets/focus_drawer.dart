@@ -6,6 +6,7 @@ import '../screens/about_screen.dart';
 import '../screens/achievements_screen.dart';
 import '../screens/exams_screen.dart';
 import '../screens/help_screen.dart';
+import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
@@ -144,6 +145,14 @@ class FocusDrawer extends StatelessWidget {
                     label: 'Logros',
                     selected: selectedRoute == 'achievements',
                     onTap: () => _replace(context, const AchievementsScreen()),
+                  ),
+                  _tile(
+                    context,
+                    duration: duration,
+                    icon: Icons.public_rounded,
+                    label: 'Ranking global',
+                    selected: selectedRoute == 'ranking',
+                    onTap: () => _replace(context, const GlobalRankingScreen()),
                   ),
                   _tile(
                     context,

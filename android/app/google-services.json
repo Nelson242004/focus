@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1059624966381",
+    "project_id": "focus-bc845",
+    "storage_bucket": "focus-bc845.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1059624966381:android:eefc1397d8d1032b33d4e4",
+        "android_client_info": {
+          "package_name": "com.example.focus_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1059624966381-i6o2dojf18fkarglqr22ccvl6bm548no.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.focus_app",
+            "certificate_hash": "04f561fc6ba36089faa91b0b37c372231eaffb8c"
+          }
+        },
+        {
+          "client_id": "1059624966381-9obri2ta3d8brscndpucbiu5mlvpa06l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjviVJ2tKneVvCg2H5dsBwWA8dTgbFNwo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1059624966381-9obri2ta3d8brscndpucbiu5mlvpa06l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
