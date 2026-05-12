@@ -58,6 +58,7 @@ class RankingService {
   static Future<void> saveProfile({
     required String name,
     required String career,
+    String? university,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -71,14 +72,17 @@ class RankingService {
       'rank': rank,
       'photoUrl': user.photoURL ?? '',
       'email': user.email ?? '',
+      'university': university,
       'updatedAt': FieldValue.serverTimestamp(),
       'createdAt': FieldValue.serverTimestamp(),
+      'joinedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     await _currentScoresCollection().doc(user.uid).set({
       'uid': user.uid,
       'weekId': currentWeekId(),
       'name': cleanedName,
       'career': cleanedCareer,
+      'university': university,
       'rank': rank,
       'photoUrl': user.photoURL ?? '',
       'points': currentPoints,
@@ -107,26 +111,27 @@ class RankingService {
     final points = basePoints + bonus;
     final weekId = currentWeekId();
     final hourBucket = currentHourBucket();
-    final scoreRef = _currentScoresCollection().doc(user.uid);
 
     await _firestore.runTransaction((transaction) async {
-      final current = await transaction.get(scoreRef);
+      final current = await transaction.get(_currentScoresCollection().doc(user.uid));
       final currentPoints =
           int.tryParse('${current.data()?['points'] ?? 0}') ?? 0;
       final nextPoints = currentPoints + points;
       transaction.set(
-        scoreRef,
+        _currentScoresCollection().doc(user.uid),
         {
           'uid': user.uid,
           'weekId': weekId,
           'name': profile['name'] ?? user.displayName ?? 'Estudiante Focus',
           'career': profile['career'] ?? 'Sin carrera',
+          'university': profile['university'],
           'rank': rankForPoints(nextPoints),
           'photoUrl': profile['photoUrl'] ?? user.photoURL ?? '',
           'points': FieldValue.increment(points),
           'pomodoros': FieldValue.increment(1),
           'focusMinutes': FieldValue.increment(durationMinutes),
           'lastHourBucket': hourBucket,
+          'lastActive': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -135,6 +140,10 @@ class RankingService {
         _firestore.collection('users').doc(user.uid),
         {
           'rank': rankForPoints(nextPoints),
+          'weeklyPoints': FieldValue.increment(points),
+          'totalPoints': FieldValue.increment(points),
+          'pomodoros': FieldValue.increment(1),
+          'focusMinutes': FieldValue.increment(durationMinutes),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -150,26 +159,222 @@ class RankingService {
         .orderBy('points', descending: true)
         .limit(limit)
         .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => RankingEntry.fromMap(
-                  '${doc.data()['uid'] ?? doc.id}', doc.data()))
-              .toList(),
+        .map((snapshot) {
+      int position = 0;
+      return snapshot.docs.map((doc) {
+        position++;
+        return RankingEntry.fromMap(
+          '${doc.data()['uid'] ?? doc.id}',
+          doc.data(),
+          position: position,
         );
+      }).toList();
+    });
   }
 
-  static Future<List<RankingEntry>> fetchGlobalLeaderboard(
-      {int limit = 50}) async {
+  static Future<List<RankingEntry>> fetchGlobalLeaderboard({int limit = 50}) async {
     final snapshot = await _currentScoresCollection()
         .orderBy('points', descending: true)
         .limit(limit)
         .get();
+    int position = 0;
+    return snapshot.docs.map((doc) {
+      position++;
+      return RankingEntry.fromMap(
+        '${doc.data()['uid'] ?? doc.id}',
+        doc.data(),
+        position: position,
+      );
+    }).toList();
+  }
+
+  static Stream<List<RankingEntry>> leagueLeaderboardStream({
+    required String league,
+    int limit = 50,
+  }) {
+    return _currentScoresCollection()
+        .where('rank', isEqualTo: league)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      int position = 0;
+      return snapshot.docs.map((doc) {
+        position++;
+        return RankingEntry.fromMap(
+          '${doc.data()['uid'] ?? doc.id}',
+          doc.data(),
+          position: position,
+        );
+      }).toList();
+    });
+  }
+
+  static Future<List<RankingEntry>> fetchLeagueLeaderboard({
+    required String league,
+    int limit = 50,
+  }) async {
+    final snapshot = await _currentScoresCollection()
+        .where('rank', isEqualTo: league)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .get();
+    int position = 0;
+    return snapshot.docs.map((doc) {
+      position++;
+      return RankingEntry.fromMap(
+        '${doc.data()['uid'] ?? doc.id}',
+        doc.data(),
+        position: position,
+      );
+    }).toList();
+  }
+
+  static Stream<List<RankingEntry>> careerLeaderboardStream({
+    required String career,
+    int limit = 50,
+  }) {
+    return _currentScoresCollection()
+        .where('career', isEqualTo: career)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      int position = 0;
+      return snapshot.docs.map((doc) {
+        position++;
+        return RankingEntry.fromMap(
+          '${doc.data()['uid'] ?? doc.id}',
+          doc.data(),
+          position: position,
+        );
+      }).toList();
+    });
+  }
+
+  static Future<List<RankingEntry>> fetchCareerLeaderboard({
+    required String career,
+    int limit = 50,
+  }) async {
+    final snapshot = await _currentScoresCollection()
+        .where('career', isEqualTo: career)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .get();
+    int position = 0;
+    return snapshot.docs.map((doc) {
+      position++;
+      return RankingEntry.fromMap(
+        '${doc.data()['uid'] ?? doc.id}',
+        doc.data(),
+        position: position,
+      );
+    }).toList();
+  }
+
+  static Stream<List<RankingEntry>> friendsLeaderboardStream({
+    required List<String> friendUids,
+    int limit = 50,
+  }) {
+    if (friendUids.isEmpty) return Stream.value([]);
+    return _currentScoresCollection()
+        .where(FieldPath.documentId, whereIn: friendUids)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) {
+      int position = 0;
+      return snapshot.docs.map((doc) {
+        position++;
+        return RankingEntry.fromMap(
+          '${doc.data()['uid'] ?? doc.id}',
+          doc.data(),
+          position: position,
+        );
+      }).toList();
+    });
+  }
+
+  static Future<List<RankingEntry>> fetchFriendsLeaderboard({
+    required List<String> friendUids,
+    int limit = 50,
+  }) async {
+    if (friendUids.isEmpty) return [];
+    final snapshot = await _currentScoresCollection()
+        .where(FieldPath.documentId, whereIn: friendUids)
+        .orderBy('points', descending: true)
+        .limit(limit)
+        .get();
+    int position = 0;
+    return snapshot.docs.map((doc) {
+      position++;
+      return RankingEntry.fromMap(
+        '${doc.data()['uid'] ?? doc.id}',
+        doc.data(),
+        position: position,
+      );
+    }).toList();
+  }
+
+  static Future<RankingEntry?> getUserEntry(String uid) async {
+    final doc = await _currentScoresCollection().doc(uid).get();
+    if (!doc.exists) return null;
+    return RankingEntry.fromMap(uid, doc.data()!);
+  }
+
+  static Future<int> getUserPosition(String uid) async {
+    final userEntry = await getUserEntry(uid);
+    if (userEntry == null) return -1;
+    
+    final snapshot = await _currentScoresCollection()
+        .where('points', isGreaterThan: userEntry.points)
+        .count()
+        .get();
+    
+    return (snapshot.count ?? 0) + 1;
+  }
+
+  static Stream<RankingSeason?> currentSeasonStream() {
+    return _firestore
+        .collection('seasons')
+        .where('isActive', isEqualTo: true)
+        .limit(1)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.docs.isEmpty) return null;
+      final doc = snapshot.docs.first;
+      return RankingSeason.fromMap(doc.id, doc.data());
+    });
+  }
+
+  static Future<List<RankingSeason>> getPastSeasons({int limit = 10}) async {
+    final snapshot = await _firestore
+        .collection('seasons')
+        .where('isActive', isEqualTo: false)
+        .orderBy('endDate', descending: true)
+        .limit(limit)
+        .get();
+    
     return snapshot.docs
-        .map((doc) => RankingEntry.fromMap(
-              '${doc.data()['uid'] ?? doc.id}',
-              doc.data(),
-            ))
+        .map((doc) => RankingSeason.fromMap(doc.id, doc.data()))
         .toList();
+  }
+
+  static Future<void> awardBadge(String uid, String badgeId) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    await _firestore.runTransaction((transaction) async {
+      final userDoc = await transaction.get(userRef);
+      final badges = List<String>.from(userDoc.data()?['badges'] ?? []);
+      if (!badges.contains(badgeId)) {
+        badges.add(badgeId);
+        transaction.update(userRef, {'badges': badges});
+      }
+    });
+  }
+
+  static Future<List<String>> getUserBadges(String uid) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    return List<String>.from(doc.data()?['badges'] ?? []);
   }
 
   static String currentWeekId() {
@@ -202,5 +407,23 @@ class RankingService {
   static DateTime nextHourlyUpdate() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, now.hour + 1);
+  }
+
+  static String friendlyRankingError(Object? error) {
+    if (error == null) return 'Error desconocido';
+    final message = error.toString();
+    if (message.contains('network-request-failed')) {
+      return 'Verifica tu conexión a internet e intenta nuevamente.';
+    }
+    if (message.contains('permission-denied')) {
+      return 'No tienes permisos para realizar esta acción.';
+    }
+    if (message.contains('unavailable')) {
+      return 'El servicio no está disponible temporalmente.';
+    }
+    if (message.contains('cancelled')) {
+      return 'La operación fue cancelada.';
+    }
+    return 'Ocurrió un error. Intenta nuevamente.';
   }
 }

@@ -1,9 +1,7 @@
 import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
 import '../widgets/focus_drawer.dart';
@@ -15,93 +13,36 @@ class GlobalRankingScreen extends StatefulWidget {
   State<GlobalRankingScreen> createState() => _GlobalRankingScreenState();
 }
 
-class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
-  Timer? _hourlyTimer;
+class _GlobalRankingScreenState extends State<GlobalRankingScreen> with SingleTickerProviderStateMixin {
+  Timer? _refreshTimer;
   DateTime _nextUpdate = RankingService.nextHourlyUpdate();
-  Future<List<RankingEntry>>? _leaderboardFuture;
+  int _currentTabIndex = 0;
+  LeagueType? _selectedLeague;
   bool _signingIn = false;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _hourlyTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      final next = RankingService.nextHourlyUpdate();
-      if (mounted && next != _nextUpdate && RankingService.currentUser != null) {
-        setState(() {
-          _nextUpdate = next;
-          _leaderboardFuture = RankingService.fetchGlobalLeaderboard();
-        });
-      }
-    });
+    _tabController = TabController(length: 4, vsync: this);
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
-    _hourlyTimer?.cancel();
+    _refreshTimer?.cancel();
+    _tabController.dispose();
     super.dispose();
   }
 
-  Future<List<RankingEntry>> _leaderboard() {
-    return _leaderboardFuture ??= RankingService.fetchGlobalLeaderboard();
-  }
-
-  void _refreshLeaderboard() {
-    setState(() {
-      _leaderboardFuture = RankingService.fetchGlobalLeaderboard();
+  void _startAutoRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && RankingService.currentUser != null) {
+        setState(() {
+          _nextUpdate = RankingService.nextHourlyUpdate();
+        });
+      }
     });
-  }
-
-  Future<void> _signOut() async {
-    await RankingService.signOut();
-    if (mounted) {
-      setState(() => _leaderboardFuture = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'ranking'),
-      appBar: AppBar(title: const Text('Ranking global')),
-      body: StreamBuilder<User?>(
-        stream: RankingService.authStateChanges,
-        initialData: RankingService.currentUser,
-        builder: (context, authSnapshot) {
-          final user = authSnapshot.data;
-          if (user == null) return _SignInPanel(onSignIn: _signIn);
-          return StreamBuilder<RankingProfile?>(
-            stream: RankingService.profileStream(),
-            builder: (context, profileSnapshot) {
-              if (profileSnapshot.hasError) {
-                return _RankingErrorPanel(
-                  title: 'No se pudo cargar tu perfil',
-                  error: profileSnapshot.error,
-                  onRetry: () => setState(() {}),
-                  onSignOut: _signOut,
-                );
-              }
-              if (profileSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final profile = profileSnapshot.data;
-              if (profile == null) {
-                return _ProfileSetupPanel(
-                  user: user,
-                  onSaved: _refreshLeaderboard,
-                );
-              }
-              return _RankingBody(
-                profile: profile,
-                nextUpdate: _nextUpdate,
-                leaderboardFuture: _leaderboard(),
-                onRefresh: _refreshLeaderboard,
-                onSignOut: _signOut,
-              );
-            },
-          );
-        },
-      ),
-    );
   }
 
   Future<void> _signIn() async {
@@ -110,16 +51,155 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
       await RankingService.signInWithGoogle();
     } catch (error) {
       if (!mounted) return;
-      debugPrint('[FocusRanking] Error login: $error');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_friendlyRankingError(error)),
-          duration: const Duration(seconds: 8),
-        ),
+        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
       );
     } finally {
       if (mounted) setState(() => _signingIn = false);
     }
+  }
+
+  Future<void> _signOut() async {
+    await RankingService.signOut();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      drawer: const FocusDrawer(selectedRoute: 'ranking'),
+      appBar: AppBar(
+        title: const Text('🏆 Ranking Global'),
+        bottom: TabBar(
+          controller: _tabController,
+          onTap: (index) => setState(() => _currentTabIndex = index),
+          tabs: const [
+            Tab(icon: Icon(Icons.public), text: 'Global'),
+            Tab(icon: Icon(Icons.stars), text: 'Ligas'),
+            Tab(icon: Icon(Icons.school), text: 'Carrera'),
+            Tab(icon: Icon(Icons.people), text: 'Amigos'),
+          ],
+        ),
+      ),
+      body: StreamBuilder<User?>(
+        stream: RankingService.authStateChanges,
+        initialData: RankingService.currentUser,
+        builder: (context, authSnapshot) {
+          final user = authSnapshot.data;
+          if (user == null) return _SignInPanel(onSignIn: _signIn, signingIn: _signingIn);
+          
+          return StreamBuilder<RankingProfile?>(
+            stream: RankingService.profileStream(),
+            builder: (context, profileSnapshot) {
+              if (profileSnapshot.hasError) {
+                return _ErrorPanel(message: 'Error al cargar perfil', onRetry: () => setState(() {}));
+              }
+              if (profileSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final profile = profileSnapshot.data;
+              if (profile == null) {
+                return _ProfileSetupPanel(user: user, onSaved: () => setState(() {}));
+              }
+              
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildGlobalView(profile),
+                  _buildLeaguesView(profile),
+                  _buildCareerView(profile),
+                  _buildFriendsView(profile),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildGlobalView(RankingProfile profile) {
+    return StreamBuilder<List<RankingEntry>>(
+      stream: RankingService.globalLeaderboardStream(),
+      builder: (context, snapshot) {
+        return _RankingContent(
+          profile: profile,
+          entries: snapshot.data ?? [],
+          isLoading: snapshot.connectionState == ConnectionState.waiting,
+          viewTitle: 'Clasificación Global',
+          showLeagueSelector: false,
+        );
+      },
+    );
+  }
+
+  Widget _buildLeaguesView(RankingProfile profile) {
+    return Column(
+      children: [
+        _LeagueSelector(
+          selectedLeague: _selectedLeague,
+          onLeagueSelected: (league) => setState(() => _selectedLeague = league),
+        ),
+        Expanded(
+          child: StreamBuilder<List<RankingEntry>>(
+            stream: _selectedLeague != null
+                ? RankingService.leagueLeaderboardStream(league: LeagueInfo.getLeagueByType(_selectedLeague!).name)
+                : RankingService.globalLeaderboardStream(),
+            builder: (context, snapshot) {
+              return _RankingContent(
+                profile: profile,
+                entries: snapshot.data ?? [],
+                isLoading: snapshot.connectionState == ConnectionState.waiting,
+                viewTitle: _selectedLeague != null 
+                    ? 'Liga ${LeagueInfo.getLeagueByType(_selectedLeague!).name}'
+                    : 'Todas las Ligas',
+                showLeagueSelector: false,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCareerView(RankingProfile profile) {
+    return StreamBuilder<List<RankingEntry>>(
+      stream: RankingService.careerLeaderboardStream(career: profile.career),
+      builder: (context, snapshot) {
+        return _RankingContent(
+          profile: profile,
+          entries: snapshot.data ?? [],
+          isLoading: snapshot.connectionState == ConnectionState.waiting,
+          viewTitle: 'Ranking por Carrera: ${profile.career}',
+          showLeagueSelector: false,
+        );
+      },
+    );
+  }
+
+  Widget _buildFriendsView(RankingProfile profile) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'Próximamente',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Agrega amigos para competir con ellos',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
