@@ -6,6 +6,7 @@ import '../models/habit.dart';
 import '../models/pomodoro.dart';
 import '../models/resource_link.dart';
 import '../models/schedule.dart';
+import '../models/study_task.dart';
 import '../models/subject.dart';
 import '../services/notification_service.dart';
 import '../services/firebase_user_data_service.dart';
@@ -30,6 +31,7 @@ class AppProvider extends ChangeNotifier {
   List<Habit> habits = [];
   List<Subject> subjects = [];
   List<Exam> exams = [];
+  List<StudyTask> studyTasks = [];
   List<Schedule> schedules = [];
   List<ResourceLink> resources = [];
   AppSettings settings = AppSettings();
@@ -127,6 +129,7 @@ class AppProvider extends ChangeNotifier {
         _loadSubjects(),
         _loadSettings(),
         _loadExams(),
+        _loadStudyTasks(),
         _loadSchedules(),
         _loadResources(),
       ]);
@@ -141,14 +144,18 @@ class AppProvider extends ChangeNotifier {
       isLoaded = true;
       notifyListeners();
       await WidgetSyncService.syncFromProvider(this);
-      await FirebaseUserDataService.syncAll(
+      await _syncRemoteProgressData();
+    }
+  }
+
+  Future<void> _syncRemoteProgressData() async {
+    try {
+      await FirebaseUserDataService.syncProgressData(
         pomodoros: pomodoros,
         habits: habits,
-        subjects: subjects,
-        schedules: schedules,
-        exams: exams,
-        resources: resources,
       );
+    } catch (error) {
+      debugPrint('Focus remote progress sync skipped: $error');
     }
   }
 
@@ -177,6 +184,10 @@ class AppProvider extends ChangeNotifier {
     exams = await db.getAllExams();
   }
 
+  Future<void> _loadStudyTasks() async {
+    studyTasks = await db.getAllStudyTasks();
+  }
+
   Future<void> _loadSchedules() async {
     schedules = await db.getAllSchedules();
   }
@@ -197,7 +208,7 @@ class AppProvider extends ChangeNotifier {
     for (final exam in exams) {
       if (combineDateAndTime(exam.date, exam.startTime)
           .isAfter(DateTime.now())) {
-        await NotificationService.scheduleExamNotifications(exam);
+        await _scheduleExamNotifications(exam);
       } else if (exam.id != null) {
         await NotificationService.cancelExamNotifications(exam.id!);
       }
@@ -206,9 +217,19 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> _syncExamNotifications() => syncExamNotifications();
 
+  Future<void> _scheduleExamNotifications(Exam exam) {
+    return NotificationService.scheduleExamNotifications(
+      exam,
+      dayBefore: settings.examReminderDayBefore,
+      twoHoursBefore: settings.examReminderTwoHoursBefore,
+      thirtyMinutesBefore: settings.examReminderThirtyMinutesBefore,
+    );
+  }
+
   void _syncExamSubjectNames() {
     final subjectMap = {
-      for (final subject in subjects) subject.id!: subject.name
+      for (final subject in subjects)
+        if (subject.id != null) subject.id!: subject.name
     };
     exams = exams.map((exam) {
       if (exam.subjectId != null && subjectMap.containsKey(exam.subjectId)) {
@@ -293,24 +314,75 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addResource(ResourceLink resource) async {
-    final id = await db.insertResource(resource);
+    await db.insertResource(resource);
     await _loadResources();
-    await FirebaseUserDataService.saveResource(ResourceLink(
-      id: id,
-      title: resource.title,
-      url: resource.url,
-      category: resource.category,
-      subjectId: resource.subjectId,
-      isDefault: resource.isDefault,
-    ));
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteResource(int id) async {
     await db.deleteResource(id);
     await _loadResources();
-    await FirebaseUserDataService.deleteResource(id);
     await _notifyAndSyncWidget();
+  }
+
+  Future<void> addStudyTask(StudyTask task) async {
+    final normalized = _normalizeStudyTask(task);
+    final id = await db.insertStudyTask(normalized);
+    normalized.id = id;
+    await _loadStudyTasks();
+    await _notifyAndSyncWidget();
+  }
+
+  Future<void> updateStudyTask(StudyTask task) async {
+    await db.updateStudyTask(_normalizeStudyTask(task));
+    await _loadStudyTasks();
+    await _notifyAndSyncWidget();
+  }
+
+  Future<void> completeStudyTask(StudyTask task, bool done) async {
+    await updateStudyTask(
+      StudyTask(
+        id: task.id,
+        subjectId: task.subjectId,
+        title: task.title,
+        notes: task.notes,
+        dueDate: task.dueDate,
+        priority: task.priority,
+        status: done ? 'done' : 'pending',
+        createdAt: task.createdAt,
+        completedAt: done ? DateTime.now() : null,
+      ),
+    );
+  }
+
+  Future<void> deleteStudyTask(int id) async {
+    await db.deleteStudyTask(id);
+    await _loadStudyTasks();
+    await _notifyAndSyncWidget();
+  }
+
+  StudyTask _normalizeStudyTask(StudyTask task) {
+    final title = task.title.trim();
+    if (title.isEmpty) {
+      throw StateError('La tarea necesita un título.');
+    }
+    final subject = getSubjectById(task.subjectId);
+    return StudyTask(
+      id: task.id,
+      subjectId: subject?.id,
+      title: title,
+      notes: task.notes.trim(),
+      dueDate:
+          DateTime(task.dueDate.year, task.dueDate.month, task.dueDate.day),
+      priority: ['low', 'medium', 'high'].contains(task.priority)
+          ? task.priority
+          : 'medium',
+      status: ['pending', 'inProgress', 'done'].contains(task.status)
+          ? task.status
+          : 'pending',
+      createdAt: task.createdAt,
+      completedAt: task.completedAt,
+    );
   }
 
   void _ensureSubjectNameAvailable(String name, {int? ignoreId}) {
@@ -325,8 +397,14 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<Subject> addSubjectWithInitialSchedule(
-      Subject subject, Schedule initialSchedule) async {
+    Subject subject,
+    Schedule initialSchedule, {
+    bool validateConflict = true,
+  }) async {
     _ensureSubjectNameAvailable(subject.name);
+    if (validateConflict && hasScheduleConflict(initialSchedule)) {
+      throw StateError('Ese horario se cruza con otro bloque.');
+    }
     try {
       final subjectId = await db.insertSubject(subject);
       final savedSubject = Subject(
@@ -349,10 +427,6 @@ class AppProvider extends ChangeNotifier {
       await db.insertSchedule(scheduleToSave);
       await _loadSubjects();
       await _loadSchedules();
-      await FirebaseUserDataService.saveSubject(savedSubject);
-      for (final schedule in schedules.where((item) => item.subjectId == subjectId)) {
-        await FirebaseUserDataService.saveSchedule(schedule);
-      }
       await _notifyAndSyncWidget();
       return savedSubject;
     } catch (_) {
@@ -369,7 +443,6 @@ class AppProvider extends ChangeNotifier {
       throw StateError('No se pudo guardar la materia.');
     }
     await _loadSubjects();
-    await FirebaseUserDataService.saveSubject(s);
     await _notifyAndSyncWidget();
   }
 
@@ -379,11 +452,13 @@ class AppProvider extends ChangeNotifier {
     for (final exam in exams.where((exam) => exam.subjectId == s.id)) {
       exam.subject = s.name;
       await db.updateExam(exam);
-      await NotificationService.scheduleExamNotifications(exam);
+      if (settings.notificationsEnabled) {
+        await _scheduleExamNotifications(exam);
+      }
     }
     await _loadSubjects();
     await _loadExams();
-    await FirebaseUserDataService.saveSubject(s);
+    await _loadStudyTasks();
     await _notifyAndSyncWidget();
   }
 
@@ -392,7 +467,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSubjects();
     await _loadSchedules();
     await _loadExams();
-    await FirebaseUserDataService.deleteSubject(id);
+    await _loadStudyTasks();
     await _notifyAndSyncWidget();
   }
 
@@ -409,14 +484,19 @@ class AppProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> addSchedule(Schedule s) async {
+  Future<void> addSchedule(
+    Schedule s, {
+    bool validateConflict = true,
+  }) async {
     if (s.dayOfWeek < 0 || s.dayOfWeek > 5) {
       throw StateError('Solo se permiten horarios de lunes a sábado.');
+    }
+    if (validateConflict && hasScheduleConflict(s)) {
+      throw StateError('Ese horario se cruza con otro bloque.');
     }
     final id = await db.insertSchedule(s);
     s.id = id;
     await _loadSchedules();
-    await FirebaseUserDataService.saveSchedule(s);
     await _notifyAndSyncWidget();
   }
 
@@ -424,16 +504,17 @@ class AppProvider extends ChangeNotifier {
     if (s.dayOfWeek < 0 || s.dayOfWeek > 5) {
       throw StateError('Solo se permiten horarios de lunes a sábado.');
     }
+    if (hasScheduleConflict(s, ignoreId: s.id)) {
+      throw StateError('Ese horario se cruza con otro bloque.');
+    }
     await db.updateSchedule(s);
     await _loadSchedules();
-    await FirebaseUserDataService.saveSchedule(s);
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteSchedule(int id) async {
     await db.deleteSchedule(id);
     await _loadSchedules();
-    await FirebaseUserDataService.deleteSchedule(id);
     await _notifyAndSyncWidget();
   }
 
@@ -459,11 +540,10 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertExam(savedExam);
     savedExam.id = id;
     if (settings.notificationsEnabled) {
-      await NotificationService.scheduleExamNotifications(savedExam);
+      await _scheduleExamNotifications(savedExam);
     }
     await _loadExams();
     _syncExamSubjectNames();
-    await FirebaseUserDataService.saveExam(savedExam);
     await _notifyAndSyncWidget();
   }
 
@@ -472,14 +552,13 @@ class AppProvider extends ChangeNotifier {
     await db.updateExam(normalized);
     if (normalized.id != null) {
       if (settings.notificationsEnabled) {
-        await NotificationService.scheduleExamNotifications(normalized);
+        await _scheduleExamNotifications(normalized);
       } else {
         await NotificationService.cancelExamNotifications(normalized.id!);
       }
     }
     await _loadExams();
     _syncExamSubjectNames();
-    await FirebaseUserDataService.saveExam(normalized);
     await _notifyAndSyncWidget();
   }
 
@@ -502,7 +581,6 @@ class AppProvider extends ChangeNotifier {
     await db.deleteExam(id);
     await NotificationService.cancelExamNotifications(id);
     await _loadExams();
-    await FirebaseUserDataService.deleteExam(id);
     await _notifyAndSyncWidget();
   }
 
@@ -516,8 +594,8 @@ class AppProvider extends ChangeNotifier {
     await _loadSubjects();
     await _loadSchedules();
     await _loadExams();
+    await _loadStudyTasks();
     await _loadResources();
-    await FirebaseUserDataService.clearAcademicData();
     await _notifyAndSyncWidget();
   }
 
@@ -546,6 +624,9 @@ class AppProvider extends ChangeNotifier {
     bool? animationsEnabled,
     String? accentColor,
     bool? notificationsEnabled,
+    bool? examReminderDayBefore,
+    bool? examReminderTwoHoursBefore,
+    bool? examReminderThirtyMinutesBefore,
     bool? onboardingCompleted,
     String? breakAfterFocus,
     String? userName,
@@ -564,6 +645,12 @@ class AppProvider extends ChangeNotifier {
       accentColor: accentColor ?? settings.accentColor,
       notificationsEnabled:
           notificationsEnabled ?? settings.notificationsEnabled,
+      examReminderDayBefore:
+          examReminderDayBefore ?? settings.examReminderDayBefore,
+      examReminderTwoHoursBefore:
+          examReminderTwoHoursBefore ?? settings.examReminderTwoHoursBefore,
+      examReminderThirtyMinutesBefore: examReminderThirtyMinutesBefore ??
+          settings.examReminderThirtyMinutesBefore,
       onboardingCompleted: onboardingCompleted ?? settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? settings.breakAfterFocus,
       userName: userName ?? settings.userName,
@@ -622,7 +709,11 @@ class AppProvider extends ChangeNotifier {
       }
     }
     await db.clearAll(reseed: reseed);
-    await FirebaseUserDataService.clearAll();
+    try {
+      await FirebaseUserDataService.clearProgressData();
+    } catch (error) {
+      debugPrint('Focus remote progress clear skipped: $error');
+    }
     await loadAllData();
     if (reseed) {
       await updateSettings(
@@ -752,6 +843,62 @@ class AppProvider extends ChangeNotifier {
 
   double get weeklyProgress =>
       settings.weeklyGoal > 0 ? weeklyPomodoros / settings.weeklyGoal : 0.0;
+
+  List<StudyTask> get activeStudyTasks =>
+      studyTasks.where((task) => !task.isDone).toList()
+        ..sort(_compareStudyTasks);
+
+  List<StudyTask> get overdueStudyTasks =>
+      activeStudyTasks.where((task) => task.isOverdue).toList();
+
+  List<StudyTask> get dueTodayStudyTasks {
+    final now = DateTime.now();
+    return activeStudyTasks
+        .where((task) => DateUtils.isSameDay(task.dueDate, now))
+        .toList();
+  }
+
+  List<StudyTask> upcomingStudyTasks({int limit = 5, int? subjectId}) {
+    final items = activeStudyTasks
+        .where((task) => subjectId == null || task.subjectId == subjectId)
+        .toList()
+      ..sort(_compareStudyTasks);
+    return items.take(limit).toList();
+  }
+
+  int _compareStudyTasks(StudyTask a, StudyTask b) {
+    if (a.isOverdue != b.isOverdue) return a.isOverdue ? -1 : 1;
+    final byDate = a.dueDate.compareTo(b.dueDate);
+    if (byDate != 0) return byDate;
+    return _priorityRank(a.priority).compareTo(_priorityRank(b.priority));
+  }
+
+  int _priorityRank(String priority) => switch (priority) {
+        'high' => 0,
+        'medium' => 1,
+        _ => 2,
+      };
+
+  int focusMinutesForSubject(String subjectName) {
+    final normalized = subjectName.trim().toLowerCase();
+    return pomodoros
+        .where(
+            (pomodoro) => pomodoro.subject.trim().toLowerCase() == normalized)
+        .fold(0, (sum, pomodoro) => sum + pomodoro.duration);
+  }
+
+  Subject? get mostStudiedSubject {
+    Subject? best;
+    var bestMinutes = -1;
+    for (final subject in subjects) {
+      final minutes = focusMinutesForSubject(subject.name);
+      if (minutes > bestMinutes) {
+        best = subject;
+        bestMinutes = minutes;
+      }
+    }
+    return best;
+  }
 
   Exam? get nextUpcomingExam {
     final now = DateTime.now();

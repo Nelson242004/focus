@@ -28,9 +28,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late TextEditingController _focusController;
-  late TextEditingController _shortController;
-  late TextEditingController _longController;
   late TextEditingController _goalController;
   String _selectedSound = 'chime';
   String _selectedStartScreen = 'dashboard';
@@ -38,6 +35,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   double _textScale = 1.0;
   bool _animationsEnabled = true;
   bool _notificationsEnabled = true;
+  bool _examReminderDayBefore = true;
+  bool _examReminderTwoHoursBefore = true;
+  bool _examReminderThirtyMinutesBefore = false;
   bool _checkingUpdate = false;
   late String _accentColor;
   FocusModeConfig _focusModeConfig = const FocusModeConfig();
@@ -55,12 +55,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _focusController =
-        TextEditingController(text: provider.settings.focusTime.toString());
-    _shortController = TextEditingController(
-        text: provider.settings.shortBreakTime.toString());
-    _longController =
-        TextEditingController(text: provider.settings.longBreakTime.toString());
     _goalController =
         TextEditingController(text: provider.settings.weeklyGoal.toString());
     _selectedSound = provider.settings.sound;
@@ -71,6 +65,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _textScale = provider.settings.textScale;
     _animationsEnabled = provider.settings.animationsEnabled;
     _notificationsEnabled = provider.settings.notificationsEnabled;
+    _examReminderDayBefore = provider.settings.examReminderDayBefore;
+    _examReminderTwoHoursBefore = provider.settings.examReminderTwoHoursBefore;
+    _examReminderThirtyMinutesBefore =
+        provider.settings.examReminderThirtyMinutesBefore;
     _accentColor = provider.settings.accentColor;
     _loadFocusModeConfig();
   }
@@ -87,9 +85,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _focusController.dispose();
-    _shortController.dispose();
-    _longController.dispose();
     _goalController.dispose();
     super.dispose();
   }
@@ -103,25 +98,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final focusTime = int.tryParse(_focusController.text);
-    final shortBreak = int.tryParse(_shortController.text);
-    final longBreak = int.tryParse(_longController.text);
     final goal = int.tryParse(_goalController.text);
 
-    if ([focusTime, shortBreak, longBreak, goal].contains(null)) {
+    if (goal == null) {
       _showMessage(
-        'Revisa los números: usa solo valores enteros en minutos.',
+        'Revisa el objetivo semanal: usa solo valores enteros.',
       );
+      return;
+    }
+
+    if (goal < 1) {
+      _showMessage('Usa valores mayores a cero.');
       return;
     }
 
     await provider.updateSettings(
       AppSettings(
         themeMode: provider.settings.themeMode,
-        focusTime: focusTime!,
-        shortBreakTime: shortBreak!,
-        longBreakTime: longBreak!,
-        weeklyGoal: goal!,
+        focusTime: provider.settings.focusTime,
+        shortBreakTime: provider.settings.shortBreakTime,
+        longBreakTime: provider.settings.longBreakTime,
+        weeklyGoal: goal,
         sound: _selectedSound,
         selectedIdentity: provider.settings.selectedIdentity,
         startScreen: _selectedStartScreen,
@@ -129,6 +126,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         animationsEnabled: _animationsEnabled,
         accentColor: _accentColor,
         notificationsEnabled: _notificationsEnabled,
+        examReminderDayBefore: _examReminderDayBefore,
+        examReminderTwoHoursBefore: _examReminderTwoHoursBefore,
+        examReminderThirtyMinutesBefore: _examReminderThirtyMinutesBefore,
         onboardingCompleted: provider.settings.onboardingCompleted,
         breakAfterFocus: _breakAfterFocus,
         userName: provider.settings.userName,
@@ -150,6 +150,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'No se pudo exportar el backup. Revisa el espacio disponible e intenta otra vez.',
       );
     }
+  }
+
+  Future<void> _signOut() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text(
+          'Tus materias, exámenes y recursos quedan guardados en este dispositivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.logout_rounded),
+            label: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await RankingService.signOut();
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(RankingService.friendlyRankingError(error));
+    }
+  }
+
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+    if (mounted) setState(() {});
+  }
+
+  String _notificationSummary() {
+    if (!_notificationsEnabled) return 'Notificaciones desactivadas.';
+    final enabled = <String>[
+      if (_examReminderDayBefore) '1 día antes',
+      if (_examReminderTwoHoursBefore) '2 horas antes',
+      if (_examReminderThirtyMinutesBefore) '30 minutos antes',
+    ];
+    if (enabled.isEmpty) return 'Sin avisos de examen activos.';
+    return 'Avisos: ${enabled.join(', ')}.';
   }
 
   Future<void> _checkForUpdates() async {
@@ -399,25 +448,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.badge_rounded),
-                  title: const Text('Perfil público'),
-                  subtitle: const Text('Editar nombre y carrera del ranking.'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () async {
-                    final user = RankingService.currentUser;
-                    final profile = await RankingService.fetchProfile();
-                    if (!context.mounted || user == null) return;
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ProfileSetupScreen(
-                          user: user,
-                          profile: profile,
-                        ),
-                      ),
-                    );
-                    if (context.mounted) setState(() {});
-                  },
+                  leading: const Icon(Icons.account_circle_rounded),
+                  title: Text(
+                    RankingService.currentUser?.email ?? 'Sin cuenta',
+                  ),
+                  subtitle: Text(
+                    RankingService.currentUser == null
+                        ? 'Puedes usar materias, exámenes y Pomodoro sin iniciar sesión.'
+                        : 'Tu ranking y progreso social usan esta cuenta.',
+                  ),
                 ),
+                if (RankingService.currentUser == null)
+                  FilledButton.icon(
+                    onPressed: _openLogin,
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('Iniciar sesión'),
+                  )
+                else ...[
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.badge_rounded),
+                    title: const Text('Perfil público'),
+                    subtitle:
+                        const Text('Editar nombre y carrera del ranking.'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      final user = RankingService.currentUser;
+                      final profile = await RankingService.fetchProfile();
+                      if (!context.mounted || user == null) return;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ProfileSetupScreen(
+                            user: user,
+                            profile: profile,
+                          ),
+                        ),
+                      );
+                      if (context.mounted) setState(() {});
+                    },
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _signOut,
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Cerrar sesión'),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 14),
@@ -505,11 +580,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Recordatorios de exámenes'),
-                  subtitle: const Text(
-                      'Avisa el día anterior y, si hay hora, dos horas antes.'),
+                  subtitle: Text(_notificationSummary()),
                   value: _notificationsEnabled,
                   onChanged: (value) =>
                       setState(() => _notificationsEnabled = value),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Avisar 1 día antes'),
+                  value: _examReminderDayBefore,
+                  onChanged: _notificationsEnabled
+                      ? (value) =>
+                          setState(() => _examReminderDayBefore = value)
+                      : null,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Avisar 2 horas antes'),
+                  subtitle: const Text('Solo para exámenes con hora.'),
+                  value: _examReminderTwoHoursBefore,
+                  onChanged: _notificationsEnabled
+                      ? (value) =>
+                          setState(() => _examReminderTwoHoursBefore = value)
+                      : null,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Avisar 30 minutos antes'),
+                  subtitle: const Text('Solo para exámenes con hora.'),
+                  value: _examReminderThirtyMinutesBefore,
+                  onChanged: _notificationsEnabled
+                      ? (value) => setState(
+                            () => _examReminderThirtyMinutesBefore = value,
+                          )
+                      : null,
                 ),
                 FutureBuilder<int>(
                   future: NotificationService.pendingNotificationsCount(),
@@ -615,11 +719,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Datos y backup',
+              title: 'Estudio local y backup',
               icon: Icons.backup_rounded,
               children: [
-                const Text(
-                    'Exporta una copia completa o restaura un backup anterior.'),
+                _AcademicLocalNotice(provider: provider),
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 10,
@@ -782,6 +885,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text('Versión beta ${AppLinks.currentVersion}'),
+                const SizedBox(height: 12),
+                _DiagnosticPanel(provider: provider),
               ],
             ),
             const SizedBox(height: 14),
@@ -854,7 +959,7 @@ class _SettingsHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.resources.length} recursos.',
+                  '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.activeStudyTasks.length} tareas activas.',
                   style: const TextStyle(color: Colors.white70),
                 ),
               ],
@@ -862,6 +967,159 @@ class _SettingsHero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _AcademicLocalNotice extends StatelessWidget {
+  final AppProvider provider;
+
+  const _AcademicLocalNotice({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.phone_android_rounded),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Datos académicos locales',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Materias, horarios, exámenes y recursos se guardan en este dispositivo. Exporta una copia antes de cambiar de celular o borrar la app.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DiagnosticChip(
+                icon: Icons.book_rounded,
+                label: '${provider.subjects.length} materias',
+              ),
+              _DiagnosticChip(
+                icon: Icons.assignment_rounded,
+                label: '${provider.exams.length} exámenes',
+              ),
+              _DiagnosticChip(
+                icon: Icons.task_alt_rounded,
+                label: '${provider.activeStudyTasks.length} tareas activas',
+              ),
+              _DiagnosticChip(
+                icon: Icons.link_rounded,
+                label: '${provider.resources.length} recursos',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticPanel extends StatelessWidget {
+  final AppProvider provider;
+
+  const _DiagnosticPanel({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.3),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Diagnóstico',
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _DiagnosticChip(
+                icon: provider.lastLoadError == null
+                    ? Icons.check_circle_rounded
+                    : Icons.error_rounded,
+                label: provider.lastLoadError == null
+                    ? 'Datos OK'
+                    : 'Carga local con error',
+              ),
+              _DiagnosticChip(
+                icon: RankingService.currentUser == null
+                    ? Icons.person_off_rounded
+                    : Icons.verified_user_rounded,
+                label: RankingService.currentUser == null
+                    ? 'Sin cuenta'
+                    : 'Cuenta activa',
+              ),
+              _DiagnosticChip(
+                icon: provider.settings.notificationsEnabled
+                    ? Icons.notifications_active_rounded
+                    : Icons.notifications_off_rounded,
+                label: provider.settings.notificationsEnabled
+                    ? 'Notificaciones activas'
+                    : 'Notificaciones apagadas',
+              ),
+              _DiagnosticChip(
+                icon: Icons.storage_rounded,
+                label: 'Local',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DiagnosticChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _DiagnosticChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
     );
   }
 }

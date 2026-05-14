@@ -21,7 +21,12 @@ class NotificationService {
 
   static Future<void> cancelPomodoroTimerNotification() async {}
 
-  static Future<void> scheduleExamNotifications(Exam exam) async {}
+  static Future<void> scheduleExamNotifications(
+    Exam exam, {
+    bool dayBefore = true,
+    bool twoHoursBefore = true,
+    bool thirtyMinutesBefore = false,
+  }) async {}
 
   static Future<void> cancelExamNotifications(int examId) async {}
 }

@@ -4,6 +4,7 @@ import '../models/ranking_profile.dart';
 import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
 import '../widgets/focus_drawer.dart';
+import 'auth_gate_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -35,58 +36,118 @@ class _FriendsScreenState extends State<FriendsScreen> {
         RankingService.fetchFriendsLeaderboard(friendUids: friendIds);
   }
 
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'friends'),
       appBar: AppBar(title: const Text('Amigos')),
-      body: StreamBuilder<List<RankingProfile>>(
-        stream: FriendsService.friendsStream(),
-        builder: (context, friendsSnapshot) {
-          final friends = friendsSnapshot.data ?? const <RankingProfile>[];
-          _friendsRankingFuture ??= RankingService.fetchFriendsLeaderboard(
-            friendUids: friends.map((friend) => friend.uid).toList(),
-          );
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-            children: [
-              _Hero(friendsCount: friends.length),
-              const SizedBox(height: 16),
-              _SearchCard(
-                controller: _searchController,
-                searchFuture: _searchFuture,
-                onSearch: _search,
-                onSendRequest: (profile) async {
-                  await FriendsService.sendRequest(profile);
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Solicitud enviada a ${profile.name}.'),
+      body: RankingService.currentUser == null
+          ? _LoginRequiredPanel(
+              onLogin: _openLogin,
+            )
+          : StreamBuilder<List<RankingProfile>>(
+              stream: FriendsService.friendsStream(),
+              builder: (context, friendsSnapshot) {
+                final friends =
+                    friendsSnapshot.data ?? const <RankingProfile>[];
+                _friendsRankingFuture ??=
+                    RankingService.fetchFriendsLeaderboard(
+                  friendUids: friends.map((friend) => friend.uid).toList(),
+                );
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+                  children: [
+                    _Hero(friendsCount: friends.length),
+                    const SizedBox(height: 16),
+                    _SearchCard(
+                      controller: _searchController,
+                      searchFuture: _searchFuture,
+                      onSearch: _search,
+                      onSendRequest: (profile) async {
+                        await FriendsService.sendRequest(profile);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content:
+                                Text('Solicitud enviada a ${profile.name}.'),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              _RequestsCard(onChanged: () => setState(() {})),
-              const SizedBox(height: 16),
-              _FriendsList(
-                friends: friends,
-                onRemove: (friend) async {
-                  await FriendsService.removeFriend(friend.uid);
-                  if (!context.mounted) return;
-                  setState(() {
-                    _friendsRankingFuture = null;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              _FriendsRanking(
-                future: _friendsRankingFuture,
-                onRefresh: () => setState(() => _loadFriendsRanking(friends)),
-              ),
-            ],
-          );
-        },
+                    const SizedBox(height: 16),
+                    _RequestsCard(onChanged: () => setState(() {})),
+                    const SizedBox(height: 16),
+                    _FriendsList(
+                      friends: friends,
+                      onRemove: (friend) async {
+                        await FriendsService.removeFriend(friend.uid);
+                        if (!context.mounted) return;
+                        setState(() {
+                          _friendsRankingFuture = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    _FriendsRanking(
+                      future: _friendsRankingFuture,
+                      onRefresh: () =>
+                          setState(() => _loadFriendsRanking(friends)),
+                    ),
+                  ],
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _LoginRequiredPanel extends StatelessWidget {
+  final VoidCallback onLogin;
+
+  const _LoginRequiredPanel({required this.onLogin});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.people_alt_rounded,
+              size: 54,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Inicia sesión para usar amigos',
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'La comunidad necesita cuenta, pero tus materias y exámenes siguen disponibles sin iniciar sesión.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onLogin,
+              icon: const Icon(Icons.login_rounded),
+              label: const Text('Iniciar sesión'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -253,10 +314,10 @@ class _SearchCard extends StatelessWidget {
           children: [
             Text(
               'Buscar amigos',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 12),
             Row(
@@ -341,10 +402,10 @@ class _RequestsCard extends StatelessWidget {
               children: [
                 Text(
                   'Solicitudes pendientes',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 8),
                 ...requests.map((request) => ListTile(
@@ -402,10 +463,10 @@ class _FriendsList extends StatelessWidget {
           children: [
             Text(
               'Tus amigos',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 8),
             if (friends.isEmpty)
@@ -454,10 +515,10 @@ class _FriendsRanking extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Ranking entre amigos',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w900),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w900),
                   ),
                 ),
                 IconButton(
@@ -486,8 +547,9 @@ class _FriendsRanking extends StatelessWidget {
                       .map((entry) => ListTile(
                             contentPadding: EdgeInsets.zero,
                             leading: CircleAvatar(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primaryContainer,
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
                               child: Text(
                                 '#${entry.position}',
                                 style: const TextStyle(

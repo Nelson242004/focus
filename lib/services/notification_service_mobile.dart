@@ -241,17 +241,23 @@ class NotificationService {
     await _plugin.cancel(id: _pomodoroNotificationId);
   }
 
-  static Future<void> scheduleExamNotifications(Exam exam) async {
+  static Future<void> scheduleExamNotifications(
+    Exam exam, {
+    bool dayBefore = true,
+    bool twoHoursBefore = true,
+    bool thirtyMinutesBefore = false,
+  }) async {
     if (exam.id == null) return;
 
     await initialize();
     await cancelExamNotifications(exam.id!);
+    if (!dayBefore && !twoHoursBefore && !thirtyMinutesBefore) return;
 
     final hasDefinedTime = exam.startTime.trim().isNotEmpty;
     final examDateTime = combineExamDateAndTime(exam);
     final classroom =
         exam.classroom.trim().isEmpty ? 'aula por confirmar' : exam.classroom;
-    final dayBefore = hasDefinedTime
+    final dayBeforeMoment = hasDefinedTime
         ? examDateTime.subtract(const Duration(days: 1))
         : DateTime(
             examDateTime.year,
@@ -261,20 +267,28 @@ class NotificationService {
           );
     final reminders =
         <({int suffix, DateTime when, String title, String body})>[
-      (
-        suffix: 1,
-        when: dayBefore,
-        title: 'Examen mañana',
-        body: hasDefinedTime
-            ? '${exam.subject} mañana a las ${exam.startTime} en $classroom'
-            : '${exam.subject} mañana con hora por confirmar en $classroom',
-      ),
-      if (hasDefinedTime)
+      if (dayBefore)
+        (
+          suffix: 1,
+          when: dayBeforeMoment,
+          title: 'Examen mañana',
+          body: hasDefinedTime
+              ? '${exam.subject} mañana a las ${exam.startTime} en $classroom'
+              : '${exam.subject} mañana con hora por confirmar en $classroom',
+        ),
+      if (hasDefinedTime && twoHoursBefore)
         (
           suffix: 2,
           when: examDateTime.subtract(const Duration(hours: 2)),
           title: 'Examen próximamente',
           body: '${exam.subject} hoy a las ${exam.startTime} en $classroom',
+        ),
+      if (hasDefinedTime && thirtyMinutesBefore)
+        (
+          suffix: 3,
+          when: examDateTime.subtract(const Duration(minutes: 30)),
+          title: 'Examen en 30 minutos',
+          body: '${exam.subject} empieza a las ${exam.startTime} en $classroom',
         ),
     ];
 
@@ -317,5 +331,6 @@ class NotificationService {
     await initialize();
     await _plugin.cancel(id: examId * 10 + 1);
     await _plugin.cancel(id: examId * 10 + 2);
+    await _plugin.cancel(id: examId * 10 + 3);
   }
 }

@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../screens/about_screen.dart';
 import '../screens/achievements_screen.dart';
+import '../screens/exam_mode_screen.dart';
 import '../screens/exams_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/help_screen.dart';
@@ -13,6 +14,7 @@ import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
+import '../screens/study_tasks_screen.dart';
 import '../screens/subjects_screen.dart';
 
 class FocusDrawer extends StatelessWidget {
@@ -99,6 +101,22 @@ class FocusDrawer extends StatelessWidget {
                     label: 'Exámenes',
                     selected: selectedRoute == 'exams',
                     onTap: () => _replace(context, const ExamsScreen()),
+                  ),
+                  _tile(
+                    context,
+                    duration: duration,
+                    icon: Icons.task_alt_rounded,
+                    label: 'Tareas',
+                    selected: selectedRoute == 'tasks',
+                    onTap: () => _replace(context, const StudyTasksScreen()),
+                  ),
+                  _tile(
+                    context,
+                    duration: duration,
+                    icon: Icons.workspace_premium_rounded,
+                    label: 'Modo examen',
+                    selected: selectedRoute == 'examMode',
+                    onTap: () => _replace(context, const ExamModeScreen()),
                   ),
                   _tile(
                     context,
@@ -274,71 +292,106 @@ class _DrawerHeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return SafeArea(
       bottom: false,
-      child: FutureBuilder<RankingProfile?>(
-        future: RankingService.fetchProfile(),
-        builder: (context, snapshot) {
-          final profile = snapshot.data;
-          final name = profile?.name ?? 'Focus';
-          final career = profile?.career ?? 'Organiza tu semestre';
-          return Container(
-            margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.white.withValues(alpha: 0.92),
-              border: Border.all(
-                color: isDark ? Colors.white12 : const Color(0xFFD6E0EC),
-              ),
-            ),
-            child: Row(
+      child: Consumer<AppProvider>(
+        builder: (context, provider, _) {
+          if (RankingService.currentUser == null) {
+            final localName = provider.settings.userName.trim();
+            return _DrawerHeaderContent(
+              isDark: isDark,
+              name: localName.isEmpty ? 'Focus' : localName,
+              subtitle: 'Datos académicos locales',
+            );
+          }
+
+          return FutureBuilder<RankingProfile?>(
+            future: RankingService.fetchProfile(),
+            builder: (context, snapshot) {
+              final profile = snapshot.data;
+              return _DrawerHeaderContent(
+                isDark: isDark,
+                name: profile?.name ??
+                    RankingService.currentUser?.email ??
+                    'Focus',
+                subtitle: profile?.career ?? 'Cuenta activa',
+                photoUrl: profile?.photoUrl,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _DrawerHeaderContent extends StatelessWidget {
+  final bool isDark;
+  final String name;
+  final String subtitle;
+  final String? photoUrl;
+
+  const _DrawerHeaderContent({
+    required this.isDark,
+    required this.name,
+    required this.subtitle,
+    this.photoUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.white.withValues(alpha: 0.92),
+        border: Border.all(
+          color: isDark ? Colors.white12 : const Color(0xFFD6E0EC),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundImage: hasPhoto ? NetworkImage(photoUrl!) : null,
+            child: hasPhoto
+                ? null
+                : const Icon(
+                    Icons.center_focus_strong_rounded,
+                    color: Colors.white,
+                  ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 25,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage: profile?.photoUrl.isNotEmpty == true
-                      ? NetworkImage(profile!.photoUrl)
-                      : null,
-                  child: profile?.photoUrl.isNotEmpty == true
-                      ? null
-                      : const Icon(Icons.center_focus_strong_rounded,
-                          color: Colors.white),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color:
-                              isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        career,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isDark
-                              ? Colors.white70
-                              : const Color(0xFF334155),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : const Color(0xFF334155),
                   ),
                 ),
               ],
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

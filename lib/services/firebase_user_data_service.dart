@@ -1,11 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/exam.dart';
 import '../models/habit.dart';
 import '../models/pomodoro.dart';
-import '../models/resource_link.dart';
-import '../models/schedule.dart';
-import '../models/subject.dart';
 import 'ranking_service.dart';
 
 class FirebaseUserDataService {
@@ -49,51 +45,6 @@ class FirebaseUserDataService {
 
   static Future<void> deleteHabit(int id) => _delete('habits', id);
 
-  static Future<void> saveSubject(Subject item) async {
-    final doc = _doc('subjects', item.id);
-    if (doc == null) return;
-    await doc.set({
-      ...item.toMap(),
-      'syncedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  static Future<void> deleteSubject(int id) => _delete('subjects', id);
-
-  static Future<void> saveSchedule(Schedule item) async {
-    final doc = _doc('schedules', item.id);
-    if (doc == null) return;
-    await doc.set({
-      ...item.toMap(),
-      'syncedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  static Future<void> deleteSchedule(int id) => _delete('schedules', id);
-
-  static Future<void> saveExam(Exam item) async {
-    final doc = _doc('exams', item.id);
-    if (doc == null) return;
-    await doc.set({
-      ...item.toMap(),
-      'dateTimestamp': Timestamp.fromDate(item.date),
-      'syncedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  static Future<void> deleteExam(int id) => _delete('exams', id);
-
-  static Future<void> saveResource(ResourceLink item) async {
-    final doc = _doc('resources', item.id);
-    if (doc == null) return;
-    await doc.set({
-      ...item.toMap(),
-      'syncedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  static Future<void> deleteResource(int id) => _delete('resources', id);
-
   static Future<void> replaceCollection(
     String collection,
     Iterable<Map<String, dynamic>> items,
@@ -116,41 +67,22 @@ class FirebaseUserDataService {
     await batch.commit();
   }
 
-  static Future<void> syncAll({
+  static Future<void> syncProgressData({
     required List<Pomodoro> pomodoros,
     required List<Habit> habits,
-    required List<Subject> subjects,
-    required List<Schedule> schedules,
-    required List<Exam> exams,
-    required List<ResourceLink> resources,
   }) async {
     await replaceCollection('pomodoros', pomodoros.map((item) => item.toMap()));
-    await replaceCollection('habits', habits.map((item) => {
-          ...item.toMap(),
-          'historyList': item.history,
-        }));
-    await replaceCollection('subjects', subjects.map((item) => item.toMap()));
-    await replaceCollection('schedules', schedules.map((item) => item.toMap()));
-    await replaceCollection('exams', exams.map((item) => {
-          ...item.toMap(),
-          'dateTimestamp': Timestamp.fromDate(item.date),
-        }));
-    await replaceCollection('resources', resources.map((item) => item.toMap()));
+    await replaceCollection(
+        'habits',
+        habits.map((item) => {
+              ...item.toMap(),
+              'historyList': item.history,
+            }));
   }
 
-  static Future<void> clearAcademicData() async {
-    await replaceCollection('subjects', const []);
-    await replaceCollection('schedules', const []);
-    await replaceCollection('exams', const []);
-  }
-
-  static Future<void> clearAll() async {
+  static Future<void> clearProgressData() async {
     await replaceCollection('pomodoros', const []);
     await replaceCollection('habits', const []);
-    await replaceCollection('subjects', const []);
-    await replaceCollection('schedules', const []);
-    await replaceCollection('exams', const []);
-    await replaceCollection('resources', const []);
   }
 
   static Future<void> _delete(String collection, int id) async {

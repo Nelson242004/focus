@@ -11,6 +11,7 @@ import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/time_picker_field.dart';
+import 'subjects_screen.dart';
 
 class ExamsScreen extends StatefulWidget {
   const ExamsScreen({super.key});
@@ -172,6 +173,24 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 }
                 final subject = provider.getSubjectById(_selectedSubjectId);
                 if (subject == null) return;
+                final duplicate = provider.exams.any((item) {
+                  if (_editingExam?.id != null && item.id == _editingExam!.id) {
+                    return false;
+                  }
+                  return item.subjectId == subject.id &&
+                      item.examType == _dialogExamType &&
+                      DateUtils.isSameDay(item.date, _selectedDate);
+                });
+                if (duplicate) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Ya existe un examen de ese tipo para esa materia y fecha.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
                 final examToSave = Exam(
                   id: _editingExam?.id,
                   subject: subject.name,
@@ -477,6 +496,16 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       const Text(
                         'Cuando tengas tus materias, podrás registrar parciales y finales con una vista mucho más clara.',
                         textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SubjectsScreen(),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Crear materia'),
                       ),
                     ],
                   ),
@@ -820,6 +849,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                   'Agrega uno nuevo o cambia el filtro para ver los próximos eventos.',
                                   textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(height: 14),
+                                FilledButton.icon(
+                                  onPressed: () => _showExamDialog(),
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Agregar examen'),
+                                ),
                               ],
                             ),
                           ),
@@ -938,9 +973,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                     const SizedBox(height: 12),
                                     Text(
                                       isUpcoming
-                                          ? (exam.startTime.trim().isNotEmpty
-                                              ? 'Recordatorios activos: 1 día antes y 2 horas antes.'
-                                              : 'Recordatorio activo: se avisará el día anterior.')
+                                          ? _examReminderLabel(provider, exam)
                                           : 'Este examen ya forma parte de tu historial académico.',
                                     ),
                                   ],
@@ -958,6 +991,23 @@ class _ExamsScreenState extends State<ExamsScreen> {
         ),
       ),
     );
+  }
+
+  String _examReminderLabel(AppProvider provider, Exam exam) {
+    if (!provider.settings.notificationsEnabled) {
+      return 'Recordatorios desactivados desde Configuración.';
+    }
+    final labels = <String>[
+      if (provider.settings.examReminderDayBefore) '1 día antes',
+      if (exam.startTime.trim().isNotEmpty &&
+          provider.settings.examReminderTwoHoursBefore)
+        '2 horas antes',
+      if (exam.startTime.trim().isNotEmpty &&
+          provider.settings.examReminderThirtyMinutesBefore)
+        '30 minutos antes',
+    ];
+    if (labels.isEmpty) return 'Sin recordatorios activos para este examen.';
+    return 'Recordatorios activos: ${labels.join(', ')}.';
   }
 }
 

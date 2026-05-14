@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -7,6 +9,7 @@ import '../models/habit.dart';
 import '../models/pomodoro.dart';
 import '../models/resource_link.dart';
 import '../models/schedule.dart';
+import '../models/study_task.dart';
 import '../models/subject.dart';
 
 class DatabaseHelper {
@@ -25,7 +28,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'focus_app.db');
     return openDatabase(
       path,
-      version: 13,
+      version: 14,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -99,6 +102,20 @@ class DatabaseHelper {
             url TEXT NOT NULL,
             category TEXT NOT NULL,
             subjectId INTEGER,
+            FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE SET NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE study_tasks(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            subjectId INTEGER,
+            title TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            dueDate TEXT NOT NULL,
+            priority TEXT NOT NULL DEFAULT 'medium',
+            status TEXT NOT NULL DEFAULT 'pending',
+            createdAt TEXT NOT NULL,
+            completedAt TEXT,
             FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE SET NULL
           )
         ''');
@@ -189,6 +206,22 @@ class DatabaseHelper {
         if (oldVersion < 13) {
           await _safeAlter(db, 'ALTER TABLE exams ADD COLUMN examLabel TEXT');
         }
+        if (oldVersion < 14) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS study_tasks(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              subjectId INTEGER,
+              title TEXT NOT NULL,
+              notes TEXT NOT NULL DEFAULT '',
+              dueDate TEXT NOT NULL,
+              priority TEXT NOT NULL DEFAULT 'medium',
+              status TEXT NOT NULL DEFAULT 'pending',
+              createdAt TEXT NOT NULL,
+              completedAt TEXT,
+              FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE SET NULL
+            )
+          ''');
+        }
       },
     );
   }
@@ -220,27 +253,19 @@ class DatabaseHelper {
   }
 
   String _serializeSettings(AppSettings s) {
-    return [
-      s.themeMode.index,
-      s.focusTime,
-      s.shortBreakTime,
-      s.longBreakTime,
-      s.weeklyGoal,
-      s.sound,
-      s.selectedIdentity,
-      s.startScreen,
-      s.textScale,
-      s.animationsEnabled ? 1 : 0,
-      s.accentColor,
-      s.notificationsEnabled ? 1 : 0,
-      s.onboardingCompleted ? 1 : 0,
-      s.breakAfterFocus,
-      s.userName,
-    ].join('|');
+    return jsonEncode(s.toMap());
   }
 
   AppSettings _deserializeSettings(String str) {
     try {
+      final trimmed = str.trim();
+      if (trimmed.startsWith('{')) {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is Map) {
+          return AppSettings.fromMap(Map<String, dynamic>.from(decoded));
+        }
+      }
+
       final parts = str.split('|');
       final themeIndex = int.tryParse(parts.elementAtOrNull(0) ?? '0') ?? 0;
       final safeThemeIndex =
@@ -333,6 +358,42 @@ class DatabaseHelper {
     return db.delete('resources', where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<int> insertStudyTask(StudyTask task) async {
+    final db = await database;
+    return db.insert('study_tasks', task.toMap());
+  }
+
+  Future<List<StudyTask>> getAllStudyTasks() async {
+    final db = await database;
+    final maps = await db.query(
+      'study_tasks',
+      orderBy: '''
+        CASE priority
+          WHEN 'high' THEN 0
+          WHEN 'medium' THEN 1
+          ELSE 2
+        END,
+        dueDate ASC
+      ''',
+    );
+    return List.generate(maps.length, (i) => StudyTask.fromMap(maps[i]));
+  }
+
+  Future<int> updateStudyTask(StudyTask task) async {
+    final db = await database;
+    return db.update(
+      'study_tasks',
+      task.toMap(),
+      where: 'id = ?',
+      whereArgs: [task.id],
+    );
+  }
+
+  Future<int> deleteStudyTask(int id) async {
+    final db = await database;
+    return db.delete('study_tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<int> insertSubject(Subject s) async {
     final db = await database;
     return db.insert('subjects', s.toMap());
@@ -354,6 +415,10 @@ class DatabaseHelper {
     await db.delete('schedules', where: 'subjectId = ?', whereArgs: [id]);
     await db.rawUpdate(
       'UPDATE exams SET subjectId = NULL WHERE subjectId = ?',
+      [id],
+    );
+    await db.rawUpdate(
+      'UPDATE study_tasks SET subjectId = NULL WHERE subjectId = ?',
       [id],
     );
     return db.delete('subjects', where: 'id = ?', whereArgs: [id]);
@@ -433,6 +498,7 @@ class DatabaseHelper {
   Future<void> clearAcademicData() async {
     final db = await database;
     await db.delete('exams');
+    await db.delete('study_tasks');
     await db.delete('schedules');
     await db.delete('subjects');
   }
@@ -442,6 +508,7 @@ class DatabaseHelper {
     await db.delete('pomodoros');
     await db.delete('habits');
     await db.delete('exams');
+    await db.delete('study_tasks');
     await db.delete('resources');
     await db.delete('schedules');
     await db.delete('subjects');

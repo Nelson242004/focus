@@ -464,7 +464,7 @@ class _WebResourcesSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        final items = [...provider.resourcesByCategory('curso')];
+        final items = [...provider.resourcesByCategory('course')];
         return _WebPanel(
           title: 'Recursos',
           subtitle: 'Abre enlaces útiles guardados dentro de Focus',

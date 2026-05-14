@@ -418,6 +418,7 @@ class MyApp extends StatelessWidget {
                 ? const _BootSplash()
                 : provider.settings.onboardingCompleted
                     ? AuthGateScreen(
+                        requireAccount: false,
                         child: kIsWeb
                             ? const WebFocusScreen()
                             : const RequiredPermissionsGate(),

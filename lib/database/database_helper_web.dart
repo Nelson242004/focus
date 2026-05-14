@@ -8,6 +8,7 @@ import '../models/habit.dart';
 import '../models/pomodoro.dart';
 import '../models/resource_link.dart';
 import '../models/schedule.dart';
+import '../models/study_task.dart';
 import '../models/subject.dart';
 
 class DatabaseHelper {
@@ -21,6 +22,7 @@ class DatabaseHelper {
   static const _pomodorosKey = 'web_pomodoros';
   static const _habitsKey = 'web_habits';
   static const _resourcesKey = 'web_resources';
+  static const _studyTasksKey = 'web_study_tasks';
   static const _settingsKey = 'web_settings';
   static const _seededKey = 'web_seeded';
 
@@ -163,6 +165,46 @@ class DatabaseHelper {
     return originalLength - items.length;
   }
 
+  Future<int> insertStudyTask(StudyTask task) async {
+    final items = await _readCollection(_studyTasksKey);
+    final id = await _nextId(_studyTasksKey);
+    items.add({...task.toMap(), 'id': id});
+    await _writeCollection(_studyTasksKey, items);
+    return id;
+  }
+
+  Future<List<StudyTask>> getAllStudyTasks() async {
+    final items = await _readCollection(_studyTasksKey);
+    int priorityRank(Map<String, dynamic> item) => switch (item['priority']) {
+          'high' => 0,
+          'medium' => 1,
+          _ => 2,
+        };
+    items.sort((a, b) {
+      final byPriority = priorityRank(a).compareTo(priorityRank(b));
+      if (byPriority != 0) return byPriority;
+      return _compareText(a['dueDate'], b['dueDate']);
+    });
+    return items.map(StudyTask.fromMap).toList();
+  }
+
+  Future<int> updateStudyTask(StudyTask task) async {
+    final items = await _readCollection(_studyTasksKey);
+    final index = items.indexWhere((item) => item['id'] == task.id);
+    if (index == -1) return 0;
+    items[index] = task.toMap();
+    await _writeCollection(_studyTasksKey, items);
+    return 1;
+  }
+
+  Future<int> deleteStudyTask(int id) async {
+    final items = await _readCollection(_studyTasksKey);
+    final originalLength = items.length;
+    items.removeWhere((item) => item['id'] == id);
+    await _writeCollection(_studyTasksKey, items);
+    return originalLength - items.length;
+  }
+
   Future<int> insertSubject(Subject s) async {
     final items = await _readCollection(_subjectsKey);
     final id = await _nextId(_subjectsKey);
@@ -191,6 +233,7 @@ class DatabaseHelper {
     final schedules = await _readCollection(_schedulesKey);
     final exams = await _readCollection(_examsKey);
     final resources = await _readCollection(_resourcesKey);
+    final tasks = await _readCollection(_studyTasksKey);
     final originalLength = subjects.length;
     subjects.removeWhere((item) => item['id'] == id);
     schedules.removeWhere((item) => item['subjectId'] == id);
@@ -204,10 +247,16 @@ class DatabaseHelper {
         resource['subjectId'] = null;
       }
     }
+    for (final task in tasks) {
+      if (task['subjectId'] == id) {
+        task['subjectId'] = null;
+      }
+    }
     await _writeCollection(_subjectsKey, subjects);
     await _writeCollection(_schedulesKey, schedules);
     await _writeCollection(_examsKey, exams);
     await _writeCollection(_resourcesKey, resources);
+    await _writeCollection(_studyTasksKey, tasks);
     return originalLength - subjects.length;
   }
 
@@ -312,6 +361,7 @@ class DatabaseHelper {
   Future<void> clearAcademicData() async {
     final prefs = await _preferences;
     await prefs.remove(_examsKey);
+    await prefs.remove(_studyTasksKey);
     await prefs.remove(_schedulesKey);
     await prefs.remove(_subjectsKey);
     await prefs.remove(_resourcesKey);
@@ -322,6 +372,7 @@ class DatabaseHelper {
     await prefs.remove(_pomodorosKey);
     await prefs.remove(_habitsKey);
     await prefs.remove(_examsKey);
+    await prefs.remove(_studyTasksKey);
     await prefs.remove(_resourcesKey);
     await prefs.remove(_schedulesKey);
     await prefs.remove(_subjectsKey);
@@ -333,6 +384,7 @@ class DatabaseHelper {
     await prefs.remove(_sequenceKey(_schedulesKey));
     await prefs.remove(_sequenceKey(_subjectsKey));
     await prefs.remove(_sequenceKey(_examsKey));
+    await prefs.remove(_sequenceKey(_studyTasksKey));
     if (reseed) {
       await _seedDefaults(prefs);
     }

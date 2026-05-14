@@ -35,7 +35,7 @@ class PolytechnicCloudService {
       'careerCount': workbook.careers.length,
       'subjectCount': workbook.careers
           .expand((career) => career.semesters)
-          .fold<int>(0, (sum, semester) => sum + semester.subjects.length),
+          .fold<int>(0, (total, semester) => total + semester.subjects.length),
       'updatedBy': user.uid,
       'updatedByEmail': user.email ?? '',
       'updatedAt': FieldValue.serverTimestamp(),

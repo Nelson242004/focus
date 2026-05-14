@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
 import '../widgets/focus_drawer.dart';
+import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
   const GlobalRankingScreen({super.key});
@@ -49,7 +50,12 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
     });
   }
 
-  Future<void> _signOut() => RankingService.signOut();
+  Future<void> _openLogin() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+    if (mounted) _refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,6 +74,19 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
       body: FutureBuilder<RankingProfile?>(
         future: RankingService.fetchProfile(),
         builder: (context, profileSnapshot) {
+          if (RankingService.currentUser == null) {
+            return _MessagePanel(
+              icon: Icons.login_rounded,
+              title: 'Inicia sesión para competir',
+              message:
+                  'El ranking global usa tu cuenta. Puedes seguir usando materias, exámenes y Pomodoro sin iniciar sesión.',
+              action: FilledButton.icon(
+                onPressed: _openLogin,
+                icon: const Icon(Icons.login_rounded),
+                label: const Text('Iniciar sesión'),
+              ),
+            );
+          }
           if (profileSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
@@ -86,7 +105,6 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
               profile: profile,
               nextUpdate: _nextUpdate,
               leaderboardFuture: _leaderboardFuture,
-              onSignOut: _signOut,
             ),
           );
         },
@@ -99,13 +117,11 @@ class _RankingBody extends StatelessWidget {
   final RankingProfile profile;
   final DateTime nextUpdate;
   final Future<List<RankingEntry>> leaderboardFuture;
-  final Future<void> Function() onSignOut;
 
   const _RankingBody({
     required this.profile,
     required this.nextUpdate,
     required this.leaderboardFuture,
-    required this.onSignOut,
   });
 
   @override
@@ -170,12 +186,6 @@ class _RankingBody extends StatelessWidget {
                       isMe: item.value.uid == profile.uid,
                     ),
                   ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: onSignOut,
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Cerrar sesión'),
-            ),
           ],
         );
       },
@@ -428,8 +438,9 @@ class _MyRankCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundImage:
-                profile.photoUrl.isEmpty ? null : NetworkImage(profile.photoUrl),
+            backgroundImage: profile.photoUrl.isEmpty
+                ? null
+                : NetworkImage(profile.photoUrl),
             child: profile.photoUrl.isEmpty
                 ? Text(profile.name.trim().isEmpty
                     ? 'F'
@@ -583,11 +594,13 @@ class _MessagePanel extends StatelessWidget {
   final IconData icon;
   final String title;
   final String message;
+  final Widget? action;
 
   const _MessagePanel({
     required this.icon,
     required this.title,
     required this.message,
+    this.action,
   });
 
   @override
@@ -610,6 +623,10 @@ class _MessagePanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
+            if (action != null) ...[
+              const SizedBox(height: 16),
+              action!,
+            ],
           ],
         ),
       ),

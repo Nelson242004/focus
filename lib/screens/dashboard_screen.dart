@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/exam.dart';
+import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import 'exam_mode_screen.dart';
+import 'exams_screen.dart';
+import 'pomodoro_screen.dart';
+import 'settings_screen.dart';
+import 'study_tasks_screen.dart';
+import 'subjects_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -34,6 +42,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
             _PremiumHero(provider: provider),
+            const SizedBox(height: 16),
+            const _QuickActions(),
+            const SizedBox(height: 16),
+            _AcademicSnapshot(provider: provider),
             const SizedBox(height: 16),
             _MetricGrid(provider: provider),
             const SizedBox(height: 16),
@@ -119,6 +131,313 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } finally {
       controller.dispose();
     }
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Accesos rápidos',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _ActionButton(
+                  icon: Icons.timer_rounded,
+                  label: 'Pomodoro',
+                  onTap: () => _openPomodoro(context),
+                ),
+                _ActionButton(
+                  icon: Icons.book_rounded,
+                  label: 'Materia',
+                  onTap: () => _open(context, const SubjectsScreen()),
+                ),
+                _ActionButton(
+                  icon: Icons.assignment_rounded,
+                  label: 'Examen',
+                  onTap: () => _open(context, const ExamsScreen()),
+                ),
+                _ActionButton(
+                  icon: Icons.task_alt_rounded,
+                  label: 'Tareas',
+                  onTap: () => _open(context, const StudyTasksScreen()),
+                ),
+                _ActionButton(
+                  icon: Icons.workspace_premium_rounded,
+                  label: 'Modo examen',
+                  onTap: () => _open(context, const ExamModeScreen()),
+                ),
+                _ActionButton(
+                  icon: Icons.tune_rounded,
+                  label: 'Ajustes',
+                  onTap: () => _open(context, const SettingsScreen()),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _open(BuildContext context, Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _openPomodoro(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const Scaffold(
+          appBar: _PomodoroQuickAppBar(),
+          body: PomodoroScreen(),
+        ),
+      ),
+    );
+  }
+}
+
+class _PomodoroQuickAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _PomodoroQuickAppBar();
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(title: const Text('Pomodoro'));
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.tonalIcon(
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+    );
+  }
+}
+
+class _AcademicSnapshot extends StatelessWidget {
+  final AppProvider provider;
+
+  const _AcademicSnapshot({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now().weekday - 1;
+    final todaySchedules = provider.weeklySchedulesMonToSat
+        .where((schedule) => schedule.dayOfWeek == today)
+        .toList();
+    final nextExams = _upcomingExams(provider).take(3).toList();
+    final nextTasks = provider.upcomingStudyTasks(limit: 3);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.12),
+                  ),
+                  child: Icon(
+                    Icons.school_rounded,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Resumen académico',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _SnapshotChip(
+                  icon: Icons.book_rounded,
+                  label: '${provider.subjects.length} materias',
+                ),
+                _SnapshotChip(
+                  icon: Icons.view_week_rounded,
+                  label: '${provider.schedules.length} horarios',
+                ),
+                _SnapshotChip(
+                  icon: Icons.assignment_rounded,
+                  label: '${provider.exams.length} exámenes',
+                ),
+                _SnapshotChip(
+                  icon: Icons.task_alt_rounded,
+                  label: '${provider.activeStudyTasks.length} tareas',
+                ),
+                _SnapshotChip(
+                  icon: Icons.link_rounded,
+                  label: '${provider.resources.length} recursos',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _MiniList(
+              title: 'Clases de hoy',
+              emptyText: 'Hoy no tienes clases cargadas.',
+              children: todaySchedules
+                  .map((schedule) => _scheduleLine(provider, schedule))
+                  .toList(),
+            ),
+            const SizedBox(height: 12),
+            _MiniList(
+              title: 'Exámenes próximos',
+              emptyText: 'No tienes exámenes próximos.',
+              children:
+                  nextExams.map((exam) => _examLine(provider, exam)).toList(),
+            ),
+            const SizedBox(height: 12),
+            _MiniList(
+              title: 'Tareas prioritarias',
+              emptyText: 'No tienes tareas activas.',
+              children: nextTasks.map((task) {
+                final subject = provider.getSubjectById(task.subjectId)?.name;
+                return '${formatDate(task.dueDate)} · ${task.title}${subject == null ? '' : ' · $subject'}';
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Exam> _upcomingExams(AppProvider provider) {
+    final now = DateTime.now();
+    return provider.exams
+        .where((exam) =>
+            !combineDateAndTime(exam.date, exam.startTime).isBefore(now))
+        .toList()
+      ..sort((a, b) => combineDateAndTime(a.date, a.startTime)
+          .compareTo(combineDateAndTime(b.date, b.startTime)));
+  }
+
+  String _scheduleLine(AppProvider provider, Schedule schedule) {
+    final subject = provider.getSubjectById(schedule.subjectId);
+    final room = schedule.classroom.trim().isEmpty
+        ? ''
+        : ' · Aula ${schedule.classroom.trim()}';
+    return '${schedule.startTime} a ${schedule.endTime} · ${subject?.name ?? 'Materia'}$room';
+  }
+
+  String _examLine(AppProvider provider, Exam exam) {
+    final time =
+        exam.startTime.trim().isEmpty ? '' : ' · ${exam.startTime.trim()}';
+    return '${formatDate(exam.date)}$time · ${provider.subjectNameForExam(exam)} · ${exam.displayType}';
+  }
+}
+
+class _SnapshotChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _SnapshotChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 18),
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _MiniList extends StatelessWidget {
+  final String title;
+  final String emptyText;
+  final List<String> children;
+
+  const _MiniList({
+    required this.title,
+    required this.emptyText,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = children.take(3).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context)
+              .textTheme
+              .titleSmall
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 8),
+        if (lines.isEmpty)
+          Text(emptyText)
+        else
+          ...lines.map(
+            (line) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(line)),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 

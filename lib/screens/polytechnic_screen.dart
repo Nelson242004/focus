@@ -753,6 +753,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
                 endTime: firstSchedule.endTime,
                 classroom: firstSchedule.classroom,
               ),
+              validateConflict: false,
             );
 
             for (final extraSchedule in section.schedules.skip(1)) {
@@ -764,6 +765,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
                   endTime: extraSchedule.endTime,
                   classroom: extraSchedule.classroom,
                 ),
+                validateConflict: false,
               );
             }
             importedSchedules += section.schedules.length;
@@ -998,7 +1000,9 @@ class _CatalogStatusCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  global ? 'Catálogo oficial disponible' : 'Archivo local cargado',
+                  global
+                      ? 'Catálogo oficial disponible'
+                      : 'Archivo local cargado',
                   style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 3),

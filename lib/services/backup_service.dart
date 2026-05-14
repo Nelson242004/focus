@@ -10,6 +10,7 @@ import '../models/habit.dart';
 import '../models/pomodoro.dart';
 import '../models/resource_link.dart';
 import '../models/schedule.dart';
+import '../models/study_task.dart';
 import '../models/subject.dart';
 import '../providers/app_provider.dart';
 
@@ -27,7 +28,7 @@ class BackupService {
   BackupService._();
 
   static const String _appName = 'focus_app';
-  static const int _formatVersion = 5;
+  static const int _formatVersion = 6;
   static const String _latestBackupStorageKey = 'focus_latest_backup_json';
 
   static String friendlyBackupError(Object error) {
@@ -65,6 +66,9 @@ class BackupService {
           .toList(),
       'exams':
           provider.exams.map((item) => _repairJsonText(item.toMap())).toList(),
+      'studyTasks': provider.studyTasks
+          .map((item) => _repairJsonText(item.toMap()))
+          .toList(),
       'resources': provider.resources
           .map((item) => _repairJsonText(item.toMap()))
           .toList(),
@@ -148,6 +152,10 @@ class BackupService {
         .map((item) =>
             ResourceLink.fromMap(Map<String, dynamic>.from(item as Map)))
         .toList();
+    final importedStudyTasks = (data['studyTasks'] as List? ?? [])
+        .map(
+            (item) => StudyTask.fromMap(Map<String, dynamic>.from(item as Map)))
+        .toList();
 
     final oldToNewSubjectId = <int, int>{};
     final subjectScheduleMap = <int, List<Schedule>>{};
@@ -195,6 +203,7 @@ class BackupService {
           endTime: seedSchedules.first.endTime,
           classroom: seedSchedules.first.classroom,
         ),
+        validateConflict: false,
       );
       if (subject.id != null && created.id != null) {
         oldToNewSubjectId[subject.id!] = created.id!;
@@ -208,6 +217,7 @@ class BackupService {
             endTime: extra.endTime,
             classroom: extra.classroom,
           ),
+          validateConflict: false,
         );
       }
     }
@@ -237,6 +247,20 @@ class BackupService {
           date: exam.date,
           startTime: exam.startTime,
           classroom: exam.classroom,
+        ),
+      );
+    }
+    for (final task in importedStudyTasks) {
+      await provider.addStudyTask(
+        StudyTask(
+          subjectId: oldToNewSubjectId[task.subjectId] ?? task.subjectId,
+          title: task.title,
+          notes: task.notes,
+          dueDate: task.dueDate,
+          priority: task.priority,
+          status: task.status,
+          createdAt: task.createdAt,
+          completedAt: task.completedAt,
         ),
       );
     }

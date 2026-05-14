@@ -208,6 +208,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
       }
     }
 
+    for (final task in provider.studyTasks) {
+      if (!task.isDone && DateUtils.isSameDay(task.dueDate, normalized)) {
+        final subject = provider.getSubjectById(task.subjectId);
+        items.add(
+          _CalendarItem(
+            title: task.title,
+            subtitle: [
+              task.priorityLabel,
+              if (subject != null) subject.name,
+              task.statusLabel,
+            ].join(' · '),
+            type: CalendarItemType.task,
+            color: task.isOverdue
+                ? const Color(0xFFEF4444)
+                : const Color(0xFFF97316),
+            date: normalized,
+          ),
+        );
+      }
+    }
+
     final weekday = normalized.weekday - 1;
     for (final schedule
         in provider.schedules.where((item) => item.dayOfWeek == weekday)) {
@@ -403,9 +424,9 @@ class _MonthSummary extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _SummaryCard(
-            label: 'Enfoques',
-            value: count(CalendarItemType.pomodoro).toString(),
-            color: const Color(0xFF0EA5E9),
+            label: 'Tareas',
+            value: count(CalendarItemType.task).toString(),
+            color: const Color(0xFFF97316),
           ),
         ),
       ],
@@ -469,6 +490,7 @@ class _CalendarDayTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final hasExam = items.any((item) => item.type == CalendarItemType.exam);
+    final hasTask = items.any((item) => item.type == CalendarItemType.task);
     final hasClass =
         items.any((item) => item.type == CalendarItemType.classBlock);
     final background = isSelected
@@ -477,11 +499,13 @@ class _CalendarDayTile extends StatelessWidget {
             ? colorScheme.primary.withValues(alpha: 0.18)
             : hasExam
                 ? const Color(0xFF7C3AED).withValues(alpha: 0.14)
-                : hasClass
-                    ? const Color(0xFF10B981).withValues(alpha: 0.16)
-                    : colorScheme.surfaceContainerHighest.withValues(
-                        alpha: isCurrentMonth ? 0.24 : 0.1,
-                      );
+                : hasTask
+                    ? const Color(0xFFF97316).withValues(alpha: 0.14)
+                    : hasClass
+                        ? const Color(0xFF10B981).withValues(alpha: 0.16)
+                        : colorScheme.surfaceContainerHighest.withValues(
+                            alpha: isCurrentMonth ? 0.24 : 0.1,
+                          );
     final textColor = isSelected
         ? Colors.white
         : isToday
@@ -506,10 +530,13 @@ class _CalendarDayTile extends StatelessWidget {
                     ? colorScheme.primary
                     : hasExam
                         ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
-                        : hasClass
-                            ? const Color(0xFF10B981).withValues(alpha: 0.55)
-                            : colorScheme.outlineVariant
-                                .withValues(alpha: 0.18),
+                        : hasTask
+                            ? const Color(0xFFF97316).withValues(alpha: 0.5)
+                            : hasClass
+                                ? const Color(0xFF10B981)
+                                    .withValues(alpha: 0.55)
+                                : colorScheme.outlineVariant
+                                    .withValues(alpha: 0.18),
           ),
         ),
         child: Center(
@@ -553,6 +580,7 @@ class _CalendarLegend extends StatelessWidget {
       runSpacing: 8,
       children: [
         _LegendItem(label: 'Examen', color: Color(0xFF7C3AED)),
+        _LegendItem(label: 'Tarea', color: Color(0xFFF97316)),
         _LegendItem(label: 'Clase', color: Color(0xFF10B981)),
         _LegendItem(label: 'Hoy / seleccionado', color: Color(0xFF1D4ED8)),
       ],
@@ -620,7 +648,7 @@ class _AgendaSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Cuando tengas clases, exámenes, hábitos o pomodoros, aparecerán reunidos aquí.',
+                    'Cuando tengas clases, exámenes, tareas, hábitos o pomodoros, aparecerán reunidos aquí.',
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -764,7 +792,7 @@ class _AgendaCard extends StatelessWidget {
   }
 }
 
-enum CalendarItemType { exam, classBlock, habit, pomodoro }
+enum CalendarItemType { exam, task, classBlock, habit, pomodoro }
 
 class _CalendarItem {
   final String title;
@@ -784,15 +812,17 @@ class _CalendarItem {
   int get priority {
     return switch (type) {
       CalendarItemType.exam => 0,
-      CalendarItemType.classBlock => 1,
-      CalendarItemType.habit => 2,
-      CalendarItemType.pomodoro => 3,
+      CalendarItemType.task => 1,
+      CalendarItemType.classBlock => 2,
+      CalendarItemType.habit => 3,
+      CalendarItemType.pomodoro => 4,
     };
   }
 
   String get label {
     return switch (type) {
       CalendarItemType.exam => 'EXAMEN',
+      CalendarItemType.task => 'TAREA',
       CalendarItemType.classBlock => 'CLASE',
       CalendarItemType.habit => 'HÁBITO',
       CalendarItemType.pomodoro => 'FOCUS',

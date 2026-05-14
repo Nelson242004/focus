@@ -350,12 +350,23 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
   Future<void> _deleteSubject(Subject subject) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
+    final scheduleCount = provider.schedules
+        .where((schedule) => schedule.subjectId == subject.id)
+        .length;
+    final examCount =
+        provider.exams.where((exam) => exam.subjectId == subject.id).length;
+    final taskCount = provider.studyTasks
+        .where((task) => task.subjectId == subject.id && !task.isDone)
+        .length;
+    final resourceCount = subject.id == null
+        ? 0
+        : provider.resourcesForSubject(subject.id!).length;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar materia'),
         content: Text(
-          'Se eliminarán también todos los horarios asociados a ${subject.name}.',
+          'Se eliminará ${subject.name} y $scheduleCount bloques de horario. $examCount exámenes, $taskCount tareas activas y $resourceCount recursos quedarán sin materia vinculada.',
         ),
         actions: [
           TextButton(
@@ -369,7 +380,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
         ],
       ),
     );
-    if (confirm == true && mounted) {
+    if (confirm == true && mounted && subject.id != null) {
       await provider.deleteSubject(subject.id!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -462,6 +473,12 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                   'Crea tu primera materia con lo mínimo necesario. Si sos estudiante de Politécnica, usa la sección Politécnica para importar el Excel.',
                                   textAlign: TextAlign.center,
                                 ),
+                                const SizedBox(height: 14),
+                                FilledButton.icon(
+                                  onPressed: () => _showSubjectDialog(),
+                                  icon: const Icon(Icons.add_rounded),
+                                  label: const Text('Agregar primera materia'),
+                                ),
                               ],
                             ),
                           ),
@@ -480,8 +497,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                           final subjectExams = provider.exams
                               .where((exam) => exam.subjectId == subject.id)
                               .toList();
-                          final resourceCount =
-                              provider.resourcesForSubject(subject.id!).length;
+                          final resourceCount = subject.id == null
+                              ? 0
+                              : provider
+                                  .resourcesForSubject(subject.id!)
+                                  .length;
                           return Card(
                             margin: const EdgeInsets.symmetric(
                               horizontal: 16,
@@ -567,6 +587,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                         icon: Icons.assignment_rounded,
                                         label:
                                             '${subjectExams.length} exámenes',
+                                      ),
+                                      _SubjectInfoChip(
+                                        icon: Icons.task_alt_rounded,
+                                        label:
+                                            '${provider.studyTasks.where((task) => task.subjectId == subject.id && !task.isDone).length} tareas',
                                       ),
                                       _SubjectInfoChip(
                                         icon: Icons.link_rounded,

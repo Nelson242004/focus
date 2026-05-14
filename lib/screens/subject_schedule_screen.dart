@@ -103,7 +103,7 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Se permiten horarios superpuestos entre materias.',
+                    'Focus avisará si este bloque se cruza con otro horario.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),

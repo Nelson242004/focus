@@ -6,8 +6,13 @@ import '../services/ranking_service.dart';
 
 class AuthGateScreen extends StatefulWidget {
   final Widget child;
+  final bool requireAccount;
 
-  const AuthGateScreen({super.key, required this.child});
+  const AuthGateScreen({
+    super.key,
+    required this.child,
+    this.requireAccount = true,
+  });
 
   @override
   State<AuthGateScreen> createState() => _AuthGateScreenState();
@@ -23,7 +28,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       initialData: RankingService.currentUser,
       builder: (context, snapshot) {
         final user = snapshot.data;
-        if (user == null) return const LoginScreen();
+        if (user == null) {
+          return widget.requireAccount ? const LoginScreen() : widget.child;
+        }
         return FutureBuilder<RankingProfile?>(
           key: ValueKey(_profileRefresh),
           future: RankingService.fetchProfile(),
@@ -32,6 +39,10 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
+            }
+            if (!widget.requireAccount &&
+                (profileSnapshot.hasError || profileSnapshot.data == null)) {
+              return widget.child;
             }
             final profile = profileSnapshot.data;
             if (profile == null) {
@@ -85,6 +96,9 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
       }
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (error) {
       _showError(error);
     } finally {
@@ -96,6 +110,9 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _loading = true);
     try {
       await RankingService.signInWithGoogle();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (error) {
       _showError(error);
     } finally {
@@ -125,7 +142,11 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(26),
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF0F172A), Color(0xFF1D4ED8), Color(0xFF0F766E)],
+                  colors: [
+                    Color(0xFF0F172A),
+                    Color(0xFF1D4ED8),
+                    Color(0xFF0F766E)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -208,7 +229,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           validator: (value) {
                             final text = value?.trim() ?? '';
-                            if (!text.contains('@')) return 'Escribe un correo.';
+                            if (!text.contains('@')) {
+                              return 'Escribe un correo.';
+                            }
                             return null;
                           },
                         ),
@@ -241,15 +264,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         : Icon(_creatingAccount
                             ? Icons.person_add_rounded
                             : Icons.login_rounded),
-                    label:
-                        Text(_creatingAccount ? 'Crear cuenta' : 'Iniciar sesión'),
+                    label: Text(
+                        _creatingAccount ? 'Crear cuenta' : 'Iniciar sesión'),
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _loading
                         ? null
-                        : () =>
-                            setState(() => _creatingAccount = !_creatingAccount),
+                        : () => setState(
+                            () => _creatingAccount = !_creatingAccount),
                     child: Text(_creatingAccount
                         ? 'Ya tengo cuenta'
                         : 'Crear cuenta con correo'),

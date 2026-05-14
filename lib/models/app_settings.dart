@@ -13,6 +13,9 @@ class AppSettings {
   bool animationsEnabled;
   String accentColor;
   bool notificationsEnabled;
+  bool examReminderDayBefore;
+  bool examReminderTwoHoursBefore;
+  bool examReminderThirtyMinutesBefore;
   bool onboardingCompleted;
   String breakAfterFocus;
   String userName;
@@ -31,6 +34,9 @@ class AppSettings {
     this.animationsEnabled = true,
     this.accentColor = '#1D4ED8',
     this.notificationsEnabled = true,
+    this.examReminderDayBefore = true,
+    this.examReminderTwoHoursBefore = true,
+    this.examReminderThirtyMinutesBefore = false,
     this.onboardingCompleted = false,
     this.breakAfterFocus = 'auto',
     this.userName = '',
@@ -50,6 +56,9 @@ class AppSettings {
       'animationsEnabled': animationsEnabled,
       'accentColor': accentColor,
       'notificationsEnabled': notificationsEnabled,
+      'examReminderDayBefore': examReminderDayBefore,
+      'examReminderTwoHoursBefore': examReminderTwoHoursBefore,
+      'examReminderThirtyMinutesBefore': examReminderThirtyMinutesBefore,
       'onboardingCompleted': onboardingCompleted,
       'breakAfterFocus': breakAfterFocus,
       'userName': userName,
@@ -75,6 +84,12 @@ class AppSettings {
       accentColor: '${map['accentColor'] ?? '#1D4ED8'}',
       notificationsEnabled:
           _boolFromMap(map['notificationsEnabled'], fallback: true),
+      examReminderDayBefore:
+          _boolFromMap(map['examReminderDayBefore'], fallback: true),
+      examReminderTwoHoursBefore:
+          _boolFromMap(map['examReminderTwoHoursBefore'], fallback: true),
+      examReminderThirtyMinutesBefore:
+          _boolFromMap(map['examReminderThirtyMinutesBefore'], fallback: false),
       onboardingCompleted:
           _boolFromMap(map['onboardingCompleted'], fallback: false),
       breakAfterFocus: '${map['breakAfterFocus'] ?? 'auto'}',

@@ -3,8 +3,8 @@ class AppLinks {
 
   static const String developerName = 'PoliCode';
   static const String developerWebsite = 'https://policode.netlify.app/';
-  static const String currentVersion = '1.0.0';
-  static const int currentVersionCode = 1;
+  static const String currentVersion = '1.0.1';
+  static const int currentVersionCode = 2;
 
   static const String instagram =
       'https://www.instagram.com/nelson_spy?igsh=ZjhyMWJuY2poeGNv';
