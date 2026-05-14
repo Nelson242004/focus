@@ -60,7 +60,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       bullets: [
         'Modo horizontal',
         'Ciclos automáticos',
-        'Estadísticas de enfoque'
+        'Puntos de enfoque'
       ],
       colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
     ),

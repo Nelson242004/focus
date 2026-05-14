@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
+import '../services/ranking_service.dart';
 import '../screens/about_screen.dart';
 import '../screens/achievements_screen.dart';
 import '../screens/exams_screen.dart';
+import '../screens/friends_screen.dart';
 import '../screens/help_screen.dart';
 import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
@@ -51,37 +54,12 @@ class FocusDrawer extends StatelessWidget {
         ),
         child: Column(
           children: [
-            SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Focus',
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w900,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Organiza materias, exámenes y sesiones de estudio.',
-                      style: TextStyle(
-                        color:
-                            isDark ? Colors.white70 : const Color(0xFF334155),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _DrawerHeaderCard(isDark: isDark),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(bottom: 8),
                 children: [
+                  _sectionLabel(context, 'Estudio'),
                   _tile(
                     context,
                     duration: duration,
@@ -146,6 +124,7 @@ class FocusDrawer extends StatelessWidget {
                     selected: selectedRoute == 'achievements',
                     onTap: () => _replace(context, const AchievementsScreen()),
                   ),
+                  _sectionLabel(context, 'Comunidad'),
                   _tile(
                     context,
                     duration: duration,
@@ -157,11 +136,12 @@ class FocusDrawer extends StatelessWidget {
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.bar_chart,
-                    label: 'Estadísticas',
-                    selected: selectedMainIndex == 3,
-                    onTap: () => _goToMain(context, 3),
+                    icon: Icons.people_alt_rounded,
+                    label: 'Amigos',
+                    selected: selectedRoute == 'friends',
+                    onTap: () => _replace(context, const FriendsScreen()),
                   ),
+                  _sectionLabel(context, 'Soporte'),
                   _tile(
                     context,
                     duration: duration,
@@ -197,14 +177,30 @@ class FocusDrawer extends StatelessWidget {
                       duration: duration,
                       icon: Icons.settings,
                       label: 'Configuración',
-                      selected: selectedMainIndex == 4,
-                      onTap: () => _goToMain(context, 4),
+                      selected: selectedMainIndex == 3,
+                      onTap: () => _goToMain(context, 3),
                     ),
                   ],
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionLabel(BuildContext context, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.8,
+          color: isDark ? Colors.white38 : const Color(0xFF64748B),
         ),
       ),
     );
@@ -265,6 +261,85 @@ class FocusDrawer extends StatelessWidget {
     Navigator.pop(context);
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+}
+
+class _DrawerHeaderCard extends StatelessWidget {
+  final bool isDark;
+
+  const _DrawerHeaderCard({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      bottom: false,
+      child: FutureBuilder<RankingProfile?>(
+        future: RankingService.fetchProfile(),
+        builder: (context, snapshot) {
+          final profile = snapshot.data;
+          final name = profile?.name ?? 'Focus';
+          final career = profile?.career ?? 'Organiza tu semestre';
+          return Container(
+            margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.white.withValues(alpha: 0.92),
+              border: Border.all(
+                color: isDark ? Colors.white12 : const Color(0xFFD6E0EC),
+              ),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 25,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  backgroundImage: profile?.photoUrl.isNotEmpty == true
+                      ? NetworkImage(profile!.photoUrl)
+                      : null,
+                  child: profile?.photoUrl.isNotEmpty == true
+                      ? null
+                      : const Icon(Icons.center_focus_strong_rounded,
+                          color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          color:
+                              isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        career,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark
+                              ? Colors.white70
+                              : const Color(0xFF334155),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

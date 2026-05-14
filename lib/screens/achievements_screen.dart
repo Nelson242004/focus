@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
+import '../services/ranking_service.dart';
 import '../widgets/focus_drawer.dart';
 
 class AchievementsScreen extends StatelessWidget {
@@ -19,61 +20,61 @@ class AchievementsScreen extends StatelessWidget {
         final achievements = [
           _AchievementData(
             title: 'Primer impulso',
-            subtitle: 'Completa tu primer pomodoro.',
+            subtitle: 'Completa tu primer pomodoro. +50 pts',
             unlocked: provider.pomodoros.isNotEmpty,
             icon: Icons.play_circle_fill_rounded,
           ),
           _AchievementData(
             title: 'Semana encendida',
-            subtitle: 'Alcanza una racha de 7 días.',
+            subtitle: 'Alcanza una racha de 7 días. +100 pts',
             unlocked: provider.currentStreak >= 7,
             icon: Icons.local_fire_department_rounded,
           ),
           _AchievementData(
             title: 'Racha imparable',
-            subtitle: 'Sostén una racha de 14 días.',
+            subtitle: 'Sostén una racha de 14 días. +180 pts',
             unlocked: provider.currentStreak >= 14,
             icon: Icons.whatshot_rounded,
           ),
           _AchievementData(
             title: 'Mes de constancia',
-            subtitle: 'Llega a una racha de 30 días.',
+            subtitle: 'Llega a una racha de 30 días. +400 pts',
             unlocked: provider.currentStreak >= 30,
             icon: Icons.local_fire_department_outlined,
           ),
           _AchievementData(
             title: 'Cazador de enfoque',
-            subtitle: 'Suma 25 pomodoros en total.',
+            subtitle: 'Suma 25 pomodoros en total. +150 pts',
             unlocked: provider.pomodoros.length >= 25,
             icon: Icons.bolt_rounded,
           ),
           _AchievementData(
             title: 'Cien sesiones',
-            subtitle: 'Alcanza 100 pomodoros acumulados.',
+            subtitle: 'Alcanza 100 pomodoros acumulados. +600 pts',
             unlocked: provider.pomodoros.length >= 100,
             icon: Icons.flash_on_rounded,
           ),
           _AchievementData(
             title: 'Misión semanal',
-            subtitle: 'Completa 10 pomodoros en la misma semana.',
+            subtitle: 'Completa 10 pomodoros en la misma semana. +120 pts',
             unlocked: provider.weeklyMissionCompleted,
             icon: Icons.flag_circle_rounded,
           ),
           _AchievementData(
             title: 'Constancia atómica',
-            subtitle: 'Marca 30 hábitos completados.',
+            subtitle: 'Marca 30 hábitos completados. +180 pts',
             unlocked: provider.totalHabitCompletions >= 30,
             icon: Icons.check_circle_rounded,
           ),
           _AchievementData(
             title: 'Sistema sólido',
-            subtitle: 'Llega a 75 hábitos completados.',
+            subtitle: 'Llega a 75 hábitos completados. +420 pts',
             unlocked: provider.totalHabitCompletions >= 75,
             icon: Icons.inventory_2_rounded,
           ),
           _AchievementData(
             title: 'Nivel máximo',
-            subtitle: 'Llega al nivel 5.',
+            subtitle: 'Llega al nivel 5. +500 pts',
             unlocked: provider.level >= AppProvider.maxLevel,
             icon: Icons.diamond_rounded,
           ),
@@ -100,8 +101,10 @@ class AchievementsScreen extends StatelessWidget {
               const _GuideCard(
                 title: 'Equivalencias de puntos',
                 items: [
-                  'Cada pomodoro completado suma 10 puntos.',
-                  'Cada hábito marcado suma 5 puntos.',
+                  'Cada pomodoro completado suma ${RankingService.pointsPerPomodoro} puntos por bloque de 25 min.',
+                  'Pomodoro sin distracciones suma +${RankingService.distractionFreeBonus} puntos.',
+                  'Cada hábito completado suma ${RankingService.pointsPerHabitCompletion} puntos.',
+                  'Los logros suman puntos una sola vez al desbloquearse.',
                   'Los niveles suben cada 200 puntos.',
                   'El progreso máximo llega hasta el nivel 5.',
                 ],

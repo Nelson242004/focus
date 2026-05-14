@@ -13,7 +13,6 @@ class FocusAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private val homePackages by lazy { resolveHomePackages() }
     private var lastBlockedPackage = ""
-    private var lastBlockedAt = 0L
     private var pendingOverlayRunnable: Runnable? = null
 
     private val activeWindowMonitor =
@@ -76,6 +75,9 @@ class FocusAccessibilityService : AccessibilityService() {
             clearPendingOverlay()
             overlayManager.dismissOverlay()
             lastBlockedPackage = ""
+            prefs.edit()
+                .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "")
+                .apply()
             return
         }
 
@@ -87,6 +89,9 @@ class FocusAccessibilityService : AccessibilityService() {
             clearPendingOverlay()
             overlayManager.dismissOverlay()
             lastBlockedPackage = ""
+            prefs.edit()
+                .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "")
+                .apply()
             return
         }
 
@@ -101,13 +106,18 @@ class FocusAccessibilityService : AccessibilityService() {
             }
             if (packageName != lastBlockedPackage) {
                 lastBlockedPackage = ""
+                prefs.edit()
+                    .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "")
+                    .apply()
             }
             return
         }
 
         val now = System.currentTimeMillis()
-        if (blockedPackage == lastBlockedPackage && now - lastBlockedAt < 1800L) {
-            debugLog("Ignoring repeated block event for $blockedPackage")
+        val lastPersistedPackage =
+            prefs.getString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "").orEmpty()
+        if (blockedPackage == lastBlockedPackage || blockedPackage == lastPersistedPackage) {
+            debugLog("Ignoring repeated active attempt for $blockedPackage")
             return
         }
 
@@ -118,11 +128,11 @@ class FocusAccessibilityService : AccessibilityService() {
                 prefs.getInt(FocusShieldService.KEY_BLOCKED_ATTEMPTS, 0) + 1,
             )
             .putString(FocusShieldService.KEY_LAST_BLOCKED_APP, appLabel)
+            .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, blockedPackage)
             .putLong(FocusShieldService.KEY_LAST_BLOCKED_AT_MILLIS, now)
             .apply()
 
         lastBlockedPackage = blockedPackage
-        lastBlockedAt = now
 
         clearPendingOverlay()
         debugLog("Blocked package detected=$blockedPackage showing overlay soon")
@@ -144,6 +154,9 @@ class FocusAccessibilityService : AccessibilityService() {
                         handler.postDelayed({
                             overlayManager.dismissOverlay()
                             lastBlockedPackage = ""
+                            prefs.edit()
+                                .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "")
+                                .apply()
                         }, 180L)
                     },
                     onFailed = {
@@ -151,6 +164,9 @@ class FocusAccessibilityService : AccessibilityService() {
                         performGlobalAction(GLOBAL_ACTION_HOME)
                         handler.postDelayed({
                             lastBlockedPackage = ""
+                            prefs.edit()
+                                .putString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "")
+                                .apply()
                         }, 220L)
                     },
                 )

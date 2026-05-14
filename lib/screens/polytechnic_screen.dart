@@ -11,6 +11,7 @@ import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../services/notification_service.dart';
 import '../services/polytechnic_cache_service.dart';
+import '../services/polytechnic_cloud_service.dart';
 import '../services/polytechnic_import_service.dart';
 import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
@@ -31,6 +32,8 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   PolytechnicWorkbook? _workbook;
   bool _loadingWorkbook = false;
   bool _importing = false;
+  bool _adminMode = false;
+  bool _loadedFromCloud = false;
   bool _showImportFlow = false;
   String? _loadedFileName;
   String _loadingMessage = 'Procesando archivo...';
@@ -40,12 +43,54 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   final Map<String, String> _selectedSectionCodes = {};
 
   @override
+  void initState() {
+    super.initState();
+    _loadCloudWorkbook();
+  }
+
+  Future<void> _loadCloudWorkbook() async {
+    setState(() {
+      _loadingWorkbook = true;
+      _loadingMessage = 'Buscando catálogo Politécnica...';
+    });
+    try {
+      final results = await Future.wait([
+        PolytechnicCloudService.currentUserIsAdmin(),
+        PolytechnicCloudService.loadCurrentWorkbook(),
+      ]);
+      if (!mounted) return;
+      final workbook = results[1] as PolytechnicWorkbook?;
+      setState(() {
+        _adminMode = results[0] as bool;
+        if (workbook != null) {
+          _workbook = workbook;
+          _loadedFileName = workbook.sourceName;
+          _loadedFromCloud = true;
+          _showImportFlow = true;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+    } finally {
+      if (mounted) setState(() => _loadingWorkbook = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final workbook = _workbook;
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
       appBar: AppBar(
         title: const Text('Politécnica'),
+        actions: [
+          if (_adminMode)
+            IconButton(
+              tooltip: 'Publicar Excel global',
+              onPressed: _pickAndPublishWorkbook,
+              icon: const Icon(Icons.cloud_upload_rounded),
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -60,13 +105,26 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
                 _ImportShortcutCard(
                   onTap: () => setState(() => _showImportFlow = true),
                 ),
+                if (_adminMode) ...[
+                  const SizedBox(height: 12),
+                  _AdminPublishCard(onTap: _pickAndPublishWorkbook),
+                ],
               ] else ...[
                 _HeroCard(
                   loadedFileName: _loadedFileName,
                   loading: _loadingWorkbook,
                   onLoadPressed: _pickWorkbook,
                 ),
+                if (_adminMode) ...[
+                  const SizedBox(height: 12),
+                  _AdminPublishCard(onTap: _pickAndPublishWorkbook),
+                ],
                 if (workbook != null) ...[
+                  const SizedBox(height: 12),
+                  _CatalogStatusCard(
+                    sourceName: workbook.sourceName,
+                    global: _loadedFromCloud,
+                  ),
                   const SizedBox(height: 12),
                   _WorkbookSummaryCard(workbook: workbook),
                 ],
@@ -545,6 +603,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
         _selectedCareerCodes.clear();
         _subjectStates.clear();
         _selectedSectionCodes.clear();
+        _loadedFromCloud = false;
       });
     } catch (error) {
       if (!mounted) {
@@ -558,6 +617,66 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       if (mounted) {
         setState(() => _loadingWorkbook = false);
       }
+    }
+  }
+
+  Future<void> _pickAndPublishWorkbook() async {
+    setState(() {
+      _loadingWorkbook = true;
+      _loadingMessage = 'Seleccionando Excel global...';
+    });
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['xlsx', 'json'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final pickedFile = result.files.single;
+      final bytes = pickedFile.bytes;
+      if (bytes == null) {
+        throw StateError('No se pudo leer el archivo seleccionado.');
+      }
+      final extension = (pickedFile.extension ?? '').toLowerCase();
+      final workbook = extension == 'json'
+          ? await compute<Map<String, dynamic>, PolytechnicWorkbook>(
+              parsePolytechnicJsonInBackground,
+              {'json': utf8.decode(bytes)},
+            )
+          : await compute<Map<String, dynamic>, PolytechnicWorkbook>(
+              parsePolytechnicWorkbookInBackground,
+              {
+                'bytes': bytes,
+                'sourceName': pickedFile.name,
+              },
+            );
+      setState(() => _loadingMessage = 'Publicando catálogo en Firebase...');
+      await PolytechnicCloudService.publishWorkbook(workbook);
+      if (!mounted) return;
+      setState(() {
+        _workbook = workbook;
+        _loadedFileName = pickedFile.name;
+        _showImportFlow = true;
+        _currentStep = 0;
+        _selectedCareerCodes.clear();
+        _subjectStates.clear();
+        _selectedSectionCodes.clear();
+        _loadedFromCloud = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Catálogo Politécnica publicado para todos.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingWorkbook = false);
     }
   }
 
@@ -846,6 +965,58 @@ class _CalculatorShortcutCard extends StatelessWidget {
   }
 }
 
+class _CatalogStatusCard extends StatelessWidget {
+  final String sourceName;
+  final bool global;
+
+  const _CatalogStatusCard({
+    required this.sourceName,
+    required this.global,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = global
+        ? Theme.of(context).colorScheme.primary
+        : Theme.of(context).colorScheme.tertiary;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            global ? Icons.cloud_done_rounded : Icons.folder_open_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  global ? 'Catálogo oficial disponible' : 'Archivo local cargado',
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  sourceName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ImportShortcutCard extends StatelessWidget {
   final VoidCallback onTap;
 
@@ -887,6 +1058,62 @@ class _ImportShortcutCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'Carga el Excel oficial y elige carrera, materias, horarios, profesores, secciones y exámenes.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.arrow_forward_rounded, color: primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminPublishCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AdminPublishCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.tertiary;
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: primary.withValues(alpha: 0.14),
+                ),
+                child:
+                    Icon(Icons.cloud_upload_rounded, color: primary, size: 30),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Publicar Excel global',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sube el horario oficial a Firebase para que todos lo carguen automáticamente.',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],

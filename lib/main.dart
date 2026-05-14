@@ -8,6 +8,7 @@ import 'database/database_helper.dart';
 import 'models/app_settings.dart';
 import 'providers/app_provider.dart';
 import 'screens/app_tutorial_screen.dart';
+import 'screens/auth_gate_screen.dart';
 import 'screens/required_permissions_screen.dart';
 import 'screens/web_focus_screen.dart';
 import 'services/notification_service.dart';
@@ -415,13 +416,15 @@ class MyApp extends StatelessWidget {
             },
             home: !provider.isLoaded
                 ? const _BootSplash()
-                : kIsWeb
-                    ? const WebFocusScreen()
-                    : provider.settings.onboardingCompleted
-                        ? const RequiredPermissionsGate()
-                        : OnboardingScreen(
-                            onComplete: () => provider.completeOnboarding(),
-                          ),
+                : provider.settings.onboardingCompleted
+                    ? AuthGateScreen(
+                        child: kIsWeb
+                            ? const WebFocusScreen()
+                            : const RequiredPermissionsGate(),
+                      )
+                    : OnboardingScreen(
+                        onComplete: () => provider.completeOnboarding(),
+                      ),
           );
         },
       ),

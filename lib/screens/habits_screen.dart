@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/habit.dart';
 import '../providers/app_provider.dart';
+import '../services/ranking_service.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -176,8 +177,19 @@ class _HabitsScreenState extends State<HabitsScreen> {
       history: newHistory,
       streak: habit.streak,
     );
-    await Provider.of<AppProvider>(context, listen: false)
-        .updateHabit(updatedHabit);
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    await provider.updateHabit(updatedHabit);
+    if (!wasCompleted) {
+      await RankingService.submitHabitCompletion();
+      await RankingService.syncAchievementAwards(
+        pomodoros: provider.pomodoros.length,
+        currentStreak: provider.currentStreak,
+        totalHabitCompletions: provider.totalHabitCompletions,
+        weeklyMissionCompleted: provider.weeklyMissionCompleted,
+        level: provider.level,
+        maxLevel: AppProvider.maxLevel,
+      );
+    }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

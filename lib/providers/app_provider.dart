@@ -8,6 +8,7 @@ import '../models/resource_link.dart';
 import '../models/schedule.dart';
 import '../models/subject.dart';
 import '../services/notification_service.dart';
+import '../services/firebase_user_data_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/resource_catalog.dart';
@@ -140,6 +141,14 @@ class AppProvider extends ChangeNotifier {
       isLoaded = true;
       notifyListeners();
       await WidgetSyncService.syncFromProvider(this);
+      await FirebaseUserDataService.syncAll(
+        pomodoros: pomodoros,
+        habits: habits,
+        subjects: subjects,
+        schedules: schedules,
+        exams: exams,
+        resources: resources,
+      );
     }
   }
 
@@ -229,32 +238,39 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addPomodoro(Pomodoro p) async {
-    await db.insertPomodoro(p);
+    final id = await db.insertPomodoro(p);
+    p.id = id;
     await _loadPomodoros();
+    await FirebaseUserDataService.savePomodoro(p);
     await _notifyAndSyncWidget();
   }
 
   Future<void> deletePomodoro(int id) async {
     await db.deletePomodoro(id);
     await _loadPomodoros();
+    await FirebaseUserDataService.deletePomodoro(id);
     await _notifyAndSyncWidget();
   }
 
   Future<void> addHabit(Habit h) async {
-    await db.insertHabit(h);
+    final id = await db.insertHabit(h);
+    h.id = id;
     await _loadHabits();
+    await FirebaseUserDataService.saveHabit(h);
     await _notifyAndSyncWidget();
   }
 
   Future<void> updateHabit(Habit h) async {
     await db.updateHabit(h);
     await _loadHabits();
+    await FirebaseUserDataService.saveHabit(h);
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteHabit(int id) async {
     await db.deleteHabit(id);
     await _loadHabits();
+    await FirebaseUserDataService.deleteHabit(id);
     await _notifyAndSyncWidget();
   }
 
@@ -277,14 +293,23 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addResource(ResourceLink resource) async {
-    await db.insertResource(resource);
+    final id = await db.insertResource(resource);
     await _loadResources();
+    await FirebaseUserDataService.saveResource(ResourceLink(
+      id: id,
+      title: resource.title,
+      url: resource.url,
+      category: resource.category,
+      subjectId: resource.subjectId,
+      isDefault: resource.isDefault,
+    ));
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteResource(int id) async {
     await db.deleteResource(id);
     await _loadResources();
+    await FirebaseUserDataService.deleteResource(id);
     await _notifyAndSyncWidget();
   }
 
@@ -324,6 +349,10 @@ class AppProvider extends ChangeNotifier {
       await db.insertSchedule(scheduleToSave);
       await _loadSubjects();
       await _loadSchedules();
+      await FirebaseUserDataService.saveSubject(savedSubject);
+      for (final schedule in schedules.where((item) => item.subjectId == subjectId)) {
+        await FirebaseUserDataService.saveSchedule(schedule);
+      }
       await _notifyAndSyncWidget();
       return savedSubject;
     } catch (_) {
@@ -334,11 +363,13 @@ class AppProvider extends ChangeNotifier {
   Future<void> addSubject(Subject s) async {
     _ensureSubjectNameAvailable(s.name);
     try {
-      await db.insertSubject(s);
+      final id = await db.insertSubject(s);
+      s.id = id;
     } catch (_) {
       throw StateError('No se pudo guardar la materia.');
     }
     await _loadSubjects();
+    await FirebaseUserDataService.saveSubject(s);
     await _notifyAndSyncWidget();
   }
 
@@ -352,6 +383,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadSubjects();
     await _loadExams();
+    await FirebaseUserDataService.saveSubject(s);
     await _notifyAndSyncWidget();
   }
 
@@ -360,6 +392,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSubjects();
     await _loadSchedules();
     await _loadExams();
+    await FirebaseUserDataService.deleteSubject(id);
     await _notifyAndSyncWidget();
   }
 
@@ -380,8 +413,10 @@ class AppProvider extends ChangeNotifier {
     if (s.dayOfWeek < 0 || s.dayOfWeek > 5) {
       throw StateError('Solo se permiten horarios de lunes a sábado.');
     }
-    await db.insertSchedule(s);
+    final id = await db.insertSchedule(s);
+    s.id = id;
     await _loadSchedules();
+    await FirebaseUserDataService.saveSchedule(s);
     await _notifyAndSyncWidget();
   }
 
@@ -391,12 +426,14 @@ class AppProvider extends ChangeNotifier {
     }
     await db.updateSchedule(s);
     await _loadSchedules();
+    await FirebaseUserDataService.saveSchedule(s);
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteSchedule(int id) async {
     await db.deleteSchedule(id);
     await _loadSchedules();
+    await FirebaseUserDataService.deleteSchedule(id);
     await _notifyAndSyncWidget();
   }
 
@@ -426,6 +463,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
+    await FirebaseUserDataService.saveExam(savedExam);
     await _notifyAndSyncWidget();
   }
 
@@ -441,6 +479,7 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
+    await FirebaseUserDataService.saveExam(normalized);
     await _notifyAndSyncWidget();
   }
 
@@ -463,6 +502,7 @@ class AppProvider extends ChangeNotifier {
     await db.deleteExam(id);
     await NotificationService.cancelExamNotifications(id);
     await _loadExams();
+    await FirebaseUserDataService.deleteExam(id);
     await _notifyAndSyncWidget();
   }
 
@@ -477,6 +517,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSchedules();
     await _loadExams();
     await _loadResources();
+    await FirebaseUserDataService.clearAcademicData();
     await _notifyAndSyncWidget();
   }
 
@@ -581,6 +622,7 @@ class AppProvider extends ChangeNotifier {
       }
     }
     await db.clearAll(reseed: reseed);
+    await FirebaseUserDataService.clearAll();
     await loadAllData();
     if (reseed) {
       await updateSettings(
@@ -590,11 +632,25 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  int get totalPoints => pomodoros.length * 10;
+  int get totalPoints => pomodoros.length * 20;
   int get totalHabitCompletions =>
       habits.fold<int>(0, (sum, habit) => sum + habit.history.length);
-  int get rewardPoints => totalHabitCompletions * 5;
-  int get gamifiedPoints => totalPoints + rewardPoints;
+  int get rewardPoints => totalHabitCompletions * 12;
+  int get achievementBonusPoints {
+    var points = 0;
+    if (pomodoros.isNotEmpty) points += 50;
+    if (currentStreak >= 7) points += 100;
+    if (currentStreak >= 14) points += 180;
+    if (currentStreak >= 30) points += 400;
+    if (pomodoros.length >= 25) points += 150;
+    if (pomodoros.length >= 100) points += 600;
+    if (weeklyMissionCompleted) points += 120;
+    if (totalHabitCompletions >= 30) points += 180;
+    if (totalHabitCompletions >= 75) points += 420;
+    return points;
+  }
+
+  int get gamifiedPoints => totalPoints + rewardPoints + achievementBonusPoints;
   int get weeklyMissionTarget => 10;
   int get weeklyMissionProgressCount =>
       weeklyPomodoros.clamp(0, weeklyMissionTarget);

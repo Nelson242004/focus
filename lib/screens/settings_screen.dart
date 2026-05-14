@@ -12,10 +12,12 @@ import '../providers/app_provider.dart';
 import '../services/backup_service.dart';
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import '../services/ranking_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_links.dart';
 import '../utils/app_utils.dart';
 import 'app_tutorial_screen.dart';
+import 'auth_gate_screen.dart';
 import 'focus_mode_setup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -62,7 +64,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _goalController =
         TextEditingController(text: provider.settings.weeklyGoal.toString());
     _selectedSound = provider.settings.sound;
-    _selectedStartScreen = provider.settings.startScreen;
+    _selectedStartScreen = provider.settings.startScreen == 'statistics'
+        ? 'dashboard'
+        : provider.settings.startScreen;
     _breakAfterFocus = provider.settings.breakAfterFocus;
     _textScale = provider.settings.textScale;
     _animationsEnabled = provider.settings.animationsEnabled;
@@ -127,6 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         notificationsEnabled: _notificationsEnabled,
         onboardingCompleted: provider.settings.onboardingCompleted,
         breakAfterFocus: _breakAfterFocus,
+        userName: provider.settings.userName,
       ),
     );
     if (!mounted) return;
@@ -389,6 +394,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsHero(provider: provider),
             const SizedBox(height: 14),
             _SettingsSection(
+              title: 'Cuenta',
+              icon: Icons.person_rounded,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.badge_rounded),
+                  title: const Text('Perfil público'),
+                  subtitle: const Text('Editar nombre y carrera del ranking.'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () async {
+                    final user = RankingService.currentUser;
+                    final profile = await RankingService.fetchProfile();
+                    if (!context.mounted || user == null) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => ProfileSetupScreen(
+                          user: user,
+                          profile: profile,
+                        ),
+                      ),
+                    );
+                    if (context.mounted) setState(() {});
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _SettingsSection(
               title: 'Apariencia',
               icon: Icons.palette_rounded,
               children: [
@@ -409,8 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: 'dashboard', child: Text('Dashboard')),
                     DropdownMenuItem(
                         value: 'pomodoro', child: Text('Pomodoro')),
-                    DropdownMenuItem(
-                        value: 'statistics', child: Text('Estadísticas')),
+                    DropdownMenuItem(value: 'habits', child: Text('Hábitos')),
                   ],
                   onChanged: (value) => setState(
                       () => _selectedStartScreen = value ?? 'dashboard'),

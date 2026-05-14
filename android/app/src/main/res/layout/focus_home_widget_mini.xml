@@ -6,17 +6,17 @@
     android:background="@drawable/focus_widget_background"
     android:clipChildren="true"
     android:paddingStart="12dp"
-    android:paddingTop="8dp"
-    android:paddingEnd="6dp"
-    android:paddingBottom="8dp">
+    android:paddingTop="9dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="9dp">
 
     <ImageView
         android:id="@+id/widgetMascotImage"
-        android:layout_width="92dp"
-        android:layout_height="92dp"
+        android:layout_width="84dp"
+        android:layout_height="84dp"
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
-        android:layout_marginEnd="-18dp"
+        android:layout_marginEnd="-10dp"
         android:adjustViewBounds="true"
         android:scaleType="fitCenter"
         android:src="@drawable/focus_mascot_class" />
@@ -26,7 +26,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
-        android:layout_marginEnd="70dp"
+        android:layout_marginEnd="72dp"
         android:gravity="center_vertical"
         android:orientation="vertical">
 
@@ -37,10 +37,10 @@
             android:background="@drawable/focus_widget_streak_background"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="7dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="3dp">
+            android:paddingStart="8dp"
+            android:paddingTop="4dp"
+            android:paddingEnd="9dp"
+            android:paddingBottom="4dp">
 
             <ImageView
                 android:layout_width="14dp"
@@ -55,7 +55,7 @@
                 android:includeFontPadding="false"
                 android:text="4 días"
                 android:textColor="#FFFFFF"
-                android:textSize="10sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -63,11 +63,11 @@
             android:id="@+id/widgetHeadline"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
+            android:layout_marginTop="6dp"
             android:includeFontPadding="false"
             android:text="Próxima clase"
             android:textColor="#E0F2FE"
-            android:textSize="9sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
 
         <TextView
@@ -80,7 +80,7 @@
             android:maxLines="1"
             android:text="Base de Datos"
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
@@ -93,7 +93,7 @@
             android:maxLines="1"
             android:text="Hoy · 18:00 · Aula 4"
             android:textColor="#F1F5F9"
-            android:textSize="10sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
         <TextView

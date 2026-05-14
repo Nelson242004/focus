@@ -33,7 +33,7 @@ class NotificationService {
     } catch (_) {}
 
     const androidSettings =
-        AndroidInitializationSettings('@drawable/ic_stat_focus');
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
@@ -193,7 +193,8 @@ class NotificationService {
         android: AndroidNotificationDetails(
           _pomodoroChannelId,
           _pomodoroChannelName,
-          icon: 'ic_stat_focus',
+          icon: '@mipmap/ic_launcher',
+          largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
           channelDescription: _pomodoroChannelDescription,
           importance: Importance.high,
           priority: Priority.high,

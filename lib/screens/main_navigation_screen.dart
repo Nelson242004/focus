@@ -8,7 +8,6 @@ import 'dashboard_screen.dart';
 import 'habits_screen.dart';
 import 'pomodoro_screen.dart';
 import 'settings_screen.dart';
-import 'statistics_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int? initialIndex;
@@ -27,7 +26,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     DashboardScreen(),
     PomodoroScreen(),
     HabitsScreen(),
-    StatisticsScreen(),
     SettingsScreen(),
   ];
 
@@ -40,10 +38,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         switch (startScreen) {
           'pomodoro' => 1,
           'habits' => 2,
-          'statistics' => 3,
-          'settings' => 4,
+          'settings' => 3,
           _ => 0,
         };
+    if (_selectedIndex >= _screens.length) _selectedIndex = 0;
     _startScreenApplied = true;
   }
 

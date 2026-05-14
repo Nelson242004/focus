@@ -58,7 +58,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Timer? _focusModeStatusTimer;
   int _lastHandledBlockedAtMillis = 0;
   bool _showingDistractionPrompt = false;
-  _FocusSessionSummary? _lastFocusSummary;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -84,6 +83,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       notificationsEnabled: provider.settings.notificationsEnabled,
       onboardingCompleted: provider.settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? provider.settings.breakAfterFocus,
+      userName: provider.settings.userName,
     );
     await provider.updateSettings(newSettings, syncNotifications: false);
     if (!mounted) return;
@@ -463,6 +463,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           duration: provider.settings.focusTime,
         ),
       );
+      unawaited(RankingService.submitPomodoro(
+        durationMinutes: provider.settings.focusTime,
+        distractionFree: true,
+      ));
       _completedFocusSessions++;
       _mode = _nextBreakMode(provider);
     } else {
@@ -498,7 +502,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       await _playBell();
 
       if (_mode == 'focus') {
-        final summary = _buildFocusSessionSummary(provider);
+        final blockedAttempts = _focusModeStatus.blockedAttempts;
         await _stopFocusModeShield();
         final subjectName = _activeSubjectName(provider);
         await provider.addPomodoro(
@@ -511,9 +515,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         unawaited(
           RankingService.submitPomodoro(
             durationMinutes: provider.settings.focusTime,
-            distractionFree: summary.blockedAttempts == 0,
+            distractionFree: blockedAttempts == 0,
           ).catchError((Object error) {
             debugPrint('[FocusRanking] No se pudo enviar el Pomodoro: $error');
+          }),
+        );
+        unawaited(
+          RankingService.syncAchievementAwards(
+            pomodoros: provider.pomodoros.length,
+            currentStreak: provider.currentStreak,
+            totalHabitCompletions: provider.totalHabitCompletions,
+            weeklyMissionCompleted: provider.weeklyMissionCompleted,
+            level: provider.level,
+            maxLevel: AppProvider.maxLevel,
+          ).catchError((Object error) {
+            debugPrint('[FocusRanking] No se pudo sincronizar logros: $error');
           }),
         );
         _completedFocusSessions++;
@@ -535,9 +551,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               ),
             ),
           );
-          unawaited(_showFocusSummary(summary));
         }
-        _lastFocusSummary = summary;
       } else {
         await _stopFocusModeShield();
         if (mounted) {
@@ -701,33 +715,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } finally {
       _showingDistractionPrompt = false;
     }
-  }
-
-  _FocusSessionSummary _buildFocusSessionSummary(AppProvider provider) {
-    final distractionFree = _focusModeStatus.blockedAttempts == 0;
-    final earnedPoints = 10 + (distractionFree ? 5 : 0);
-    return _FocusSessionSummary(
-      subject: _activeSubjectName(provider),
-      blockedAppsCount: _focusModeConfig.blockedApps.length,
-      blockedAttempts: _focusModeStatus.blockedAttempts,
-      earnedPoints: earnedPoints,
-      distractionFree: distractionFree,
-    );
-  }
-
-  Future<void> _showFocusSummary(_FocusSessionSummary summary) async {
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          child: _FocusSummarySheet(summary: summary),
-        ),
-      ),
-    );
   }
 
   Future<void> _openFocusModeSetup() async {
@@ -1114,6 +1101,30 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PomodoroMiniMetric(
+                          icon: Icons.stars_rounded,
+                          label: 'Al completar',
+                          value: _mode == 'focus' ? '20+ pts' : 'descanso',
+                          color: themePalette.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _PomodoroMiniMetric(
+                          icon: Icons.shield_rounded,
+                          label: 'Bloqueo',
+                          value: _focusModeConfig.enabled
+                              ? '${_focusModeConfig.blockedApps.length} apps'
+                              : 'apagado',
+                          color: const Color(0xFF7C3AED),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
                   SizedBox(
                     width: compact ? 238 : 278,
                     height: compact ? 238 : 278,
@@ -1238,10 +1249,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     if (subjects.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       _subjectSelector(provider, subjects),
-                    ],
-                    if (!_isRunning && _lastFocusSummary != null) ...[
-                      const SizedBox(height: 14),
-                      _LastFocusSummaryBanner(summary: _lastFocusSummary!),
                     ],
                     const SizedBox(height: 16),
                   ],
@@ -1727,164 +1734,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 }
 
-class _FocusSessionSummary {
-  final String subject;
-  final int blockedAppsCount;
-  final int blockedAttempts;
-  final int earnedPoints;
-  final bool distractionFree;
-
-  const _FocusSessionSummary({
-    required this.subject,
-    required this.blockedAppsCount,
-    required this.blockedAttempts,
-    required this.earnedPoints,
-    required this.distractionFree,
-  });
-}
-
-class _LastFocusSummaryBanner extends StatelessWidget {
-  final _FocusSessionSummary summary;
-
-  const _LastFocusSummaryBanner({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = summary.distractionFree
-        ? const Color(0xFF10B981)
-        : const Color(0xFF7C3AED);
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: accent.withValues(alpha: 0.12),
-        border: Border.all(color: accent.withValues(alpha: 0.24)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            summary.distractionFree
-                ? Icons.verified_rounded
-                : Icons.bolt_rounded,
-            color: accent,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Último bloque: ${summary.earnedPoints} puntos · ${summary.blockedAttempts} interrupciones',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FocusSummarySheet extends StatelessWidget {
-  final _FocusSessionSummary summary;
-
-  const _FocusSummarySheet({required this.summary});
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = summary.distractionFree
-        ? const Color(0xFF10B981)
-        : const Color(0xFF7C3AED);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sesión completada',
-            style: Theme.of(context)
-                .textTheme
-                .headlineSmall
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            summary.subject,
-            style: TextStyle(color: accent, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _SummaryChip(
-                label: 'Apps bloqueadas',
-                value: '${summary.blockedAppsCount}',
-              ),
-              _SummaryChip(
-                label: 'Interrupciones',
-                value: '${summary.blockedAttempts}',
-              ),
-              _SummaryChip(
-                label: 'Puntos',
-                value: '${summary.earnedPoints}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cerrar'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SummaryChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.28),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
 class _ModePill extends StatelessWidget {
   final String label;
   final bool selected;
@@ -1919,6 +1768,57 @@ class _ModePill extends StatelessWidget {
             color: selected ? color : null,
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _PomodoroMiniMetric extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _PomodoroMiniMetric({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

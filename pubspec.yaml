@@ -47,6 +47,9 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.png
+    - assets/medals/gold.png
+    - assets/medals/silver.png
+    - assets/medals/bronze.png
     - assets/sounds/chime.mp3
     - assets/sounds/bell.mp3
 flutter_icons:

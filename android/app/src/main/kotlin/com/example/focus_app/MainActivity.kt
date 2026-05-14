@@ -142,6 +142,14 @@ class MainActivity : FlutterActivity() {
             .apply()
 
         val manager = AppWidgetManager.getInstance(this)
+        val fullComponent = ComponentName(this, FocusHomeWidgetProvider::class.java)
+        FocusHomeWidgetProvider.updateWidgets(
+            this,
+            manager,
+            manager.getAppWidgetIds(fullComponent),
+            R.layout.focus_home_widget,
+        )
+
         val miniComponent = ComponentName(this, FocusMiniHomeWidgetProvider::class.java)
         FocusHomeWidgetProvider.updateWidgets(
             this,

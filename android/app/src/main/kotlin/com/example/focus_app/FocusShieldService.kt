@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -26,10 +25,7 @@ class FocusShieldService : Service() {
     private var totalDurationSeconds: Int = 0
     private var endAtMillis: Long = 0L
     private var timerExecutor: ScheduledExecutorService? = null
-    private var foregroundAppExecutor: ScheduledExecutorService? = null
     private var overlayManager: FocusOverlayManager? = null
-    private var lastBlockedPackage = ""
-    private var lastBlockedAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -61,7 +57,6 @@ class FocusShieldService : Service() {
         )
         startFocusForeground(totalDurationSeconds)
         startTimer()
-        startForegroundAppMonitor()
         debugLog("Foreground service started successfully")
         return START_STICKY
     }
@@ -70,8 +65,6 @@ class FocusShieldService : Service() {
         debugLog("onDestroy called")
         timerExecutor?.shutdownNow()
         timerExecutor = null
-        foregroundAppExecutor?.shutdownNow()
-        foregroundAppExecutor = null
         overlayManager?.dismissOverlay(immediate = true)
         persistSessionState(active = false, remainingSeconds = 0, keepCounters = true)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -104,89 +97,6 @@ class FocusShieldService : Service() {
         persistSessionState(active = true, remainingSeconds = remainingSeconds, keepCounters = true)
     }
 
-    private fun startForegroundAppMonitor() {
-        foregroundAppExecutor?.shutdownNow()
-        foregroundAppExecutor = Executors.newSingleThreadScheduledExecutor()
-        foregroundAppExecutor?.scheduleWithFixedDelay(
-            { runCatching { inspectForegroundApp() }.onFailure { warnLog("Foreground monitor failed: ${it.message}") } },
-            250L,
-            650L,
-            TimeUnit.MILLISECONDS,
-        )
-    }
-
-    private fun inspectForegroundApp() {
-        if (blockedApps.isEmpty() || endAtMillis <= System.currentTimeMillis()) return
-        val packageName = currentForegroundPackage() ?: return
-        if (shouldIgnorePackage(packageName)) return
-        val appLabel = blockedApps[packageName] ?: return
-        val now = System.currentTimeMillis()
-        if (packageName == lastBlockedPackage && now - lastBlockedAt < 1800L) return
-
-        debugLog("Usage monitor blocked package=$packageName")
-        lastBlockedPackage = packageName
-        lastBlockedAt = now
-        val prefs = prefs()
-        prefs.edit()
-            .putInt(KEY_BLOCKED_ATTEMPTS, prefs.getInt(KEY_BLOCKED_ATTEMPTS, 0) + 1)
-            .putString(KEY_LAST_BLOCKED_APP, appLabel)
-            .putLong(KEY_LAST_BLOCKED_AT_MILLIS, now)
-            .apply()
-
-        overlayManager?.showBlockedOverlay(
-            packageName = packageName,
-            appLabel = appLabel,
-            subject = subject,
-            onCloseApp = {
-                launchHome()
-                overlayManager?.dismissOverlay()
-                lastBlockedPackage = ""
-            },
-            onFailed = {
-                launchHome()
-                lastBlockedPackage = ""
-            },
-        )
-    }
-
-    private fun currentForegroundPackage(): String? {
-        val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val now = System.currentTimeMillis()
-        val events = usageStatsManager.queryEvents(now - 8_000L, now)
-        val event = android.app.usage.UsageEvents.Event()
-        var latestPackage: String? = null
-        var latestTime = 0L
-
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val isForegroundEvent =
-                event.eventType == android.app.usage.UsageEvents.Event.ACTIVITY_RESUMED ||
-                    event.eventType == android.app.usage.UsageEvents.Event.MOVE_TO_FOREGROUND
-            if (isForegroundEvent && event.timeStamp >= latestTime) {
-                latestTime = event.timeStamp
-                latestPackage = event.packageName
-            }
-        }
-
-        return latestPackage
-    }
-
-    private fun launchHome() {
-        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_HOME)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
-        }
-        runCatching { startActivity(homeIntent) }
-    }
-
-    private fun shouldIgnorePackage(packageName: String): Boolean {
-        return packageName == this.packageName ||
-            packageName == "android" ||
-            packageName == "com.android.systemui" ||
-            packageName.contains("permissioncontroller") ||
-            packageName.contains("packageinstaller")
-    }
-
     private fun persistSessionState(
         active: Boolean,
         remainingSeconds: Int,
@@ -205,11 +115,13 @@ class FocusShieldService : Service() {
             editor
                 .putInt(KEY_BLOCKED_ATTEMPTS, 0)
                 .putString(KEY_LAST_BLOCKED_APP, "")
+                .putString(KEY_LAST_BLOCKED_PACKAGE, "")
                 .putLong(KEY_LAST_BLOCKED_AT_MILLIS, 0L)
         } else if (!keepCounters) {
             editor
                 .putInt(KEY_BLOCKED_ATTEMPTS, prefs.getInt(KEY_BLOCKED_ATTEMPTS, 0))
                 .putString(KEY_LAST_BLOCKED_APP, prefs.getString(KEY_LAST_BLOCKED_APP, "") ?: "")
+                .putString(KEY_LAST_BLOCKED_PACKAGE, prefs.getString(KEY_LAST_BLOCKED_PACKAGE, "") ?: "")
                 .putLong(KEY_LAST_BLOCKED_AT_MILLIS, prefs.getLong(KEY_LAST_BLOCKED_AT_MILLIS, 0L))
         }
 
@@ -236,7 +148,7 @@ class FocusShieldService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_SESSION)
-            .setSmallIcon(R.drawable.ic_stat_focus)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Enfoque · ${formatTime(remainingSeconds)}")
             .setContentText(subject)
             .setStyle(NotificationCompat.BigTextStyle().bigText(subject))
@@ -300,6 +212,7 @@ class FocusShieldService : Service() {
         const val KEY_ACTIVE = "active"
         const val KEY_BLOCKED_ATTEMPTS = "blocked_attempts"
         const val KEY_LAST_BLOCKED_APP = "last_blocked_app"
+        const val KEY_LAST_BLOCKED_PACKAGE = "last_blocked_package"
         const val KEY_REMAINING_SECONDS = "remaining_seconds"
         const val KEY_LAST_BLOCKED_AT_MILLIS = "last_blocked_at_millis"
         const val KEY_BLOCKED_APPS_RAW = "blocked_apps_raw"
