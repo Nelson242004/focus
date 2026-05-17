@@ -275,7 +275,7 @@ class _DrawerHeaderCard extends StatelessWidget {
           }
 
           return FutureBuilder<RankingProfile?>(
-            future: RankingService.fetchProfile(),
+            future: RankingService.ensureProfile(),
             builder: (context, snapshot) {
               final profile = snapshot.data;
               return _DrawerHeaderContent(

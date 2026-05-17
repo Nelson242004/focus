@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
+import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 
@@ -18,68 +19,14 @@ class AchievementsScreen extends StatelessWidget {
         final remaining = provider.level >= AppProvider.maxLevel
             ? 0
             : provider.nextLevelTarget - points;
-        final achievements = [
-          _AchievementData(
-            title: 'Primer impulso',
-            subtitle: 'Completa tu primer pomodoro. +50 pts',
-            unlocked: provider.pomodoros.isNotEmpty,
-            icon: Icons.play_circle_fill_rounded,
-          ),
-          _AchievementData(
-            title: 'Semana encendida',
-            subtitle: 'Alcanza una racha de 7 días. +100 pts',
-            unlocked: provider.currentStreak >= 7,
-            icon: Icons.local_fire_department_rounded,
-          ),
-          _AchievementData(
-            title: 'Racha imparable',
-            subtitle: 'Sostén una racha de 14 días. +180 pts',
-            unlocked: provider.currentStreak >= 14,
-            icon: Icons.whatshot_rounded,
-          ),
-          _AchievementData(
-            title: 'Mes de constancia',
-            subtitle: 'Llega a una racha de 30 días. +400 pts',
-            unlocked: provider.currentStreak >= 30,
-            icon: Icons.local_fire_department_outlined,
-          ),
-          _AchievementData(
-            title: 'Cazador de enfoque',
-            subtitle: 'Suma 25 pomodoros en total. +150 pts',
-            unlocked: provider.pomodoros.length >= 25,
-            icon: Icons.bolt_rounded,
-          ),
-          _AchievementData(
-            title: 'Cien sesiones',
-            subtitle: 'Alcanza 100 pomodoros acumulados. +600 pts',
-            unlocked: provider.pomodoros.length >= 100,
-            icon: Icons.flash_on_rounded,
-          ),
-          _AchievementData(
-            title: 'Misión semanal',
-            subtitle: 'Completa 10 pomodoros en la misma semana. +120 pts',
-            unlocked: provider.weeklyMissionCompleted,
-            icon: Icons.flag_circle_rounded,
-          ),
-          _AchievementData(
-            title: 'Constancia atómica',
-            subtitle: 'Marca 30 hábitos completados. +180 pts',
-            unlocked: provider.totalHabitCompletions >= 30,
-            icon: Icons.check_circle_rounded,
-          ),
-          _AchievementData(
-            title: 'Sistema sólido',
-            subtitle: 'Llega a 75 hábitos completados. +420 pts',
-            unlocked: provider.totalHabitCompletions >= 75,
-            icon: Icons.inventory_2_rounded,
-          ),
-          _AchievementData(
-            title: 'Nivel máximo',
-            subtitle: 'Llega al nivel 5. +500 pts',
-            unlocked: provider.level >= AppProvider.maxLevel,
-            icon: Icons.diamond_rounded,
-          ),
-        ];
+        final achievements = achievementBadgeIds
+            .map(
+              (id) => _AchievementData(
+                id: id,
+                unlocked: _isAchievementUnlocked(provider, id),
+              ),
+            )
+            .toList();
 
         return Scaffold(
           drawer: const FocusDrawer(selectedRoute: 'achievements'),
@@ -396,7 +343,8 @@ class _AchievementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = data.unlocked ? FocusPalette.primary : Colors.grey;
+    final info = badgeVisualInfo(data.id);
+    final accent = data.unlocked ? info.color : Colors.grey;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -410,20 +358,23 @@ class _AchievementTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
                 color: accent.withValues(alpha: 0.14),
               ),
-              child: Icon(data.icon, color: accent),
+              child: _AchievementBadgeImage(
+                asset: info.asset,
+                unlocked: data.unlocked,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(data.title,
+                  Text(info.title,
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
-                  Text(data.subtitle),
+                  Text(info.subtitle),
                 ],
               ),
             ),
@@ -437,16 +388,97 @@ class _AchievementTile extends StatelessWidget {
   }
 }
 
-class _AchievementData {
-  final String title;
-  final String subtitle;
+class _AchievementBadgeImage extends StatelessWidget {
+  final String asset;
   final bool unlocked;
-  final IconData icon;
+
+  const _AchievementBadgeImage({
+    required this.asset,
+    required this.unlocked,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget image = Padding(
+      padding: const EdgeInsets.all(3),
+      child: Image.asset(asset, fit: BoxFit.contain),
+    );
+    if (!unlocked) {
+      image = ColorFiltered(
+        colorFilter: const ColorFilter.matrix([
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0.2126,
+          0.7152,
+          0.0722,
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+        ]),
+        child: Opacity(opacity: 0.5, child: image),
+      );
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        image,
+        if (!unlocked)
+          Align(
+            alignment: Alignment.bottomRight,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+              child: const Icon(
+                Icons.lock_rounded,
+                size: 12,
+                color: FocusPalette.muted,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _AchievementData {
+  final String id;
+  final bool unlocked;
 
   const _AchievementData({
-    required this.title,
-    required this.subtitle,
+    required this.id,
     required this.unlocked,
-    required this.icon,
   });
+}
+
+bool _isAchievementUnlocked(AppProvider provider, String id) {
+  return switch (id) {
+    'first_pomodoro' => provider.pomodoros.isNotEmpty,
+    'streak_7' => provider.currentStreak >= 7,
+    'streak_14' => provider.currentStreak >= 14,
+    'streak_30' => provider.currentStreak >= 30,
+    'pomodoros_25' => provider.pomodoros.length >= 25,
+    'pomodoros_100' => provider.pomodoros.length >= 100,
+    'weekly_mission' => provider.weeklyMissionCompleted,
+    'habits_30' => provider.totalHabitCompletions >= 30,
+    'habits_75' => provider.totalHabitCompletions >= 75,
+    'max_level' => provider.level >= AppProvider.maxLevel,
+    _ => false,
+  };
 }

@@ -66,7 +66,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
         title: const Text('Ranking global'),
       ),
       body: FutureBuilder<RankingProfile?>(
-        future: RankingService.fetchProfile(),
+        future: RankingService.ensureProfile(),
         builder: (context, profileSnapshot) {
           if (RankingService.currentUser == null) {
             return _MessagePanel(
@@ -100,29 +100,15 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
           }
           final profile = profileSnapshot.data;
           if (profile == null) {
-            final user = RankingService.currentUser;
             return _MessagePanel(
-              icon: Icons.person_pin_rounded,
-              title: 'Completa tu perfil',
-              message:
-                  'Necesitas nombre y carrera para entrar al ranking semanal.',
-              action: user == null
-                  ? null
-                  : FilledButton.icon(
-                      onPressed: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => ProfileSetupScreen(
-                              user: user,
-                              onSaved: _refresh,
-                            ),
-                          ),
-                        );
-                        if (mounted) _refresh();
-                      },
-                      icon: const Icon(Icons.edit_rounded),
-                      label: const Text('Completar perfil'),
-                    ),
+              icon: Icons.warning_amber_rounded,
+              title: 'No se pudo preparar tu perfil',
+              message: 'Reintenta para entrar al ranking semanal.',
+              action: FilledButton.icon(
+                onPressed: _refresh,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Reintentar'),
+              ),
             );
           }
           return RefreshIndicator(

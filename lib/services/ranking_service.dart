@@ -5,6 +5,24 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/ranking_profile.dart';
 
+enum HabitRankingStatus {
+  awarded,
+  signedOut,
+  missingHabit,
+  tooNew,
+  alreadyAwardedToday,
+  dailyLimitReached,
+}
+
+class HabitRankingResult {
+  final HabitRankingStatus status;
+  final int points;
+
+  const HabitRankingResult(this.status, {this.points = 0});
+
+  bool get awarded => status == HabitRankingStatus.awarded;
+}
+
 class RankingService {
   RankingService._();
 
@@ -27,6 +45,8 @@ class RankingService {
     'habits_75': 420,
     'max_level': 500,
   };
+  static const String _googleServerClientId =
+      '1059624966381-9obri2ta3d8brscndpucbiu5mlvpa06l.apps.googleusercontent.com';
 
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -38,7 +58,9 @@ class RankingService {
   static Future<void> initializeGoogleSignIn() async {
     if (_googleReady) return;
     debugPrint('[FocusRanking] Inicializando Google Sign-In');
-    await GoogleSignIn.instance.initialize();
+    await GoogleSignIn.instance.initialize(
+      serverClientId: _googleServerClientId,
+    );
     _googleReady = true;
   }
 
@@ -51,32 +73,46 @@ class RankingService {
       '[FocusRanking] Google OK email=${googleUser.email} '
       'hasIdToken=${googleAuth.idToken != null}',
     );
+    if (googleAuth.idToken == null || googleAuth.idToken!.isEmpty) {
+      throw StateError(
+        'Google no devolvió un token válido. Revisa la configuración OAuth de Firebase.',
+      );
+    }
     final credential = GoogleAuthProvider.credential(
       idToken: googleAuth.idToken,
     );
     final result = await _auth.signInWithCredential(credential);
     debugPrint('[FocusRanking] Firebase Auth OK uid=${result.user?.uid}');
+    await _tryEnsureProfile('google sign in');
     return result;
   }
 
   static Future<UserCredential> signInWithEmail({
     required String email,
     required String password,
-  }) {
-    return _auth.signInWithEmailAndPassword(
+  }) async {
+    final result = await _auth.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
+    await _tryEnsureProfile('email sign in');
+    return result;
   }
 
   static Future<UserCredential> createUserWithEmail({
     required String email,
     required String password,
-  }) {
-    return _auth.createUserWithEmailAndPassword(
+  }) async {
+    final result = await _auth.createUserWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
+    await _tryEnsureProfile('email sign up');
+    return result;
+  }
+
+  static Future<void> sendPasswordResetEmail(String email) {
+    return _auth.sendPasswordResetEmail(email: email.trim());
   }
 
   static Future<void> signOut() async {
@@ -105,6 +141,26 @@ class RankingService {
     final snapshot = await _firestore.collection('users').doc(uid).get();
     final data = snapshot.data();
     return data == null ? null : RankingProfile.fromMap(uid, data);
+  }
+
+  static Future<RankingProfile?> ensureProfile() async {
+    final user = currentUser;
+    if (user == null) return null;
+    final existing = await fetchProfile();
+    if (existing != null) return existing;
+    await saveProfile(
+      name: user.displayName ?? _nameFromEmail(user.email),
+      career: 'Sin carrera',
+    );
+    return fetchProfile();
+  }
+
+  static Future<void> _tryEnsureProfile(String label) async {
+    try {
+      await ensureProfile();
+    } catch (error) {
+      debugPrint('[FocusRanking] Perfil automático omitido ($label): $error');
+    }
   }
 
   static Future<void> saveProfile({
@@ -267,15 +323,20 @@ class RankingService {
     );
   }
 
-  static Future<void> submitHabitCompletion({
+  static Future<HabitRankingResult> submitHabitCompletion({
     required int? habitId,
     required DateTime habitCreatedAt,
   }) async {
     final user = currentUser;
-    if (user == null || habitId == null) return;
+    if (user == null) {
+      return const HabitRankingResult(HabitRankingStatus.signedOut);
+    }
+    if (habitId == null) {
+      return const HabitRankingResult(HabitRankingStatus.missingHabit);
+    }
     if (DateTime.now().difference(habitCreatedAt) < minimumHabitAgeForRanking) {
       debugPrint('[FocusRanking] Hábito sin puntos: creado hace menos de 24h');
-      return;
+      return const HabitRankingResult(HabitRankingStatus.tooNew);
     }
 
     final dayId = currentDayId();
@@ -284,6 +345,7 @@ class RankingService {
     final userRef = _firestore.collection('users').doc(user.uid);
     final scoreRef = _currentScoresCollection().doc(user.uid);
     var awardedPoints = 0;
+    var status = HabitRankingStatus.awarded;
 
     await _firestore.runTransaction((transaction) async {
       final userDoc = await transaction.get(userRef);
@@ -292,8 +354,14 @@ class RankingService {
       final dailyHabitIds = dailyDayId == dayId
           ? List<String>.from(data['rankingDailyHabitIds'] ?? const [])
           : <String>[];
-      if (dailyHabitIds.contains(habitKey)) return;
-      if (dailyHabitIds.length >= maxRankingHabitsPerDay) return;
+      if (dailyHabitIds.contains(habitKey)) {
+        status = HabitRankingStatus.alreadyAwardedToday;
+        return;
+      }
+      if (dailyHabitIds.length >= maxRankingHabitsPerDay) {
+        status = HabitRankingStatus.dailyLimitReached;
+        return;
+      }
 
       awardedPoints = pointsPerHabitCompletion;
       final normalized = _normalizedWeeklyState(data);
@@ -336,6 +404,7 @@ class RankingService {
     debugPrint(
       '[FocusRanking] Hábito enviado uid=${user.uid} points=$awardedPoints',
     );
+    return HabitRankingResult(status, points: awardedPoints);
   }
 
   static Future<void> syncAchievementAwards({
@@ -828,6 +897,52 @@ class RankingService {
   static String friendlyRankingError(Object? error) {
     if (error == null) return 'Error desconocido';
     final message = error.toString();
+    if (error is FirebaseAuthException) {
+      return switch (error.code) {
+        'invalid-email' => 'El correo no tiene un formato válido.',
+        'user-disabled' => 'Esta cuenta fue deshabilitada.',
+        'user-not-found' => 'No existe una cuenta con ese correo.',
+        'wrong-password' ||
+        'invalid-credential' =>
+          'Correo o contraseña incorrectos.',
+        'email-already-in-use' => 'Ya existe una cuenta con ese correo.',
+        'weak-password' => 'La contraseña debe tener al menos 6 caracteres.',
+        'network-request-failed' =>
+          'Verifica tu conexión a internet e intenta nuevamente.',
+        'too-many-requests' =>
+          'Demasiados intentos. Espera un momento y vuelve a probar.',
+        'operation-not-allowed' =>
+          'Este método de inicio de sesión no está habilitado en Firebase.',
+        _ => error.message?.trim().isNotEmpty == true
+            ? error.message!
+            : 'No se pudo iniciar sesión. Intenta nuevamente.',
+      };
+    }
+    if (error is FirebaseException) {
+      return switch (error.code) {
+        'permission-denied' =>
+          'No tienes permisos para guardar o leer estos datos.',
+        'unavailable' => 'El servicio no está disponible temporalmente.',
+        'not-found' => 'No se encontraron los datos solicitados.',
+        'already-exists' => 'Ese dato ya existe.',
+        _ => error.message?.trim().isNotEmpty == true
+            ? error.message!
+            : 'No se pudo completar la operación.',
+      };
+    }
+    if (error is GoogleSignInException) {
+      return switch (error.code) {
+        GoogleSignInExceptionCode.canceled => 'Inicio de sesión cancelado.',
+        GoogleSignInExceptionCode.clientConfigurationError ||
+        GoogleSignInExceptionCode.providerConfigurationError =>
+          'Google Sign-In no está bien configurado. Revisa el SHA-1/SHA-256 de Firebase.',
+        GoogleSignInExceptionCode.uiUnavailable =>
+          'No se pudo abrir la ventana de Google. Intenta nuevamente.',
+        _ => error.description?.trim().isNotEmpty == true
+            ? error.description!
+            : 'No se pudo iniciar sesión con Google.',
+      };
+    }
     if (error is StateError) {
       return message.replaceFirst('Bad state: ', '');
     }
@@ -844,5 +959,16 @@ class RankingService {
       return 'La operación fue cancelada.';
     }
     return 'Ocurrió un error. Intenta nuevamente.';
+  }
+
+  static String _nameFromEmail(String? email) {
+    final name = email?.split('@').first.trim();
+    if (name == null || name.isEmpty) return 'Estudiante Focus';
+    return name
+        .replaceAll(RegExp(r'[._-]+'), ' ')
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 }

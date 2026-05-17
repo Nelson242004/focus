@@ -825,10 +825,13 @@ class AppProvider extends ChangeNotifier {
   int get unlockedAchievementCount => [
         pomodoros.isNotEmpty,
         currentStreak >= 7,
-        pomodoros.length >= 25,
-        totalHabitCompletions >= 30,
-        weeklyMissionCompleted,
         currentStreak >= 14,
+        currentStreak >= 30,
+        pomodoros.length >= 25,
+        pomodoros.length >= 100,
+        weeklyMissionCompleted,
+        totalHabitCompletions >= 30,
+        totalHabitCompletions >= 75,
         level >= maxLevel,
       ].where((item) => item).length;
 

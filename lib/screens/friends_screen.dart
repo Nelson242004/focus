@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/ranking_profile.dart';
 import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
+import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import 'auth_gate_screen.dart';
@@ -24,7 +25,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   @override
   void initState() {
     super.initState();
-    _profileFuture = RankingService.fetchProfile();
+    _profileFuture = RankingService.ensureProfile();
   }
 
   @override
@@ -44,7 +45,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
     if (mounted) {
-      setState(() => _profileFuture = RankingService.fetchProfile());
+      setState(() => _profileFuture = RankingService.ensureProfile());
     }
   }
 
@@ -93,25 +94,19 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     message: RankingService.friendlyRankingError(
                       profileSnapshot.error,
                     ),
-                    onRetry: () => setState(() {}),
+                    onRetry: () => setState(
+                      () => _profileFuture = RankingService.ensureProfile(),
+                    ),
                   );
                 }
                 final user = RankingService.currentUser;
                 final profile = profileSnapshot.data;
                 if (user != null && profile == null) {
-                  return _ProfileRequiredPanel(
-                    onComplete: () async {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProfileSetupScreen(user: user),
-                        ),
-                      );
-                      if (mounted) {
-                        setState(
-                          () => _profileFuture = RankingService.fetchProfile(),
-                        );
-                      }
-                    },
+                  return _ErrorPanel(
+                    message: 'No se pudo preparar tu perfil. Toca reintentar.',
+                    onRetry: () => setState(
+                      () => _profileFuture = RankingService.ensureProfile(),
+                    ),
                   );
                 }
                 return StreamBuilder<List<RankingProfile>>(
@@ -274,26 +269,6 @@ class _LoginRequiredPanel extends StatelessWidget {
         onPressed: onLogin,
         icon: const Icon(Icons.login_rounded),
         label: const Text('Iniciar sesión'),
-      ),
-    );
-  }
-}
-
-class _ProfileRequiredPanel extends StatelessWidget {
-  final VoidCallback onComplete;
-
-  const _ProfileRequiredPanel({required this.onComplete});
-
-  @override
-  Widget build(BuildContext context) {
-    return _CenteredState(
-      icon: Icons.person_pin_rounded,
-      title: 'Completa tu perfil',
-      message: 'Necesitas nombre y carrera para buscar amigos y competir.',
-      action: FilledButton.icon(
-        onPressed: onComplete,
-        icon: const Icon(Icons.edit_rounded),
-        label: const Text('Completar perfil'),
       ),
     );
   }
@@ -2099,7 +2074,7 @@ class _BadgeBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = _badgeInfo(badgeId);
+    final info = badgeVisualInfo(badgeId);
     return SizedBox(
       width: 78,
       child: Column(
@@ -2118,7 +2093,7 @@ class _BadgeBubble extends StatelessWidget {
               ],
             ),
             child: Image.asset(
-              _badgeAsset(badgeId),
+              badgeAssetPath(badgeId),
               fit: BoxFit.contain,
             ),
           ),
@@ -2175,76 +2150,6 @@ class _EmptyBadgeBubble extends StatelessWidget {
       ),
     );
   }
-}
-
-({String label, IconData icon, Color color}) _badgeInfo(String id) {
-  return switch (id) {
-    'first_pomodoro' => (
-        label: 'Inicio',
-        icon: Icons.play_circle_fill_rounded,
-        color: FocusPalette.primary,
-      ),
-    'streak_7' => (
-        label: '7 días',
-        icon: Icons.local_fire_department_rounded,
-        color: FocusPalette.coral,
-      ),
-    'streak_14' => (
-        label: '14 días',
-        icon: Icons.whatshot_rounded,
-        color: FocusPalette.danger,
-      ),
-    'streak_30' => (
-        label: '30 días',
-        icon: Icons.local_fire_department_outlined,
-        color: FocusPalette.amber,
-      ),
-    'pomodoros_25' => (
-        label: '25 foco',
-        icon: Icons.bolt_rounded,
-        color: FocusPalette.cyan,
-      ),
-    'pomodoros_100' => (
-        label: '100 foco',
-        icon: Icons.flash_on_rounded,
-        color: FocusPalette.primaryDeep,
-      ),
-    'weekly_mission' => (
-        label: 'Misión',
-        icon: Icons.flag_circle_rounded,
-        color: FocusPalette.mint,
-      ),
-    'habits_30' => (
-        label: 'Hábitos',
-        icon: Icons.check_circle_rounded,
-        color: FocusPalette.teal,
-      ),
-    'habits_75' => (
-        label: 'Sistema',
-        icon: Icons.inventory_2_rounded,
-        color: FocusPalette.mint,
-      ),
-    'max_level' => (
-        label: 'Nivel max',
-        icon: Icons.diamond_rounded,
-        color: FocusPalette.amber,
-      ),
-    _ => (
-        label: 'Logro',
-        icon: Icons.military_tech_rounded,
-        color: FocusPalette.primary,
-      ),
-  };
-}
-
-String _badgeAsset(String id) {
-  if (id.startsWith('streak_')) return 'assets/badges/badge_streak.png';
-  if (id.startsWith('pomodoros_')) return 'assets/badges/badge_pomodoro.png';
-  if (id.startsWith('habits_')) return 'assets/badges/badge_habit.png';
-  if (id == 'weekly_mission' || id == 'max_level') {
-    return 'assets/badges/badge_habit.png';
-  }
-  return 'assets/badges/badge_focus.png';
 }
 
 // ignore: unused_element

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -19,8 +21,6 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
-  int _profileRefresh = 0;
-
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -32,8 +32,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           return widget.requireAccount ? const LoginScreen() : widget.child;
         }
         return FutureBuilder<RankingProfile?>(
-          key: ValueKey(_profileRefresh),
-          future: RankingService.fetchProfile(),
+          future: widget.requireAccount
+              ? RankingService.ensureProfile()
+              : RankingService.fetchProfile(),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
@@ -46,10 +47,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
             }
             final profile = profileSnapshot.data;
             if (profile == null) {
-              return ProfileSetupScreen(
-                user: user,
-                onSaved: () => setState(() => _profileRefresh++),
-              );
+              return widget.child;
             }
             RankingService.ensureCurrentWeekScore();
             return widget.child;
@@ -73,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _creatingAccount = false;
   bool _loading = false;
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -120,100 +119,108 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      _showMessage('Escribe tu correo primero para enviarte el enlace.');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await RankingService.sendPasswordResetEmail(email);
+      _showMessage('Te enviamos un enlace para recuperar tu contraseña.');
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   void _showError(Object error) {
     if (!mounted) return;
+    _showMessage(RankingService.friendlyRankingError(error));
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      SnackBar(content: Text(message)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFFF6F8FC),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
           children: [
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF0F172A),
-                    Color(0xFF1D4ED8),
-                    Color(0xFF0F766E)
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            Row(
+              children: [
+                IconButton.filledTonal(
+                  onPressed: _loading || !Navigator.of(context).canPop()
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Cerrar',
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1D4ED8).withValues(alpha: 0.18),
-                    blurRadius: 28,
-                    offset: const Offset(0, 14),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _loading
+                      ? null
+                      : () => setState(
+                            () => _creatingAccount = !_creatingAccount,
+                          ),
+                  icon: Icon(
+                    _creatingAccount
+                        ? Icons.login_rounded
+                        : Icons.person_add_alt_1_rounded,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                    child: const Icon(
-                      Icons.center_focus_strong_rounded,
-                      color: Colors.white,
-                      size: 34,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Entrar a Focus',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tu progreso, puntos y ranking semanal quedan asociados a tu cuenta.',
-                    style: TextStyle(color: Colors.white70, fontSize: 15),
-                  ),
-                ],
-              ),
+                  label: Text(_creatingAccount ? 'Entrar' : 'Crear cuenta'),
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
+            _LoginHero(creatingAccount: _creatingAccount),
             const SizedBox(height: 16),
             _AuthPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  OutlinedButton.icon(
+                  SegmentedButton<bool>(
+                    segments: const [
+                      ButtonSegment(
+                        value: false,
+                        icon: Icon(Icons.login_rounded),
+                        label: Text('Entrar'),
+                      ),
+                      ButtonSegment(
+                        value: true,
+                        icon: Icon(Icons.person_add_rounded),
+                        label: Text('Crear'),
+                      ),
+                    ],
+                    selected: {_creatingAccount},
+                    onSelectionChanged: _loading
+                        ? null
+                        : (selection) => setState(
+                              () => _creatingAccount = selection.first,
+                            ),
+                  ),
+                  const SizedBox(height: 16),
+                  FilledButton.tonalIcon(
                     onPressed: _loading ? null : _submitGoogle,
-                    icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
+                    icon: const Icon(Icons.g_mobiledata_rounded, size: 30),
                     label: const Text('Continuar con Google'),
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      const Expanded(child: Divider()),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          'o con correo',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      const Expanded(child: Divider()),
-                    ],
+                  _DividerLabel(
+                    label: _creatingAccount
+                        ? 'o crea una cuenta con correo'
+                        : 'o entra con correo',
                   ),
                   const SizedBox(height: 14),
                   Form(
@@ -223,14 +230,21 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(
                             labelText: 'Correo',
+                            hintText: 'tu@email.com',
                             prefixIcon: Icon(Icons.mail_rounded),
                           ),
                           validator: (value) {
                             final text = value?.trim() ?? '';
-                            if (!text.contains('@')) {
-                              return 'Escribe un correo.';
+                            if (text.isEmpty) {
+                              return 'Escribe tu correo.';
+                            }
+                            if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                                .hasMatch(text)) {
+                              return 'Ese correo no parece válido.';
                             }
                             return null;
                           },
@@ -238,14 +252,38 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          onFieldSubmitted: (_) {
+                            if (!_loading) unawaited(_submitEmail());
+                          },
+                          decoration: InputDecoration(
                             labelText: 'Contraseña',
-                            prefixIcon: Icon(Icons.password_rounded),
+                            hintText: _creatingAccount
+                                ? 'Mínimo 6 caracteres'
+                                : 'Tu contraseña',
+                            prefixIcon: const Icon(Icons.password_rounded),
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(_obscurePassword
+                                  ? Icons.visibility_rounded
+                                  : Icons.visibility_off_rounded),
+                              tooltip: _obscurePassword
+                                  ? 'Mostrar contraseña'
+                                  : 'Ocultar contraseña',
+                            ),
                           ),
                           validator: (value) {
                             final text = value ?? '';
-                            if (text.length < 6) return 'Mínimo 6 caracteres.';
+                            if (text.isEmpty) {
+                              return 'Escribe tu contraseña.';
+                            }
+                            if (text.length < 6) {
+                              return 'Mínimo 6 caracteres.';
+                            }
                             return null;
                           },
                         ),
@@ -264,24 +302,174 @@ class _LoginScreenState extends State<LoginScreen> {
                         : Icon(_creatingAccount
                             ? Icons.person_add_rounded
                             : Icons.login_rounded),
-                    label: Text(
-                        _creatingAccount ? 'Crear cuenta' : 'Iniciar sesión'),
+                    label: Text(_creatingAccount
+                        ? 'Crear cuenta y continuar'
+                        : 'Iniciar sesión'),
+                  ),
+                  if (!_creatingAccount) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.center,
+                      child: TextButton(
+                        onPressed: _loading ? null : _resetPassword,
+                        child: const Text('Olvidé mi contraseña'),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  _AuthHint(
+                    icon: _creatingAccount
+                        ? Icons.auto_awesome_rounded
+                        : Icons.verified_user_rounded,
+                    color: primary,
+                    text: _creatingAccount
+                        ? 'No te pediremos nombre ahora. Focus creará tu perfil automáticamente.'
+                        : 'Tu cuenta sincroniza ranking, amigos e insignias. Tus materias siguen disponibles sin tocar nada.',
                   ),
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _loading
                         ? null
                         : () => setState(
-                            () => _creatingAccount = !_creatingAccount),
+                              () => _creatingAccount = !_creatingAccount,
+                            ),
                     child: Text(_creatingAccount
-                        ? 'Ya tengo cuenta'
-                        : 'Crear cuenta con correo'),
+                        ? 'Ya tengo una cuenta'
+                        : 'Soy nuevo, quiero crear cuenta'),
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LoginHero extends StatelessWidget {
+  final bool creatingAccount;
+
+  const _LoginHero({required this.creatingAccount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8), Color(0xFF0F766E)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1D4ED8).withValues(alpha: 0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Icon(
+              Icons.center_focus_strong_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  creatingAccount ? 'Crea tu cuenta' : 'Bienvenido de vuelta',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  creatingAccount
+                      ? 'Guarda tu progreso social sin configurar un perfil manual.'
+                      : 'Entra para recuperar ranking, amigos e insignias.',
+                  style: const TextStyle(color: Colors.white70, fontSize: 15),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DividerLabel extends StatelessWidget {
+  final String label;
+
+  const _DividerLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Expanded(child: Divider()),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+        const Expanded(child: Divider()),
+      ],
+    );
+  }
+}
+
+class _AuthHint extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  const _AuthHint({
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: color.withValues(alpha: 0.08),
+        border: Border.all(color: color.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

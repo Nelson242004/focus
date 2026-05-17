@@ -15,6 +15,7 @@ class HabitsScreen extends StatefulWidget {
 
 class _HabitsScreenState extends State<HabitsScreen> {
   final _nameController = TextEditingController();
+  static const int _maxHabits = 8;
 
   static const List<String> _identityOptions = [
     'Soy alguien que cumple incluso cuando no tiene ganas.',
@@ -45,7 +46,57 @@ class _HabitsScreenState extends State<HabitsScreen> {
     super.dispose();
   }
 
+  Future<void> _createHabit() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    if (provider.habits.length >= _maxHabits) {
+      _showHabitFeedback(
+        'Llegaste al límite de $_maxHabits hábitos activos. Edita o elimina uno antes de crear otro.',
+      );
+      return;
+    }
+    await _showHabitDialog();
+  }
+
+  void _showHabitFeedback(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
+  String _rankingFeedbackMessage(HabitRankingResult result) {
+    return switch (result.status) {
+      HabitRankingStatus.awarded =>
+        'Hábito completado. +${result.points} puntos para el ranking.',
+      HabitRankingStatus.signedOut =>
+        'Hábito completado en este dispositivo. Inicia sesión para sumar puntos al ranking.',
+      HabitRankingStatus.missingHabit =>
+        'Hábito completado. El ranking se actualizará desde la próxima repetición.',
+      HabitRankingStatus.tooNew =>
+        'Hábito completado. Los hábitos nuevos suman puntos después de 24 horas para evitar trampas.',
+      HabitRankingStatus.alreadyAwardedToday =>
+        'Hábito completado. Este hábito ya había sumado puntos hoy.',
+      HabitRankingStatus.dailyLimitReached =>
+        'Hábito completado. Ya alcanzaste el máximo de ${RankingService.maxRankingHabitsPerDay} hábitos con puntos hoy.',
+    };
+  }
+
   Future<void> _showHabitDialog({Habit? habit}) async {
+    if (habit == null) {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      if (provider.habits.length >= _maxHabits) {
+        _showHabitFeedback(
+          'Llegaste al límite de $_maxHabits hábitos activos. Edita o elimina uno antes de crear otro.',
+        );
+        return;
+      }
+    }
     final formKey = GlobalKey<FormState>();
     _nameController.text = habit?.name ?? '';
     final initialIdentity = habit?.identity ?? _identityOptions.first;
@@ -170,10 +221,12 @@ class _HabitsScreenState extends State<HabitsScreen> {
     final newHistory = List<String>.from(habit.history);
     final wasCompleted = newHistory.contains(today);
     if (wasCompleted) {
-      newHistory.remove(today);
-    } else {
-      newHistory.add(today);
+      _showHabitFeedback(
+        'Este hábito ya quedó registrado hoy. No se puede desmarcar para mantener tus rachas y puntos consistentes.',
+      );
+      return;
     }
+    newHistory.add(today);
     final updatedHabit = Habit(
       id: habit.id,
       name: habit.name,
@@ -184,35 +237,27 @@ class _HabitsScreenState extends State<HabitsScreen> {
     );
     final provider = Provider.of<AppProvider>(context, listen: false);
     await provider.updateHabit(updatedHabit);
-    if (!wasCompleted) {
-      try {
-        await RankingService.submitHabitCompletion(
-          habitId: habit.id,
-          habitCreatedAt: habit.createdAt,
-        );
-        await RankingService.syncAchievementAwards(
-          pomodoros: provider.pomodoros.length,
-          currentStreak: provider.currentStreak,
-          totalHabitCompletions: provider.totalHabitCompletions,
-          weeklyMissionCompleted: provider.weeklyMissionCompleted,
-          level: provider.level,
-          maxLevel: AppProvider.maxLevel,
-        );
-      } catch (error) {
-        debugPrint('Focus ranking habit sync skipped: $error');
-      }
+    var feedbackMessage = 'Hábito completado. Pequeña victoria registrada.';
+    try {
+      final rankingResult = await RankingService.submitHabitCompletion(
+        habitId: habit.id,
+        habitCreatedAt: habit.createdAt,
+      );
+      feedbackMessage = _rankingFeedbackMessage(rankingResult);
+      await RankingService.syncAchievementAwards(
+        pomodoros: provider.pomodoros.length,
+        currentStreak: provider.currentStreak,
+        totalHabitCompletions: provider.totalHabitCompletions,
+        weeklyMissionCompleted: provider.weeklyMissionCompleted,
+        level: provider.level,
+        maxLevel: AppProvider.maxLevel,
+      );
+    } catch (error) {
+      debugPrint('Focus ranking habit sync skipped: $error');
+      feedbackMessage =
+          'Hábito completado. No se pudo sincronizar el ranking ahora, pero tu progreso local quedó guardado.';
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          wasCompleted
-              ? 'Marca retirada. Puedes volver a completarlo cuando quieras.'
-              : 'Hábito completado. Pequeña victoria registrada.',
-        ),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    _showHabitFeedback(feedbackMessage);
   }
 
   @override
@@ -222,15 +267,14 @@ class _HabitsScreenState extends State<HabitsScreen> {
         title: const Text('Hábitos atómicos'),
         actions: [
           IconButton(
-              onPressed: () => _showHabitDialog(),
-              icon: const Icon(Icons.add_rounded)),
+              onPressed: _createHabit, icon: const Icon(Icons.add_rounded)),
         ],
       ),
       body: Consumer<AppProvider>(
         builder: (context, provider, _) {
           final habits = provider.habits;
           if (habits.isEmpty) {
-            return _EmptyHabitsState(onCreate: () => _showHabitDialog());
+            return _EmptyHabitsState(onCreate: _createHabit);
           }
 
           final today = _dateToString(DateTime.now());
@@ -248,6 +292,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   .map((habit) => habit.completionPercentage(30))
                   .fold<double>(0, (sum, value) => sum + value) /
               habits.length;
+          final canCreateMore = habits.length < _maxHabits;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -269,6 +314,13 @@ class _HabitsScreenState extends State<HabitsScreen> {
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
+              _HabitLimitNotice(
+                currentHabits: habits.length,
+                maxHabits: _maxHabits,
+                canCreateMore: canCreateMore,
+                onCreate: _createHabit,
+              ),
+              const SizedBox(height: 12),
               ...orderedHabits.map((habit) => _HabitCard(
                     habit: habit,
                     onToggle: () => _toggleHabit(habit),
@@ -539,6 +591,68 @@ class _AtomicPrinciples extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _HabitLimitNotice extends StatelessWidget {
+  final int currentHabits;
+  final int maxHabits;
+  final bool canCreateMore;
+  final VoidCallback onCreate;
+
+  const _HabitLimitNotice({
+    required this.currentHabits,
+    required this.maxHabits,
+    required this.canCreateMore,
+    required this.onCreate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: canCreateMore
+            ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.55)
+            : colorScheme.errorContainer.withValues(alpha: 0.75),
+        border: Border.all(
+          color: canCreateMore
+              ? colorScheme.outlineVariant
+              : colorScheme.error.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            canCreateMore
+                ? Icons.playlist_add_check_circle_rounded
+                : Icons.info_rounded,
+            color: canCreateMore ? colorScheme.primary : colorScheme.error,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              canCreateMore
+                  ? '$currentHabits de $maxHabits hábitos activos. Mantén pocos para que sean fáciles de repetir.'
+                  : 'Tienes $maxHabits hábitos activos. Para crear otro, edita o elimina uno primero.',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: canCreateMore ? null : FontWeight.w700,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filledTonal(
+            onPressed: onCreate,
+            icon: const Icon(Icons.add_rounded),
+            tooltip: canCreateMore
+                ? 'Crear hábito'
+                : 'Ver por qué no puedes crear más',
+          ),
+        ],
       ),
     );
   }
