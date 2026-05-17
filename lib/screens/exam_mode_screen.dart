@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/exam.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import 'study_tasks_screen.dart';
 
@@ -73,7 +74,7 @@ class _ExamModeHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF7C3AED)],
+          colors: [FocusPalette.ink, FocusPalette.coral],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

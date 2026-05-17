@@ -232,6 +232,7 @@ class BackupService {
           identity: habit.identity,
           history: habit.history,
           streak: habit.streak,
+          createdAt: habit.createdAt,
         ),
       );
     }

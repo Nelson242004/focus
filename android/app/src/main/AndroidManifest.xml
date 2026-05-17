@@ -70,6 +70,15 @@
                 android:value="focus_mode_total_session" />
         </service>
         <service
+            android:name=".PomodoroTimerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="pomodoro_timer_session" />
+        </service>
+        <service
             android:name=".FocusAccessibilityService"
             android:enabled="true"
             android:exported="false"
@@ -83,20 +92,15 @@
                 android:resource="@xml/focus_accessibility_config" />
         </service>
         <receiver
-            android:name=".FocusHomeWidgetProvider"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/focus_home_widget_info" />
-        </receiver>
-        <receiver
             android:name=".FocusMiniHomeWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="com.example.focus_app.REFRESH_FOCUS_WIDGET" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/habit.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
+import '../utils/focus_palette.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -13,7 +14,6 @@ class HabitsScreen extends StatefulWidget {
 }
 
 class _HabitsScreenState extends State<HabitsScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
   static const List<String> _identityOptions = [
@@ -46,20 +46,23 @@ class _HabitsScreenState extends State<HabitsScreen> {
   }
 
   Future<void> _showHabitDialog({Habit? habit}) async {
+    final formKey = GlobalKey<FormState>();
     _nameController.text = habit?.name ?? '';
     final initialIdentity = habit?.identity ?? _identityOptions.first;
     var selectedIdentity = _identityOptions.contains(initialIdentity)
         ? initialIdentity
         : _identityOptions.first;
 
+    final messenger = ScaffoldMessenger.of(context);
+
     await showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(habit == null ? 'Nuevo hábito' : 'Editar hábito'),
         content: StatefulBuilder(
           builder: (context, setLocalState) {
             return Form(
-              key: _formKey,
+              key: formKey,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -119,11 +122,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cancelar')),
           FilledButton(
             onPressed: () async {
-              if (!_formKey.currentState!.validate()) return;
+              if (!formKey.currentState!.validate()) return;
               final provider = Provider.of<AppProvider>(context, listen: false);
               if (habit == null) {
                 await provider.addHabit(Habit(
@@ -139,12 +142,13 @@ class _HabitsScreenState extends State<HabitsScreen> {
                     identity: selectedIdentity,
                     history: habit.history,
                     streak: habit.streak,
+                    createdAt: habit.createdAt,
                   ),
                 );
               }
-              if (!mounted) return;
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text(
                     habit == null
@@ -176,19 +180,27 @@ class _HabitsScreenState extends State<HabitsScreen> {
       identity: habit.identity,
       history: newHistory,
       streak: habit.streak,
+      createdAt: habit.createdAt,
     );
     final provider = Provider.of<AppProvider>(context, listen: false);
     await provider.updateHabit(updatedHabit);
     if (!wasCompleted) {
-      await RankingService.submitHabitCompletion();
-      await RankingService.syncAchievementAwards(
-        pomodoros: provider.pomodoros.length,
-        currentStreak: provider.currentStreak,
-        totalHabitCompletions: provider.totalHabitCompletions,
-        weeklyMissionCompleted: provider.weeklyMissionCompleted,
-        level: provider.level,
-        maxLevel: AppProvider.maxLevel,
-      );
+      try {
+        await RankingService.submitHabitCompletion(
+          habitId: habit.id,
+          habitCreatedAt: habit.createdAt,
+        );
+        await RankingService.syncAchievementAwards(
+          pomodoros: provider.pomodoros.length,
+          currentStreak: provider.currentStreak,
+          totalHabitCompletions: provider.totalHabitCompletions,
+          weeklyMissionCompleted: provider.weeklyMissionCompleted,
+          level: provider.level,
+          maxLevel: AppProvider.maxLevel,
+        );
+      } catch (error) {
+        debugPrint('Focus ranking habit sync skipped: $error');
+      }
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -294,8 +306,7 @@ class _EmptyHabitsState extends StatelessWidget {
               height: 90,
               decoration: const BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: LinearGradient(
-                    colors: [Color(0xFFF59E0B), Color(0xFFEA580C)]),
+                gradient: LinearGradient(colors: FocusPalette.examGradient),
               ),
               child: const Icon(Icons.auto_awesome_rounded,
                   color: Colors.white, size: 42),
@@ -348,13 +359,13 @@ class _HabitsHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
+          colors: FocusPalette.studyGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1D4ED8).withValues(alpha: 0.18),
+            color: FocusPalette.primaryDeep.withValues(alpha: 0.18),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -619,7 +630,7 @@ class _HabitCard extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     color: completed
-                        ? const Color(0xFF2563EB)
+                        ? FocusPalette.primary
                         : Theme.of(context).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -645,9 +656,8 @@ class _HabitCard extends StatelessWidget {
                 label: Text(
                     doneToday ? 'Hábito completado hoy' : 'Marcar como hecho'),
                 style: FilledButton.styleFrom(
-                  backgroundColor: doneToday
-                      ? const Color(0xFF16A34A)
-                      : const Color(0xFF2563EB),
+                  backgroundColor:
+                      doneToday ? FocusPalette.mint : FocusPalette.primary,
                 ),
               ),
             ),

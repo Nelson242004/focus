@@ -4,6 +4,7 @@ class Habit {
   String identity;
   int streak;
   List<String> history;
+  DateTime createdAt;
 
   Habit({
     this.id,
@@ -11,7 +12,8 @@ class Habit {
     this.identity = 'Soy alguien que cumple incluso cuando no tiene ganas.',
     this.streak = 0,
     required this.history,
-  });
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
 
   int get currentStreak {
     if (history.isEmpty) return 0;
@@ -78,6 +80,7 @@ class Habit {
       'identity': identity,
       'streak': streak,
       'history': history.join(','),
+      'createdAt': createdAt.toIso8601String(),
     };
   }
 
@@ -93,6 +96,8 @@ class Habit {
           .split(',')
           .where((e) => e.isNotEmpty)
           .toList(),
+      createdAt:
+          DateTime.tryParse('${map['createdAt'] ?? ''}') ?? DateTime.now(),
     );
   }
 }

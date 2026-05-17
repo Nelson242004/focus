@@ -160,6 +160,7 @@ class FocusShieldService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setShowWhen(false)
+            .setProgress(100, progressFor(remainingSeconds), false)
             .build()
     }
 
@@ -197,6 +198,13 @@ class FocusShieldService : Service() {
         val minutes = totalSeconds / 60
         val seconds = totalSeconds % 60
         return String.format("%02d:%02d", minutes, seconds)
+    }
+
+    private fun progressFor(remainingSeconds: Int): Int {
+        if (totalDurationSeconds <= 0) return 0
+        return (((totalDurationSeconds - remainingSeconds).toDouble() / totalDurationSeconds) * 100)
+            .toInt()
+            .coerceIn(0, 100)
     }
 
     private fun debugLog(message: String) {

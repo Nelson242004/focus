@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../utils/focus_palette.dart';
 import '../utils/polytechnic_grade_utils.dart';
 import '../widgets/focus_drawer.dart';
 
@@ -99,7 +100,7 @@ class _GradeCalculatorScreenState extends State<GradeCalculatorScreen> {
   }
 
   Color _signatureStatusColor(int total) {
-    if (total >= 119) return const Color(0xFF7C3AED);
+    if (total >= 119) return FocusPalette.teal;
     if (total >= 99) return const Color(0xFF0EA5E9);
     return const Color(0xFFF59E0B);
   }
@@ -471,7 +472,7 @@ class _FirmaTab extends StatelessWidget {
                 goal: _GradeGoal(
                   'Firma completa',
                   fullGoal,
-                  const Color(0xFF7C3AED),
+                  FocusPalette.teal,
                 ),
               ),
             ],

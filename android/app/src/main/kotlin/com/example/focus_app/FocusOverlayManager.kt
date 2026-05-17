@@ -293,11 +293,22 @@ class FocusOverlayManager(private val context: Context) {
 
     private fun randomQuote(): Quote {
         val quotes = listOf(
-            Quote("La concentración es la raíz de todas las capacidades superiores del ser humano.", "Bruce Lee"),
-            Quote("Lo que importa es poner atención en lo que estás haciendo.", "John Dewey"),
-            Quote("La gente exitosa mantiene el enfoque positivo en la vida.", "Joyce Meyer"),
             Quote("Concentrar la mente es el secreto de la fuerza.", "Ralph Waldo Emerson"),
+            Quote("No cuentes los días; haz que los días cuenten.", "Muhammad Ali"),
+            Quote("La acción expresa prioridades.", "Mahatma Gandhi"),
+            Quote("El secreto para avanzar es comenzar.", "Mark Twain"),
+            Quote("La simplicidad es la máxima sofisticación.", "Leonardo da Vinci"),
+            Quote("La energía y la persistencia conquistan todas las cosas.", "Benjamin Franklin"),
             Quote("Haz cada acto de tu vida como si fuera el último.", "Marco Aurelio"),
+            Quote("Lo que importa es poner atención en lo que estás haciendo.", "John Dewey"),
+            Quote("Dondequiera que estés, estáte allí por completo.", "Jim Elliot"),
+            Quote("La disciplina tarde o temprano vencerá a la inteligencia.", "Yokoi Kenji"),
+            Quote("El enfoque es decir no.", "Steve Jobs"),
+            Quote("La claridad precede al éxito.", "Robin Sharma"),
+            Quote("No hay viento favorable para quien no sabe a dónde va.", "Séneca"),
+            Quote("La excelencia no es un acto, sino un hábito.", "Aristóteles"),
+            Quote("Somos lo que hacemos repetidamente.", "Will Durant"),
+            Quote("La paciencia es amarga, pero su fruto es dulce.", "Jean-Jacques Rousseau"),
         )
         return quotes[Random.nextInt(quotes.size)]
     }
@@ -309,6 +320,14 @@ class FocusOverlayManager(private val context: Context) {
             "Tu enfoque va primero. Sigue con $cleanedSubject.",
             "No rompas el ritmo ahora. Regresa a $cleanedSubject.",
             "Este momento cuenta. Vuelve a $cleanedSubject.",
+            "Una pausa consciente. Regresa a $cleanedSubject.",
+            "Tu yo de mañana te lo va a agradecer. Vuelve a $cleanedSubject.",
+            "La distracción puede esperar. $cleanedSubject te necesita ahora.",
+            "Ya empezaste. Quédate un poco más con $cleanedSubject.",
+            "Pequeños minutos, grandes resultados. Vuelve a $cleanedSubject.",
+            "Cierra esta puerta y vuelve al camino de $cleanedSubject.",
+            "Protege tu atención. Regresa a $cleanedSubject.",
+            "Dale una victoria más a tu sesión de $cleanedSubject.",
         )
         return phrases[Random.nextInt(phrases.size)]
     }

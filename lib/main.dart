@@ -14,6 +14,7 @@ import 'screens/web_focus_screen.dart';
 import 'services/notification_service.dart';
 import 'services/ranking_service.dart';
 import 'utils/app_utils.dart';
+import 'utils/focus_palette.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,11 +52,8 @@ class MyApp extends StatelessWidget {
               _convertThemeMode(provider.settings.themeMode);
           final accent = colorFromHex(
             provider.settings.accentColor,
-            fallback: const Color(0xFF1D4ED8),
+            fallback: FocusPalette.primaryDeep,
           );
-          final animationDuration = provider.settings.animationsEnabled
-              ? const Duration(milliseconds: 280)
-              : Duration.zero;
 
           final lightTheme = ThemeData(
             useMaterial3: true,
@@ -63,19 +61,19 @@ class MyApp extends StatelessWidget {
               seedColor: accent,
               brightness: Brightness.light,
               primary: accent,
-              secondary: const Color(0xFF0F766E),
-              tertiary: const Color(0xFFF97316),
-              surface: const Color(0xFFF8FAFC),
+              secondary: FocusPalette.teal,
+              tertiary: FocusPalette.coral,
+              surface: FocusPalette.surface,
             ),
-            scaffoldBackgroundColor: const Color(0xFFF6F8FC),
-            canvasColor: const Color(0xFFF6F8FC),
+            scaffoldBackgroundColor: FocusPalette.surface,
+            canvasColor: FocusPalette.surface,
             appBarTheme: const AppBarTheme(
               elevation: 0,
               centerTitle: false,
               backgroundColor: Colors.transparent,
-              foregroundColor: Color(0xFF0F172A),
+              foregroundColor: FocusPalette.ink,
               titleTextStyle: TextStyle(
-                color: Color(0xFF0F172A),
+                color: FocusPalette.ink,
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
                 letterSpacing: -0.8,
@@ -85,7 +83,7 @@ class MyApp extends StatelessWidget {
                 const DrawerThemeData(backgroundColor: Colors.transparent),
             cardTheme: CardThemeData(
               elevation: 2,
-              shadowColor: const Color(0x120F172A),
+              shadowColor: Color(0x120F172A),
               surfaceTintColor: Colors.transparent,
               color: Colors.white,
               margin: EdgeInsets.zero,
@@ -100,7 +98,7 @@ class MyApp extends StatelessWidget {
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: const Color(0xFFFCFDFF),
+              fillColor: Color(0xFFFCFDFF),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               border: OutlineInputBorder(
@@ -109,7 +107,7 @@ class MyApp extends StatelessWidget {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
-                borderSide: const BorderSide(color: Color(0xFFD6E0EC)),
+                borderSide: BorderSide(color: FocusPalette.border),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -141,8 +139,8 @@ class MyApp extends StatelessWidget {
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0F172A),
-                side: const BorderSide(color: Color(0xFFD6E0EC)),
+                foregroundColor: FocusPalette.ink,
+                side: BorderSide(color: FocusPalette.border),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 padding:
@@ -156,19 +154,19 @@ class MyApp extends StatelessWidget {
               ),
             ),
             chipTheme: ChipThemeData(
-              backgroundColor: const Color(0xFFE8EEF6),
+              backgroundColor: FocusPalette.primarySoft,
               selectedColor: accent.withValues(alpha: 0.16),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
               side: BorderSide.none,
               labelStyle: const TextStyle(
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
+                color: FocusPalette.ink,
               ),
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: FocusPalette.ink,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18)),
               contentTextStyle: const TextStyle(
@@ -176,18 +174,18 @@ class MyApp extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            dividerColor: const Color(0xFFD6E0EC),
-            iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+            dividerColor: FocusPalette.border,
+            iconTheme: const IconThemeData(color: FocusPalette.ink),
             listTileTheme: const ListTileThemeData(
               iconColor: Color(0xFF334155),
-              textColor: Color(0xFF0F172A),
+              textColor: FocusPalette.ink,
             ),
             segmentedButtonTheme: SegmentedButtonThemeData(
               style: ButtonStyle(
                 foregroundColor: WidgetStateProperty.resolveWith(
                   (states) => states.contains(WidgetState.selected)
                       ? Colors.white
-                      : const Color(0xFF334155),
+                      : FocusPalette.ink2,
                 ),
                 backgroundColor: WidgetStateProperty.resolveWith(
                   (states) => states.contains(WidgetState.selected)
@@ -195,7 +193,22 @@ class MyApp extends StatelessWidget {
                       : Colors.white,
                 ),
                 side: const WidgetStatePropertyAll(
-                  BorderSide(color: Color(0xFFD6E0EC)),
+                  BorderSide(color: FocusPalette.border),
+                ),
+              ),
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              elevation: 0,
+              backgroundColor: Colors.white.withValues(alpha: 0.96),
+              indicatorColor: accent.withValues(alpha: 0.14),
+              labelTextStyle: const WidgetStatePropertyAll(
+                TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+              iconTheme: WidgetStateProperty.resolveWith(
+                (states) => IconThemeData(
+                  color: states.contains(WidgetState.selected)
+                      ? accent
+                      : FocusPalette.muted,
                 ),
               ),
             ),
@@ -203,17 +216,17 @@ class MyApp extends StatelessWidget {
                 .textTheme
                 .copyWith(
                   bodyLarge:
-                      const TextStyle(color: Color(0xFF0F172A), height: 1.35),
+                      const TextStyle(color: FocusPalette.ink, height: 1.35),
                   bodyMedium:
-                      const TextStyle(color: Color(0xFF1E293B), height: 1.35),
+                      const TextStyle(color: FocusPalette.ink2, height: 1.35),
                   bodySmall:
-                      const TextStyle(color: Color(0xFF64748B), height: 1.3),
+                      const TextStyle(color: FocusPalette.muted, height: 1.3),
                   titleLarge: const TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: FocusPalette.ink,
                     fontWeight: FontWeight.w800,
                   ),
                   titleMedium: const TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: FocusPalette.ink,
                     fontWeight: FontWeight.w700,
                   ),
                   labelLarge: const TextStyle(
@@ -222,8 +235,8 @@ class MyApp extends StatelessWidget {
                   ),
                 )
                 .apply(
-                  bodyColor: const Color(0xFF0F172A),
-                  displayColor: const Color(0xFF0F172A),
+                  bodyColor: FocusPalette.ink,
+                  displayColor: FocusPalette.ink,
                 ),
           );
 
@@ -232,12 +245,12 @@ class MyApp extends StatelessWidget {
               seedColor: accent,
               brightness: Brightness.dark,
               primary: accent,
-              secondary: const Color(0xFF22C55E),
-              tertiary: const Color(0xFFF59E0B),
-              surface: Colors.black,
+              secondary: FocusPalette.mint,
+              tertiary: FocusPalette.amber,
+              surface: FocusPalette.darkSurface,
             ),
-            scaffoldBackgroundColor: Colors.black,
-            canvasColor: Colors.black,
+            scaffoldBackgroundColor: FocusPalette.darkSurface,
+            canvasColor: FocusPalette.darkSurface,
             appBarTheme: const AppBarTheme(
               elevation: 0,
               centerTitle: false,
@@ -253,7 +266,7 @@ class MyApp extends StatelessWidget {
             drawerTheme:
                 const DrawerThemeData(backgroundColor: Colors.transparent),
             cardTheme: CardThemeData(
-              color: const Color(0xFF050505),
+              color: FocusPalette.darkCard,
               elevation: 0,
               margin: EdgeInsets.zero,
               shadowColor: Colors.transparent,
@@ -262,14 +275,14 @@ class MyApp extends StatelessWidget {
                   borderRadius: BorderRadius.circular(28)),
             ),
             dialogTheme: DialogThemeData(
-              backgroundColor: const Color(0xFF050505),
+              backgroundColor: FocusPalette.darkCard,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(28)),
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: const Color(0xFF090909),
+              fillColor: FocusPalette.darkCard,
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               border: OutlineInputBorder(
@@ -278,7 +291,7 @@ class MyApp extends StatelessWidget {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
-                borderSide: const BorderSide(color: Color(0xFF1F1F1F)),
+                borderSide: BorderSide(color: FocusPalette.darkBorder),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -311,7 +324,7 @@ class MyApp extends StatelessWidget {
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFF222222)),
+                side: BorderSide(color: FocusPalette.darkBorder),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 padding:
@@ -325,17 +338,17 @@ class MyApp extends StatelessWidget {
               ),
             ),
             chipTheme: ChipThemeData(
-              backgroundColor: const Color(0xFF0B0B0B),
+              backgroundColor: FocusPalette.darkCard,
               selectedColor: accent.withValues(alpha: 0.18),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14)),
-              side: const BorderSide(color: Color(0xFF181818)),
+              side: BorderSide(color: FocusPalette.darkBorder),
               labelStyle: const TextStyle(
                   fontWeight: FontWeight.w600, color: Colors.white),
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
-              backgroundColor: const Color(0xFF111111),
+              backgroundColor: FocusPalette.ink,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18)),
               contentTextStyle: const TextStyle(
@@ -343,7 +356,7 @@ class MyApp extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            dividerColor: const Color(0xFF1A1A1A),
+            dividerColor: FocusPalette.darkBorder,
             iconTheme: const IconThemeData(color: Colors.white),
             listTileTheme: const ListTileThemeData(
               iconColor: Color(0xFFE2E8F0),
@@ -359,10 +372,25 @@ class MyApp extends StatelessWidget {
                 backgroundColor: WidgetStateProperty.resolveWith(
                   (states) => states.contains(WidgetState.selected)
                       ? accent
-                      : const Color(0xFF050505),
+                      : FocusPalette.darkCard,
                 ),
                 side: const WidgetStatePropertyAll(
-                  BorderSide(color: Color(0xFF1A1A1A)),
+                  BorderSide(color: FocusPalette.darkBorder),
+                ),
+              ),
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              elevation: 0,
+              backgroundColor: FocusPalette.darkCard,
+              indicatorColor: accent.withValues(alpha: 0.22),
+              labelTextStyle: const WidgetStatePropertyAll(
+                TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+              iconTheme: WidgetStateProperty.resolveWith(
+                (states) => IconThemeData(
+                  color: states.contains(WidgetState.selected)
+                      ? accent
+                      : const Color(0xFF94A3B8),
                 ),
               ),
             ),
@@ -400,18 +428,11 @@ class MyApp extends StatelessWidget {
             theme: lightTheme,
             darkTheme: darkTheme,
             builder: (context, child) {
-              final scaledChild = MediaQuery(
+              return MediaQuery(
                 data: MediaQuery.of(context).copyWith(
                   textScaler: TextScaler.linear(provider.settings.textScale),
                 ),
                 child: child ?? const SizedBox.shrink(),
-              );
-              if (!provider.settings.animationsEnabled) return scaledChild;
-              return AnimatedSwitcher(
-                duration: animationDuration,
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: scaledChild,
               );
             },
             home: !provider.isLoaded
@@ -466,35 +487,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   static const _pages = [
     (
       icon: Icons.auto_awesome_rounded,
-      title: 'Tu semestre en piloto automático',
-      text:
-          'Focus junta horario, exámenes, hábitos, pomodoro y recursos para que estudies con menos caos y más claridad.',
-      highlights: ['Horario', 'Exámenes', 'Pomodoro'],
+      title: 'Tu semestre más claro',
+      text: 'Organiza materias, exámenes y hábitos sin llenar la app de ruido.',
+      highlights: ['Materias', 'Exámenes', 'Hábitos'],
       colors: [Color(0xFF1D4ED8), Color(0xFF38BDF8)],
     ),
     (
-      icon: Icons.calendar_month_rounded,
-      title: 'Mira qué viene antes de que te alcance',
+      icon: Icons.timer_rounded,
+      title: 'Entra en modo enfoque',
       text:
-          'Ten clases, parciales, finales y recordatorios en un mismo lugar. Ideal para no depender de capturas sueltas.',
-      highlights: ['Calendario', 'Recordatorios', 'Agenda'],
+          'Usa Pomodoro y Modo Enfoque Total para proteger tus bloques de estudio.',
+      highlights: ['Pomodoro', 'Bloqueo', 'Racha'],
       colors: [Color(0xFF0F766E), Color(0xFF10B981)],
     ),
     (
-      icon: Icons.school_rounded,
-      title: 'Si eres de Politécnica, empieza más rápido',
-      text:
-          'Carga el Excel oficial, elige carrera, materias y secciones. Focus arma horarios, aulas, profesores y exámenes cuando estén disponibles.',
-      highlights: ['Excel', 'Calculadora', 'Secciones'],
-      colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
-    ),
-    (
-      icon: Icons.ios_share_rounded,
-      title: 'Comparte tu horario como imagen',
-      text:
-          'Exporta PDF para imprimir o comparte una imagen bonita de tu horario por WhatsApp e Instagram.',
-      highlights: ['Imagen', 'PDF', 'Backup'],
-      colors: [Color(0xFFF97316), Color(0xFFFACC15)],
+      icon: Icons.emoji_events_rounded,
+      title: 'Haz visible tu progreso',
+      text: 'Suma puntos, cuida tu racha y compite con amigos cuando quieras.',
+      highlights: ['Puntos', 'Ranking', 'Amigos'],
+      colors: [FocusPalette.teal, FocusPalette.mint],
     ),
   ];
 

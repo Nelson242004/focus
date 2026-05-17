@@ -5,7 +5,8 @@ import '../models/schedule.dart';
 import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
-import '../widgets/focus_drawer.dart';
+import '../utils/focus_palette.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
@@ -23,7 +24,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   final _classroomController = TextEditingController();
   final _professorController = TextEditingController();
   final _sectionController = TextEditingController();
-  Color _selectedColor = const Color(0xFF2563EB);
+  Color _selectedColor = FocusPalette.primary;
+  bool _addInitialSchedule = false;
   int _selectedDay = 0;
   String _startTime = '08:00';
   String _endTime = '09:00';
@@ -48,7 +50,8 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
     _professorController.text = subject?.professorName ?? '';
     _sectionController.text = subject?.sectionCode ?? '';
     _selectedColor =
-        subject != null ? colorFromHex(subject.color) : const Color(0xFF2563EB);
+        subject != null ? colorFromHex(subject.color) : FocusPalette.primary;
+    _addInitialSchedule = false;
     _selectedDay = 0;
     _startTime = '08:00';
     _endTime = '09:00';
@@ -139,6 +142,17 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   ),
                   const SizedBox(height: 12),
                   if (subject == null) ...[
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Agregar horario ahora'),
+                      subtitle: const Text(
+                          'Opcional. También puedes hacerlo después.'),
+                      value: _addInitialSchedule,
+                      onChanged: (value) =>
+                          setDialogState(() => _addInitialSchedule = value),
+                    ),
+                  ],
+                  if (subject == null && _addInitialSchedule) ...[
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
                       initialValue: _selectedDay,
@@ -184,7 +198,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'Solo el nombre y el día son obligatorios. Puedes ajustar aula, profesor, sección y color cuando quieras.',
+                        'El horario se puede cambiar después desde la materia.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
@@ -225,7 +239,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             FilledButton(
               onPressed: () async {
                 if (!_formKey.currentState!.validate()) return;
-                if (subject == null) {
+                if (subject == null && _addInitialSchedule) {
                   if (!isValidTime(_startTime) || !isValidTime(_endTime)) {
                     messenger.showSnackBar(
                       const SnackBar(content: Text('Usa formato HH:MM.')),
@@ -262,57 +276,33 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 
                 try {
                   if (subject == null) {
-                    final existing =
-                        provider.getSubjectByName(draftSubject.name);
-                    final schedule = Schedule(
-                      subjectId: existing?.id ?? -1,
-                      dayOfWeek: _selectedDay,
-                      startTime: _startTime,
-                      endTime: _endTime,
-                      classroom: _classroomController.text.trim(),
-                    );
-
-                    if (existing != null && existing.id != null) {
-                      await provider.updateSubject(
-                        Subject(
-                          id: existing.id,
-                          name: existing.name,
-                          color: draftSubject.color,
-                          icon: existing.icon,
-                          defaultClassroom: draftSubject.defaultClassroom ??
-                              existing.defaultClassroom,
-                          professorName: draftSubject.professorName ??
-                              existing.professorName,
-                          sectionCode:
-                              draftSubject.sectionCode ?? existing.sectionCode,
-                        ),
+                    if (_addInitialSchedule) {
+                      final schedule = Schedule(
+                        subjectId: -1,
+                        dayOfWeek: _selectedDay,
+                        startTime: _startTime,
+                        endTime: _endTime,
+                        classroom: _classroomController.text.trim(),
                       );
-                      await provider.addSchedule(
-                        Schedule(
-                          subjectId: existing.id!,
-                          dayOfWeek: schedule.dayOfWeek,
-                          startTime: schedule.startTime,
-                          endTime: schedule.endTime,
-                          classroom: schedule.classroom,
-                        ),
-                      );
-                    } else {
                       await provider.addSubjectWithInitialSchedule(
                         draftSubject,
                         schedule,
+                        validateConflict: false,
                       );
+                    } else {
+                      await provider.addSubject(draftSubject);
                     }
                   } else {
                     await provider.updateSubject(draftSubject);
                   }
 
-                  if (!mounted) return;
-                  Navigator.of(context).pop();
+                  if (!dialogContext.mounted) return;
+                  Navigator.of(dialogContext).pop();
                   messenger.showSnackBar(
                     SnackBar(
                       content: Text(
                         subject == null
-                            ? 'Materia guardada en tu horario.'
+                            ? 'Materia guardada.'
                             : 'Materia actualizada.',
                       ),
                     ),
@@ -393,7 +383,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      drawer: const FocusDrawer(selectedRoute: 'subjects'),
       appBar: AppBar(
         title: const Text('Materias'),
         actions: [
@@ -452,34 +441,18 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                         ),
                       ),
                       if (subjects.isEmpty)
-                        Card(
-                          margin: const EdgeInsets.all(16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              children: [
-                                const Icon(Icons.menu_book_rounded, size: 44),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'Todavía no tienes materias cargadas',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Crea tu primera materia con lo mínimo necesario. Si sos estudiante de Politécnica, usa la sección Politécnica para importar el Excel.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 14),
-                                FilledButton.icon(
-                                  onPressed: () => _showSubjectDialog(),
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Agregar primera materia'),
-                                ),
-                              ],
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: FocusEmptyState(
+                            icon: Icons.menu_book_rounded,
+                            accent: const Color(0xFF0EA5E9),
+                            title: 'Carga tu primera materia',
+                            message:
+                                'Empieza solo con el nombre. Después puedes sumar horarios, aula, profesor y sección.',
+                            action: FilledButton.icon(
+                              onPressed: () => _showSubjectDialog(),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Agregar materia'),
                             ),
                           ),
                         )
@@ -622,13 +595,9 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                     ),
                                   ],
                                   const SizedBox(height: 10),
-                                  Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
+                                  Row(
                                     children: [
-                                      IconButton(
-                                        tooltip: 'Gestionar horarios',
-                                        icon: const Icon(Icons.schedule),
+                                      FilledButton.tonalIcon(
                                         onPressed: () {
                                           Navigator.push(
                                             context,
@@ -640,18 +609,36 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                                             ),
                                           );
                                         },
+                                        icon: const Icon(Icons.schedule),
+                                        label: const Text('Horarios'),
                                       ),
-                                      IconButton(
-                                        tooltip: 'Editar materia',
-                                        icon: const Icon(Icons.edit),
-                                        onPressed: () => _showSubjectDialog(
-                                            subject: subject),
-                                      ),
-                                      IconButton(
-                                        tooltip: 'Eliminar materia',
-                                        icon: const Icon(Icons.delete),
-                                        onPressed: () =>
-                                            _deleteSubject(subject),
+                                      const Spacer(),
+                                      PopupMenuButton<String>(
+                                        tooltip: 'Más acciones',
+                                        onSelected: (value) {
+                                          if (value == 'edit') {
+                                            _showSubjectDialog(
+                                                subject: subject);
+                                          } else if (value == 'delete') {
+                                            _deleteSubject(subject);
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            value: 'edit',
+                                            child: ListTile(
+                                              leading: Icon(Icons.edit),
+                                              title: Text('Editar'),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            child: ListTile(
+                                              leading: Icon(Icons.delete),
+                                              title: Text('Eliminar'),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -712,18 +699,14 @@ class _ColorPickerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const colors = [
-      Color(0xFF2563EB),
-      Color(0xFF0EA5E9),
-      Color(0xFF10B981),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
-      Color(0xFF8B5CF6),
-      Color(0xFFEC4899),
-      Color(0xFF14B8A6),
-      Color(0xFF84CC16),
-      Color(0xFF6366F1),
-      Color(0xFFFB7185),
-      Color(0xFF06B6D4),
+      FocusPalette.primary,
+      FocusPalette.cyan,
+      FocusPalette.teal,
+      FocusPalette.mint,
+      FocusPalette.amber,
+      FocusPalette.coral,
+      FocusPalette.primaryDeep,
+      FocusPalette.danger,
     ];
 
     return AlertDialog(

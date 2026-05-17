@@ -4,18 +4,14 @@ import 'package:provider/provider.dart';
 import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
-import '../screens/about_screen.dart';
 import '../screens/achievements_screen.dart';
-import '../screens/exam_mode_screen.dart';
 import '../screens/exams_screen.dart';
 import '../screens/friends_screen.dart';
-import '../screens/help_screen.dart';
 import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
 import '../screens/study_tasks_screen.dart';
-import '../screens/subjects_screen.dart';
 
 class FocusDrawer extends StatelessWidget {
   final int? selectedMainIndex;
@@ -81,18 +77,18 @@ class FocusDrawer extends StatelessWidget {
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.check_circle,
-                    label: 'Hábitos',
+                    icon: Icons.book,
+                    label: 'Materias',
                     selected: selectedMainIndex == 2,
                     onTap: () => _goToMain(context, 2),
                   ),
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.book,
-                    label: 'Materias',
-                    selected: selectedRoute == 'subjects',
-                    onTap: () => _replace(context, const SubjectsScreen()),
+                    icon: Icons.check_circle,
+                    label: 'Hábitos',
+                    selected: selectedMainIndex == 3,
+                    onTap: () => _goToMain(context, 3),
                   ),
                   _tile(
                     context,
@@ -113,22 +109,6 @@ class FocusDrawer extends StatelessWidget {
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.workspace_premium_rounded,
-                    label: 'Modo examen',
-                    selected: selectedRoute == 'examMode',
-                    onTap: () => _replace(context, const ExamModeScreen()),
-                  ),
-                  _tile(
-                    context,
-                    duration: duration,
-                    icon: Icons.link_rounded,
-                    label: 'Recursos',
-                    selected: selectedRoute == 'resources',
-                    onTap: () => _replace(context, const ResourcesScreen()),
-                  ),
-                  _tile(
-                    context,
-                    duration: duration,
                     icon: Icons.school_rounded,
                     label: 'Politécnica',
                     selected: selectedRoute == 'polytechnic',
@@ -137,10 +117,10 @@ class FocusDrawer extends StatelessWidget {
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.emoji_events_rounded,
-                    label: 'Logros',
-                    selected: selectedRoute == 'achievements',
-                    onTap: () => _replace(context, const AchievementsScreen()),
+                    icon: Icons.link_rounded,
+                    label: 'Recursos',
+                    selected: selectedRoute == 'resources',
+                    onTap: () => _replace(context, const ResourcesScreen()),
                   ),
                   _sectionLabel(context, 'Comunidad'),
                   _tile(
@@ -159,14 +139,13 @@ class FocusDrawer extends StatelessWidget {
                     selected: selectedRoute == 'friends',
                     onTap: () => _replace(context, const FriendsScreen()),
                   ),
-                  _sectionLabel(context, 'Soporte'),
                   _tile(
                     context,
                     duration: duration,
-                    icon: Icons.help_outline_rounded,
-                    label: 'Ayuda',
-                    selected: selectedRoute == 'help',
-                    onTap: () => _replace(context, const HelpScreen()),
+                    icon: Icons.military_tech_rounded,
+                    label: 'Logros',
+                    selected: selectedRoute == 'achievements',
+                    onTap: () => _replace(context, const AchievementsScreen()),
                   ),
                 ],
               ),
@@ -185,18 +164,10 @@ class FocusDrawer extends StatelessWidget {
                     _tile(
                       context,
                       duration: duration,
-                      icon: Icons.info_rounded,
-                      label: 'About',
-                      selected: selectedRoute == 'about',
-                      onTap: () => _replace(context, const AboutScreen()),
-                    ),
-                    _tile(
-                      context,
-                      duration: duration,
                       icon: Icons.settings,
                       label: 'Configuración',
-                      selected: selectedMainIndex == 3,
-                      onTap: () => _goToMain(context, 3),
+                      selected: selectedMainIndex == 4,
+                      onTap: () => _goToMain(context, 4),
                     ),
                   ],
                 ),

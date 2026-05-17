@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/resource_link.dart';
 import '../providers/app_provider.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 
 class ResourcesScreen extends StatefulWidget {
@@ -197,6 +198,24 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     }
   }
 
+  Future<void> _suggestResource() async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'gabrielnelson242004@gmail.com',
+      queryParameters: {
+        'subject': 'Sugerencia de recurso para Focus',
+        'body':
+            'Hola, quiero sugerir este recurso para Focus:\n\nNombre:\nLink:\nCategoría:\nMateria relacionada:\n',
+      },
+    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir tu app de correo.')),
+      );
+    }
+  }
+
   Future<void> _deleteResource(ResourceLink resource) async {
     if (resource.id == null || resource.isDefault) return;
     await Provider.of<AppProvider>(context, listen: false)
@@ -253,6 +272,12 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         title: const Text('Recursos'),
         actions: [
           IconButton(
+            tooltip: 'Sugerir recurso',
+            onPressed: _suggestResource,
+            icon: const Icon(Icons.mail_outline_rounded),
+          ),
+          IconButton(
+            tooltip: 'Agregar recurso',
             onPressed: _showAddDialog,
             icon: const Icon(Icons.add_link_rounded),
           ),
@@ -302,7 +327,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Busca y filtra',
+                          'Buscar',
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge
@@ -319,25 +344,45 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final entry in const [
-                              ('all', 'Todos'),
-                              ('subject', 'Por materia'),
-                              ('playlist', 'Playlists'),
-                              ('course', 'Cursos'),
-                              ('tool', 'Herramientas'),
-                              ('social', 'Redes'),
-                            ])
-                              ChoiceChip(
-                                label: Text(entry.$2),
-                                selected: _selectedFilter == entry.$1,
-                                onSelected: (_) =>
-                                    setState(() => _selectedFilter = entry.$1),
-                              ),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedFilter,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Filtrar',
+                            prefixIcon: Icon(Icons.tune_rounded),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                                value: 'all', child: Text('Todos')),
+                            DropdownMenuItem(
+                              value: 'subject',
+                              child: Text('Por materia'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'playlist',
+                              child: Text('Playlists'),
+                            ),
+                            DropdownMenuItem(
+                                value: 'course', child: Text('Cursos')),
+                            DropdownMenuItem(
+                              value: 'tool',
+                              child: Text('Herramientas'),
+                            ),
+                            DropdownMenuItem(
+                                value: 'social', child: Text('Redes')),
                           ],
+                          onChanged: (value) => setState(
+                            () => _selectedFilter = value ?? 'all',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _suggestResource,
+                            icon: const Icon(Icons.lightbulb_outline_rounded),
+                            label: const Text('Sugerir recurso'),
+                          ),
                         ),
                       ],
                     ),
@@ -387,7 +432,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                         items: generalResources,
                         onOpen: _openLink,
                         onDelete: _deleteResource,
-                        accent: const Color(0xFF2563EB),
+                        accent: FocusPalette.primary,
                       ),
                       const SizedBox(height: 16),
                     ],
@@ -408,7 +453,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                           items: subjectItems,
                           onOpen: _openLink,
                           onDelete: _deleteResource,
-                          accent: const Color(0xFF1D4ED8),
+                          accent: FocusPalette.primaryDeep,
                         ),
                       );
                     }),
@@ -439,11 +484,11 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
 
   Color _sectionAccent(String filter) {
     return switch (filter) {
-      'playlist' => const Color(0xFF2563EB),
-      'course' => const Color(0xFF0F766E),
-      'tool' => const Color(0xFFF97316),
-      'social' => const Color(0xFF7C3AED),
-      _ => const Color(0xFF2563EB),
+      'playlist' => FocusPalette.primary,
+      'course' => FocusPalette.teal,
+      'tool' => FocusPalette.coral,
+      'social' => FocusPalette.cyan,
+      _ => FocusPalette.primary,
     };
   }
 }
@@ -460,7 +505,7 @@ class _ResourceIntroCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8), Color(0xFF38BDF8)],
+          colors: FocusPalette.focusGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -469,12 +514,12 @@ class _ResourceIntroCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Tu biblioteca personal',
+            'Recursos Focus',
             style: TextStyle(color: Colors.white70),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Guarda playlists, cursos, herramientas y enlaces clave para tener una biblioteca realmente útil cada vez que abras la app.',
+            'Enlaces clave para estudiar mejor.',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,

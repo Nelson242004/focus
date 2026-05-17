@@ -1,24 +1,20 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_settings.dart';
-import '../models/focus_mode_config.dart';
-import '../models/focus_mode_status.dart';
-import '../models/focus_shield_app.dart';
 import '../providers/app_provider.dart';
 import '../services/backup_service.dart';
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
 import '../services/ranking_service.dart';
 import '../services/update_service.dart';
-import '../utils/app_links.dart';
 import '../utils/app_utils.dart';
-import 'app_tutorial_screen.dart';
+import '../utils/focus_palette.dart';
 import 'auth_gate_screen.dart';
-import 'focus_mode_setup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -28,7 +24,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late TextEditingController _goalController;
+  int _weeklyGoal = 8;
   String _selectedSound = 'chime';
   String _selectedStartScreen = 'dashboard';
   String _breakAfterFocus = 'auto';
@@ -38,25 +34,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _examReminderDayBefore = true;
   bool _examReminderTwoHoursBefore = true;
   bool _examReminderThirtyMinutesBefore = false;
-  bool _checkingUpdate = false;
   late String _accentColor;
-  FocusModeConfig _focusModeConfig = const FocusModeConfig();
-  FocusModeStatus _focusModeStatus = const FocusModeStatus();
 
-  static const List<String> _accentPalette = [
-    '#1D4ED8',
-    '#0EA5E9',
-    '#10B981',
-    '#F97316',
-    '#7C3AED',
-  ];
+  static const List<String> _accentPalette = FocusPalette.accentHexOptions;
 
   @override
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
-    _goalController =
-        TextEditingController(text: provider.settings.weeklyGoal.toString());
+    _weeklyGoal = provider.settings.weeklyGoal.clamp(1, 99);
     _selectedSound = provider.settings.sound;
     _selectedStartScreen = provider.settings.startScreen == 'statistics'
         ? 'dashboard'
@@ -70,24 +56,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _examReminderThirtyMinutesBefore =
         provider.settings.examReminderThirtyMinutesBefore;
     _accentColor = provider.settings.accentColor;
-    _loadFocusModeConfig();
-  }
-
-  Future<void> _loadFocusModeConfig() async {
-    final config = await FocusModeService.loadConfig();
-    final status = await FocusModeService.getStatus();
-    if (!mounted) return;
-    setState(() {
-      _focusModeConfig = config;
-      _focusModeStatus = status;
-    });
   }
 
   @override
-  void dispose() {
-    _goalController.dispose();
-    super.dispose();
-  }
+  void dispose() => super.dispose();
 
   void _showMessage(String message) {
     if (!mounted) return;
@@ -98,19 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final goal = int.tryParse(_goalController.text);
-
-    if (goal == null) {
-      _showMessage(
-        'Revisa el objetivo semanal: usa solo valores enteros.',
-      );
-      return;
-    }
-
-    if (goal < 1) {
-      _showMessage('Usa valores mayores a cero.');
-      return;
-    }
+    final goal = _weeklyGoal.clamp(1, 99);
 
     await provider.updateSettings(
       AppSettings(
@@ -136,6 +96,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (!mounted) return;
     _showMessage('Listo. Tu configuración quedó guardada.');
+  }
+
+  void _setWeeklyGoal(int value) {
+    setState(() => _weeklyGoal = value.clamp(1, 99));
   }
 
   Future<void> _exportData() async {
@@ -177,6 +141,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       await RankingService.signOut();
+      if (!mounted) return;
+      setState(() {});
+      _showMessage('Sesión cerrada.');
     } catch (error) {
       if (!mounted) return;
       _showMessage(RankingService.friendlyRankingError(error));
@@ -199,53 +166,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
     if (enabled.isEmpty) return 'Sin avisos de examen activos.';
     return 'Avisos: ${enabled.join(', ')}.';
-  }
-
-  Future<void> _checkForUpdates() async {
-    setState(() => _checkingUpdate = true);
-    try {
-      final info = await UpdateService.checkForUpdates();
-      if (!mounted) return;
-      if (!info.available) {
-        _showMessage('Ya tienes la última versión beta disponible.');
-        return;
-      }
-
-      final openUpdate = await showDialog<bool>(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: Text('Nueva beta ${info.version}'),
-          content: Text(
-            '${info.notes}\n\nVersión instalada: ${AppLinks.currentVersion}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Después'),
-            ),
-            FilledButton.icon(
-              onPressed: () => Navigator.pop(context, true),
-              icon: const Icon(Icons.download_rounded),
-              label: const Text('Descargar'),
-            ),
-          ],
-        ),
-      );
-
-      if (openUpdate == true) {
-        await launchUrl(
-          Uri.parse(info.apkUrl),
-          mode: LaunchMode.externalApplication,
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      _showMessage(
-        'No pudimos revisar actualizaciones. Verifica tu conexión e intenta otra vez.',
-      );
-    } finally {
-      if (mounted) setState(() => _checkingUpdate = false);
-    }
   }
 
   Future<void> _chooseBackupFile() async {
@@ -325,29 +245,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _showMessage('Backup restaurado. Tus datos ya están de vuelta.');
   }
 
-  Future<void> _copyAppLink() async {
-    try {
-      await _openExternalUrl(AppLinks.appDownload);
-      await Clipboard.setData(const ClipboardData(text: AppLinks.appDownload));
-      if (!mounted) return;
-      _showMessage('Página abierta. También copiamos el enlace.');
-    } catch (error) {
-      await Clipboard.setData(const ClipboardData(text: AppLinks.appDownload));
-      if (!mounted) return;
-      _showMessage(
-        'No pudimos abrir la página, pero el enlace quedó copiado.',
-      );
-    }
-  }
-
-  Future<void> _openExternalUrl(String url) async {
-    final uri = Uri.parse(url);
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened) {
-      throw Exception('No se pudo abrir $url');
-    }
-  }
-
   Future<void> _deleteAllData() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
     final confirm = await showDialog<bool>(
@@ -398,26 +295,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _toggleFocusMode(bool value) async {
-    final config = _focusModeConfig.copyWith(enabled: value);
-    await FocusModeService.saveConfig(config);
-    if (!mounted) return;
-    setState(() => _focusModeConfig = config);
+  Future<void> _openExternalUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) {
+      _showMessage('El enlace no es válido.');
+      return;
+    }
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened) {
+      _showMessage('No se pudo abrir el enlace.');
+    }
   }
 
-  Future<void> _openFocusModePicker() async {
-    final selectedApps = await Navigator.of(context).push<List<FocusShieldApp>>(
-      MaterialPageRoute(
-        builder: (_) => FocusModeSetupScreen(
-          initiallySelected: _focusModeConfig.blockedApps,
-        ),
-      ),
-    );
-    if (selectedApps == null) return;
-    final config = _focusModeConfig.copyWith(blockedApps: selectedApps);
-    await FocusModeService.saveConfig(config);
-    if (!mounted) return;
-    setState(() => _focusModeConfig = config);
+  Future<void> _checkForUpdates() async {
+    try {
+      final info = await UpdateService.checkForUpdates();
+      if (!mounted) return;
+      await _openExternalUrl(info.apkUrl);
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(
+        'No se pudo abrir la actualización. Revisa tu conexión e intenta otra vez.',
+      );
+    }
   }
 
   @override
@@ -446,53 +346,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Cuenta',
               icon: Icons.person_rounded,
               children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.account_circle_rounded),
-                  title: Text(
-                    RankingService.currentUser?.email ?? 'Sin cuenta',
-                  ),
-                  subtitle: Text(
-                    RankingService.currentUser == null
-                        ? 'Puedes usar materias, exámenes y Pomodoro sin iniciar sesión.'
-                        : 'Tu ranking y progreso social usan esta cuenta.',
-                  ),
+                _AccountSettingsContent(
+                  onLogin: _openLogin,
+                  onSignOut: _signOut,
+                  onProfileUpdated: () => setState(() {}),
                 ),
-                if (RankingService.currentUser == null)
-                  FilledButton.icon(
-                    onPressed: _openLogin,
-                    icon: const Icon(Icons.login_rounded),
-                    label: const Text('Iniciar sesión'),
-                  )
-                else ...[
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.badge_rounded),
-                    title: const Text('Perfil público'),
-                    subtitle:
-                        const Text('Editar nombre y carrera del ranking.'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () async {
-                      final user = RankingService.currentUser;
-                      final profile = await RankingService.fetchProfile();
-                      if (!context.mounted || user == null) return;
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ProfileSetupScreen(
-                            user: user,
-                            profile: profile,
-                          ),
-                        ),
-                      );
-                      if (context.mounted) setState(() {});
-                    },
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _signOut,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Cerrar sesión'),
-                  ),
-                ],
               ],
             ),
             const SizedBox(height: 14),
@@ -517,12 +375,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: 'dashboard', child: Text('Dashboard')),
                     DropdownMenuItem(
                         value: 'pomodoro', child: Text('Pomodoro')),
+                    DropdownMenuItem(
+                        value: 'subjects', child: Text('Materias')),
                     DropdownMenuItem(value: 'habits', child: Text('Hábitos')),
                   ],
                   onChanged: (value) => setState(
                       () => _selectedStartScreen = value ?? 'dashboard'),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 10),
                 Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
                 Slider(
                   value: _textScale,
@@ -640,81 +500,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Pomodoro',
-              icon: Icons.timer_rounded,
+              title: 'Objetivo semanal',
+              icon: Icons.flag_rounded,
               children: [
                 const Text(
-                  'Los tiempos de enfoque y descanso se ajustan desde la pantalla Pomodoro.',
+                  'Los tiempos, sonido y Modo Enfoque Total se ajustan desde la pantalla Pomodoro.',
                 ),
                 const SizedBox(height: 12),
-                _buildNumberField(
-                    'Objetivo semanal (pomodoros)', _goalController),
-                DropdownButtonFormField<String>(
-                  initialValue: _breakAfterFocus,
-                  decoration:
-                      const InputDecoration(labelText: 'Después del enfoque'),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'auto', child: Text('Automático cada 4 ciclos')),
-                    DropdownMenuItem(
-                        value: 'shortBreak',
-                        child: Text('Siempre descanso corto')),
-                    DropdownMenuItem(
-                        value: 'longBreak',
-                        child: Text('Siempre descanso largo')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _breakAfterFocus = value ?? 'auto'),
+                _WeeklyGoalControl(
+                  value: _weeklyGoal,
+                  onChanged: _setWeeklyGoal,
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedSound,
-                  decoration:
-                      const InputDecoration(labelText: 'Sonido al terminar'),
-                  items: const [
-                    DropdownMenuItem(value: 'chime', child: Text('Campana')),
-                    DropdownMenuItem(value: 'bell', child: Text('Timbre')),
-                    DropdownMenuItem(value: 'none', child: Text('Ninguno')),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _selectedSound = value ?? 'none'),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _saveSettings,
+                    icon: const Icon(Icons.save_rounded),
+                    label: const Text('Guardar objetivo'),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Modo Enfoque Total',
-              icon: Icons.shield_moon_rounded,
+              title: 'Actualizaciones',
+              icon: Icons.system_update_alt_rounded,
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Activar con Pomodoro'),
-                  subtitle: const Text(
-                    'Protege tus bloques de enfoque y vigila apps distractoras.',
-                  ),
-                  value: _focusModeConfig.enabled,
-                  onChanged: _toggleFocusMode,
-                ),
-                Text(
-                  'Los permisos obligatorios de enfoque y notificaciones se configuran al entrar a la app.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _openFocusModePicker,
-                  icon: const Icon(Icons.apps_rounded),
-                  label: Text(
-                    _focusModeConfig.blockedApps.isEmpty
-                        ? 'Elegir apps distractoras'
-                        : 'Editar apps distractoras',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _focusModeConfig.blockedApps.isEmpty
-                      ? 'Todavía no elegiste apps para frenar.'
-                      : '${_focusModeConfig.blockedApps.length} apps elegidas. Intentos detectados: ${_focusModeStatus.blockedAttempts}.',
-                ),
+                _UpdateCard(onCheck: _checkForUpdates),
               ],
             ),
             const SizedBox(height: 14),
@@ -749,142 +562,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Actualizaciones beta',
-              icon: Icons.system_update_alt_rounded,
+              title: 'Diagnóstico',
+              icon: Icons.health_and_safety_rounded,
               children: [
                 const Text(
-                  'Busca nuevas versiones sin salir de la app y descarga la beta más reciente cuando esté disponible.',
+                  'Revisa rápidamente si Focus está listo para estudiar.',
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'Versión instalada: ${AppLinks.currentVersion}',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: _checkingUpdate ? null : _checkForUpdates,
-                  icon: _checkingUpdate
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.refresh_rounded),
-                  label: Text(
-                    _checkingUpdate ? 'Buscando...' : 'Buscar actualización',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _SettingsSection(
-              title: 'Ayuda y app',
-              icon: Icons.info_rounded,
-              children: [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.play_lesson_rounded),
-                  title: const Text('Tutorial de funciones'),
-                  subtitle: const Text('Repasa cómo usar cada sección.'),
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (_) => const AppTutorialScreen()),
-                    );
-                  },
-                ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.08),
-                    border: Border.all(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.14),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.ios_share_rounded),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Compartir Focus',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Comparte la beta con un compañero para que pueda descargar la app desde la página oficial.',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton.icon(
-                        onPressed: _copyAppLink,
-                        icon: const Icon(Icons.open_in_new_rounded),
-                        label: const Text('Abrir y copiar link'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(22),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(22),
-                    onTap: () => _openExternalUrl(AppLinks.developerWebsite),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.code_rounded, color: Colors.white),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Desarrollado por',
-                                style: TextStyle(color: Colors.white70),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                AppLinks.developerName,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.arrow_forward_rounded, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text('Versión beta ${AppLinks.currentVersion}'),
                 const SizedBox(height: 12),
                 _DiagnosticPanel(provider: provider),
               ],
@@ -912,14 +595,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+}
 
-  Widget _buildNumberField(String label, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: InputDecoration(labelText: label),
+class _AccountSettingsContent extends StatelessWidget {
+  final Future<void> Function() onLogin;
+  final Future<void> Function() onSignOut;
+  final VoidCallback onProfileUpdated;
+
+  const _AccountSettingsContent({
+    required this.onLogin,
+    required this.onSignOut,
+    required this.onProfileUpdated,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: RankingService.authStateChanges,
+      initialData: RankingService.currentUser,
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.account_circle_rounded),
+              title: Text(user?.email ?? 'Sin cuenta'),
+              subtitle: Text(
+                user == null
+                    ? 'Puedes usar materias, exámenes y Pomodoro sin iniciar sesión.'
+                    : 'Tu ranking y progreso social usan esta cuenta.',
+              ),
+            ),
+            if (user == null)
+              FilledButton.icon(
+                onPressed: onLogin,
+                icon: const Icon(Icons.login_rounded),
+                label: const Text('Iniciar sesión'),
+              )
+            else ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.badge_rounded),
+                title: const Text('Perfil público'),
+                subtitle: const Text('Editar nombre y carrera del ranking.'),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () async {
+                  final profile = await RankingService.fetchProfile();
+                  if (!context.mounted) return;
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileSetupScreen(
+                        user: user,
+                        profile: profile,
+                      ),
+                    ),
+                  );
+                  if (context.mounted) onProfileUpdated();
+                },
+              ),
+              OutlinedButton.icon(
+                onPressed: onSignOut,
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Cerrar sesión'),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WeeklyGoalControl extends StatelessWidget {
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const _WeeklyGoalControl({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: accent.withValues(alpha: 0.12),
+            ),
+            child: Icon(Icons.flag_rounded, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pomodoros por semana',
+                  style: TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$value sesiones',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          IconButton.filledTonal(
+            onPressed: value <= 1 ? null : () => onChanged(value - 1),
+            icon: const Icon(Icons.remove_rounded),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: value >= 99 ? null : () => onChanged(value + 1),
+            icon: const Icon(Icons.add_rounded),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpdateCard extends StatelessWidget {
+  final Future<void> Function() onCheck;
+
+  const _UpdateCard({required this.onCheck});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.icon(
+        onPressed: onCheck,
+        icon: const Icon(Icons.system_update_rounded),
+        label: const Text('Actualizar ahora'),
       ),
     );
   }
@@ -937,7 +760,7 @@ class _SettingsHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
+          colors: FocusPalette.studyGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1040,70 +863,296 @@ class _AcademicLocalNotice extends StatelessWidget {
   }
 }
 
-class _DiagnosticPanel extends StatelessWidget {
+class _FocusDiagnosticData {
+  final bool accessibility;
+  final bool overlay;
+  final bool usageAccess;
+  final bool batteryIgnored;
+  final int blockedApps;
+  final int blockedAttempts;
+  final bool focusSessionActive;
+  final int pendingNotifications;
+
+  const _FocusDiagnosticData({
+    required this.accessibility,
+    required this.overlay,
+    required this.usageAccess,
+    required this.batteryIgnored,
+    required this.blockedApps,
+    required this.blockedAttempts,
+    required this.focusSessionActive,
+    required this.pendingNotifications,
+  });
+
+  bool get focusReady => accessibility && overlay && usageAccess;
+}
+
+class _DiagnosticPanel extends StatefulWidget {
   final AppProvider provider;
 
   const _DiagnosticPanel({required this.provider});
 
   @override
+  State<_DiagnosticPanel> createState() => _DiagnosticPanelState();
+}
+
+class _DiagnosticPanelState extends State<_DiagnosticPanel> {
+  late Future<_FocusDiagnosticData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<_FocusDiagnosticData> _load() async {
+    final results = await Future.wait<Object>([
+      FocusModeService.hasAccessibilityPermission(),
+      FocusModeService.hasOverlayPermission(),
+      FocusModeService.hasUsageAccessPermission(),
+      FocusModeService.hasIgnoreBatteryOptimizationPermission(),
+      FocusModeService.loadConfig(),
+      FocusModeService.getStatus(),
+      NotificationService.pendingNotificationsCount(),
+    ]);
+    final config = results[4] as dynamic;
+    final status = results[5] as dynamic;
+    return _FocusDiagnosticData(
+      accessibility: results[0] as bool,
+      overlay: results[1] as bool,
+      usageAccess: results[2] as bool,
+      batteryIgnored: results[3] as bool,
+      blockedApps: config.blockedApps.length as int,
+      blockedAttempts: status.blockedAttempts as int,
+      focusSessionActive: status.active as bool,
+      pendingNotifications: results[6] as int,
+    );
+  }
+
+  void _refresh() {
+    setState(() => _future = _load());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.3),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Diagnóstico',
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.w900),
+    return FutureBuilder<_FocusDiagnosticData>(
+      future: _future,
+      builder: (context, snapshot) {
+        final data = snapshot.data;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(22),
+            color: Theme.of(context)
+                .colorScheme
+                .surfaceContainerHighest
+                .withValues(alpha: 0.3),
           ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _DiagnosticChip(
-                icon: provider.lastLoadError == null
-                    ? Icons.check_circle_rounded
-                    : Icons.error_rounded,
-                label: provider.lastLoadError == null
-                    ? 'Datos OK'
-                    : 'Carga local con error',
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      color: (data?.focusReady == true
+                              ? FocusPalette.mint
+                              : FocusPalette.coral)
+                          .withValues(alpha: 0.12),
+                    ),
+                    child: Icon(
+                      data?.focusReady == true
+                          ? Icons.verified_rounded
+                          : Icons.tune_rounded,
+                      color: data?.focusReady == true
+                          ? FocusPalette.mint
+                          : FocusPalette.coral,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data?.focusReady == true
+                              ? 'Focus listo'
+                              : 'Revisar Focus',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        Text(
+                          data == null
+                              ? 'Comprobando permisos y servicios.'
+                              : '${data.blockedApps} apps · ${data.blockedAttempts} bloqueos',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Actualizar diagnóstico',
+                    onPressed:
+                        snapshot.connectionState == ConnectionState.waiting
+                            ? null
+                            : _refresh,
+                    icon: snapshot.connectionState == ConnectionState.waiting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh_rounded),
+                  ),
+                ],
               ),
-              _DiagnosticChip(
-                icon: RankingService.currentUser == null
-                    ? Icons.person_off_rounded
-                    : Icons.verified_user_rounded,
-                label: RankingService.currentUser == null
-                    ? 'Sin cuenta'
-                    : 'Cuenta activa',
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _DiagnosticChip(
+                    icon: widget.provider.lastLoadError == null
+                        ? Icons.check_circle_rounded
+                        : Icons.error_rounded,
+                    label: widget.provider.lastLoadError == null
+                        ? 'Datos OK'
+                        : 'Carga local con error',
+                  ),
+                  _DiagnosticChip(
+                    icon: RankingService.currentUser == null
+                        ? Icons.person_off_rounded
+                        : Icons.verified_user_rounded,
+                    label: RankingService.currentUser == null
+                        ? 'Sin cuenta'
+                        : 'Cuenta activa',
+                  ),
+                  _DiagnosticChip(
+                    icon: widget.provider.settings.notificationsEnabled
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_off_rounded,
+                    label: widget.provider.settings.notificationsEnabled
+                        ? '${data?.pendingNotifications ?? 0} avisos'
+                        : 'Notificaciones apagadas',
+                  ),
+                  _DiagnosticChip(
+                    icon: data?.focusReady == true
+                        ? Icons.shield_rounded
+                        : Icons.shield_outlined,
+                    label: data == null
+                        ? 'Revisando enfoque'
+                        : data.focusReady
+                            ? 'Enfoque listo'
+                            : 'Permisos pendientes',
+                  ),
+                ],
               ),
-              _DiagnosticChip(
-                icon: provider.settings.notificationsEnabled
-                    ? Icons.notifications_active_rounded
-                    : Icons.notifications_off_rounded,
-                label: provider.settings.notificationsEnabled
-                    ? 'Notificaciones activas'
-                    : 'Notificaciones apagadas',
-              ),
-              _DiagnosticChip(
-                icon: Icons.storage_rounded,
-                label: 'Local',
-              ),
+              if (data != null) ...[
+                const SizedBox(height: 14),
+                _DiagnosticRow(
+                  icon: Icons.accessibility_new_rounded,
+                  title: 'Accesibilidad',
+                  ok: data.accessibility,
+                  detail: data.accessibility
+                      ? 'Focus puede detectar apps abiertas.'
+                      : 'Actívala para bloquear distracciones.',
+                  onFix: data.accessibility
+                      ? null
+                      : FocusModeService.openAccessibilitySettings,
+                ),
+                _DiagnosticRow(
+                  icon: Icons.layers_rounded,
+                  title: 'Mostrar sobre otras apps',
+                  ok: data.overlay,
+                  detail: data.overlay
+                      ? 'La pantalla de bloqueo puede aparecer encima.'
+                      : 'Actívalo para mostrar el bloqueo visual.',
+                  onFix: data.overlay
+                      ? null
+                      : FocusModeService.openOverlaySettings,
+                ),
+                _DiagnosticRow(
+                  icon: Icons.query_stats_rounded,
+                  title: 'Uso de apps',
+                  ok: data.usageAccess,
+                  detail: data.usageAccess
+                      ? 'Focus puede verificar apps recientes.'
+                      : 'Actívalo para mejorar la detección.',
+                  onFix: data.usageAccess
+                      ? null
+                      : FocusModeService.openUsageAccessSettings,
+                ),
+                _DiagnosticRow(
+                  icon: Icons.battery_charging_full_rounded,
+                  title: 'Suspensión de batería',
+                  ok: data.batteryIgnored,
+                  detail: data.batteryIgnored
+                      ? 'Android no debería dormir el bloqueo.'
+                      : 'Recomendado para sesiones largas.',
+                  onFix: data.batteryIgnored
+                      ? null
+                      : FocusModeService.openIgnoreBatteryOptimizationSettings,
+                ),
+                const SizedBox(height: 6),
+                _DiagnosticChip(
+                  icon: data.focusSessionActive
+                      ? Icons.play_circle_fill_rounded
+                      : Icons.pause_circle_rounded,
+                  label:
+                      'Enfoque ${data.focusSessionActive ? 'activo' : 'inactivo'}',
+                ),
+              ],
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+}
+
+class _DiagnosticRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool ok;
+  final String detail;
+  final Future<void> Function()? onFix;
+
+  const _DiagnosticRow({
+    required this.icon,
+    required this.title,
+    required this.ok,
+    required this.detail,
+    this.onFix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ok ? FocusPalette.mint : FocusPalette.coral;
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: color),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(
+        detail,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
+      trailing: onFix == null
+          ? Icon(Icons.check_circle_rounded, color: color)
+          : TextButton(
+              onPressed: onFix,
+              child: const Text('Abrir'),
+            ),
     );
   }
 }

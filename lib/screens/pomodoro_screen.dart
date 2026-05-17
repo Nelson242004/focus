@@ -18,6 +18,7 @@ import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -57,6 +58,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _loadingFocusMode = true;
   Timer? _focusModeStatusTimer;
   int _lastHandledBlockedAtMillis = 0;
+  int? _lastWidgetSyncBucket;
+  String? _lastPomodoroNotificationSignature;
   bool _showingDistractionPrompt = false;
 
   Future<void> _updatePomodoroSettings({
@@ -81,6 +84,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       animationsEnabled: provider.settings.animationsEnabled,
       accentColor: provider.settings.accentColor,
       notificationsEnabled: provider.settings.notificationsEnabled,
+      examReminderDayBefore: provider.settings.examReminderDayBefore,
+      examReminderTwoHoursBefore: provider.settings.examReminderTwoHoursBefore,
+      examReminderThirtyMinutesBefore:
+          provider.settings.examReminderThirtyMinutesBefore,
       onboardingCompleted: provider.settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? provider.settings.breakAfterFocus,
       userName: provider.settings.userName,
@@ -281,7 +288,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _persistState();
     }
     unawaited(_showPomodoroNotification(provider));
-    unawaited(_syncPomodoroWidget(provider));
+    unawaited(_syncPomodoroWidget(provider, force: true));
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remainingSeconds <= 1) {
         if (mounted) {
@@ -306,7 +313,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     });
   }
 
-  Future<void> _syncPomodoroWidget(AppProvider provider) {
+  Future<void> _syncPomodoroWidget(
+    AppProvider provider, {
+    bool force = false,
+  }) {
+    final syncBucket = _isRunning ? _remainingSeconds ~/ 30 : -1;
+    if (!force && _lastWidgetSyncBucket == syncBucket) {
+      return Future.value();
+    }
+    _lastWidgetSyncBucket = syncBucket;
     return WidgetSyncService.syncPomodoroState(
       mode: _mode,
       isRunning: _isRunning,
@@ -319,6 +334,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _showPomodoroNotification(AppProvider provider) async {
     if (!_isRunning || !provider.settings.notificationsEnabled) {
+      _lastPomodoroNotificationSignature = null;
       await NotificationService.cancelPomodoroTimerNotification();
       return;
     }
@@ -328,15 +344,23 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         _focusModePermissionGranted &&
         _focusModeConfig.blockedApps.isNotEmpty;
     if (nativeShieldOwnsNotification) {
+      _lastPomodoroNotificationSignature = null;
       await NotificationService.cancelPomodoroTimerNotification();
       return;
     }
 
+    final totalSeconds = _totalSecondsForMode(provider);
+    final subject = _activeSubjectName(provider);
+    final notificationBucket = _remainingSeconds ~/ 30;
+    final signature = '$_mode|$totalSeconds|$subject|$notificationBucket';
+    if (_lastPomodoroNotificationSignature == signature) return;
+    _lastPomodoroNotificationSignature = signature;
+
     await NotificationService.showPomodoroTimerNotification(
       mode: _mode,
       remainingSeconds: _remainingSeconds,
-      totalSeconds: _totalSecondsForMode(provider),
-      subject: _activeSubjectName(provider),
+      totalSeconds: totalSeconds,
+      subject: subject,
     );
   }
 
@@ -349,12 +373,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   void _pauseTimer() {
     final provider = Provider.of<AppProvider>(context, listen: false);
     _timer?.cancel();
+    _lastPomodoroNotificationSignature = null;
     unawaited(NotificationService.cancelPomodoroTimerNotification());
     if (mounted) {
       setState(() => _isRunning = false);
     } else {
       _isRunning = false;
     }
+    _lastWidgetSyncBucket = null;
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
     unawaited(WidgetSyncService.syncFromProvider(provider));
@@ -374,7 +400,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   void _changeMode(String newMode) {
     _timer?.cancel();
+    _lastPomodoroNotificationSignature = null;
     unawaited(NotificationService.cancelPomodoroTimerNotification());
+    _lastWidgetSyncBucket = null;
     setState(() {
       _mode = newMode;
       _isRunning = false;
@@ -492,57 +520,44 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _isCompletingSession = true;
     try {
       _timer?.cancel();
-      if (mounted) {
-        setState(() => _isRunning = false);
-      } else {
-        _isRunning = false;
-      }
-      _refreshHorizontalMode();
       final provider = Provider.of<AppProvider>(context, listen: false);
-      await _playBell();
+      final completedMode = _mode;
+      final completedAt = DateTime.now();
+      final blockedAttempts = _focusModeStatus.blockedAttempts;
+      final subjectName = _activeSubjectName(provider);
+      final completedFocusDuration = provider.settings.focusTime;
 
-      if (_mode == 'focus') {
-        final blockedAttempts = _focusModeStatus.blockedAttempts;
-        await _stopFocusModeShield();
-        final subjectName = _activeSubjectName(provider);
-        await provider.addPomodoro(
-          Pomodoro(
-            date: DateTime.now().toIso8601String(),
-            subject: subjectName,
-            duration: provider.settings.focusTime,
-          ),
-        );
-        unawaited(
-          RankingService.submitPomodoro(
-            durationMinutes: provider.settings.focusTime,
-            distractionFree: blockedAttempts == 0,
-          ).catchError((Object error) {
-            debugPrint('[FocusRanking] No se pudo enviar el Pomodoro: $error');
-          }),
-        );
-        unawaited(
-          RankingService.syncAchievementAwards(
-            pomodoros: provider.pomodoros.length,
-            currentStreak: provider.currentStreak,
-            totalHabitCompletions: provider.totalHabitCompletions,
-            weeklyMissionCompleted: provider.weeklyMissionCompleted,
-            level: provider.level,
-            maxLevel: AppProvider.maxLevel,
-          ).catchError((Object error) {
-            debugPrint('[FocusRanking] No se pudo sincronizar logros: $error');
-          }),
-        );
+      unawaited(_playBell());
+
+      if (completedMode == 'focus') {
+        unawaited(_stopFocusModeShield());
         _completedFocusSessions++;
         final nextMode = _nextBreakMode(provider);
         if (mounted) {
           setState(() {
+            _isRunning = false;
             _mode = nextMode;
             _setRemainingFromMode();
           });
         } else {
+          _isRunning = false;
           _mode = nextMode;
           _setRemainingFromMode();
         }
+        _refreshHorizontalMode();
+        _startTimer();
+        await _persistState();
+
+        unawaited(
+          _saveCompletedFocusSession(
+            provider: provider,
+            completedAt: completedAt,
+            subjectName: subjectName,
+            durationMinutes: completedFocusDuration,
+            distractionFree: blockedAttempts == 0,
+          ),
+        );
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -553,16 +568,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           );
         }
       } else {
-        await _stopFocusModeShield();
         if (mounted) {
           setState(() {
+            _isRunning = false;
             _mode = 'focus';
             _setRemainingFromMode();
           });
         } else {
+          _isRunning = false;
           _mode = 'focus';
           _setRemainingFromMode();
         }
+        _refreshHorizontalMode();
+        _startTimer();
+        await _persistState();
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -571,13 +591,51 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           );
         }
       }
-
-      _refreshHorizontalMode();
-      _startTimer();
-      await _persistState();
     } finally {
       _isCompletingSession = false;
     }
+  }
+
+  Future<void> _saveCompletedFocusSession({
+    required AppProvider provider,
+    required DateTime completedAt,
+    required String subjectName,
+    required int durationMinutes,
+    required bool distractionFree,
+  }) async {
+    try {
+      await provider.addPomodoro(
+        Pomodoro(
+          date: completedAt.toIso8601String(),
+          subject: subjectName,
+          duration: durationMinutes,
+        ),
+      );
+    } catch (error) {
+      debugPrint('[FocusPomodoro] No se pudo guardar la sesión: $error');
+      return;
+    }
+
+    unawaited(
+      RankingService.submitPomodoro(
+        durationMinutes: durationMinutes,
+        distractionFree: distractionFree,
+      ).catchError((Object error) {
+        debugPrint('[FocusRanking] No se pudo enviar el Pomodoro: $error');
+      }),
+    );
+    unawaited(
+      RankingService.syncAchievementAwards(
+        pomodoros: provider.pomodoros.length,
+        currentStreak: provider.currentStreak,
+        totalHabitCompletions: provider.totalHabitCompletions,
+        weeklyMissionCompleted: provider.weeklyMissionCompleted,
+        level: provider.level,
+        maxLevel: AppProvider.maxLevel,
+      ).catchError((Object error) {
+        debugPrint('[FocusRanking] No se pudo sincronizar logros: $error');
+      }),
+    );
   }
 
   Future<void> _syncFocusModeShield(AppProvider provider) async {
@@ -1075,19 +1133,19 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       _ModePill(
                         label: 'Enfoque',
                         selected: _mode == 'focus',
-                        color: const Color(0xFF2563EB),
+                        color: FocusPalette.primary,
                         onTap: () => _changeMode('focus'),
                       ),
                       _ModePill(
                         label: 'Descanso',
                         selected: _mode == 'shortBreak',
-                        color: const Color(0xFF10B981),
+                        color: FocusPalette.mint,
                         onTap: () => _changeMode('shortBreak'),
                       ),
                       _ModePill(
                         label: 'Largo',
                         selected: _mode == 'longBreak',
-                        color: const Color(0xFFF59E0B),
+                        color: FocusPalette.amber,
                         onTap: () => _changeMode('longBreak'),
                       ),
                     ],
@@ -1119,7 +1177,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           value: _focusModeConfig.enabled
                               ? '${_focusModeConfig.blockedApps.length} apps'
                               : 'apagado',
-                          color: const Color(0xFF7C3AED),
+                          color: FocusPalette.teal,
                         ),
                       ),
                     ],
@@ -1314,25 +1372,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             const SizedBox(height: 14),
             _expandableGlassCard(
               context,
-              title: 'Modo Enfoque Total',
-              subtitle: 'Activa el bloqueo y elige tus apps.',
-              children: [
-                _buildFocusModeTotalCard(provider),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _expandableGlassCard(
-              context,
               title: 'Configurar Pomodoro',
-              subtitle:
-                  'Ajusta tiempos, sonido y descanso sin salir del temporizador.',
+              subtitle: 'Tiempos, descanso, sonido y bloqueo de apps.',
               children: [
                 _TimerSlider(
                   label: 'Enfoque',
                   value: provider.settings.focusTime,
                   min: 5,
                   max: 90,
-                  color: const Color(0xFF2563EB),
+                  color: FocusPalette.primary,
                   onChanged: (value) =>
                       _updatePomodoroSettings(focusTime: value),
                 ),
@@ -1341,7 +1389,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   value: provider.settings.shortBreakTime,
                   min: 1,
                   max: 30,
-                  color: const Color(0xFF10B981),
+                  color: FocusPalette.mint,
                   onChanged: (value) =>
                       _updatePomodoroSettings(shortBreakTime: value),
                 ),
@@ -1350,7 +1398,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   value: provider.settings.longBreakTime,
                   min: 5,
                   max: 60,
-                  color: const Color(0xFFF59E0B),
+                  color: FocusPalette.amber,
                   onChanged: (value) =>
                       _updatePomodoroSettings(longBreakTime: value),
                 ),
@@ -1392,6 +1440,34 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     breakAfterFocus: value ?? 'auto',
                   ),
                 ),
+                const SizedBox(height: 18),
+                Divider(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outlineVariant
+                      .withValues(alpha: 0.45),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.shield_moon_rounded,
+                      color: FocusPalette.teal,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Modo Enfoque Total',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildFocusModeTotalCard(provider),
               ],
             ),
             const SizedBox(height: 14),
@@ -1540,7 +1616,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Widget _buildFocusModeTotalCard(AppProvider provider) {
     final blockedApps = _focusModeConfig.blockedApps;
     final isEnabled = _focusModeConfig.enabled;
-    final accent = const Color(0xFF7C3AED);
+    final accent = FocusPalette.teal;
     final appsLabel = blockedApps.isEmpty
         ? 'Sin apps elegidas'
         : '${blockedApps.length} app${blockedApps.length == 1 ? '' : 's'}';
@@ -1574,7 +1650,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 ),
                 child: const Icon(
                   Icons.shield_moon_rounded,
-                  color: Color(0xFF7C3AED),
+                  color: FocusPalette.teal,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1625,7 +1701,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     switch (_mode) {
       case 'shortBreak':
         return const _PomodoroPalette(
-          accent: Color(0xFF10B981),
+          accent: FocusPalette.mint,
           accentSecondary: Color(0xFF34D399),
           backgroundStart: Color(0xFFF3FBF7),
           backgroundMiddle: Color(0xFFE7F8EF),
@@ -1634,7 +1710,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         );
       case 'longBreak':
         return const _PomodoroPalette(
-          accent: Color(0xFFF59E0B),
+          accent: FocusPalette.amber,
           accentSecondary: Color(0xFFFB923C),
           backgroundStart: Color(0xFFFFF8EE),
           backgroundMiddle: Color(0xFFFFF1D6),
@@ -1643,8 +1719,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         );
       default:
         return const _PomodoroPalette(
-          accent: Color(0xFF2563EB),
-          accentSecondary: Color(0xFF4F46E5),
+          accent: FocusPalette.primary,
+          accentSecondary: FocusPalette.cyan,
           backgroundStart: Color(0xFFF4F8FF),
           backgroundMiddle: Color(0xFFEAF1FF),
           backgroundEnd: Color(0xFFDDE8FF),

@@ -1,15 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/time_picker_field.dart';
 import 'subjects_screen.dart';
 
@@ -54,6 +51,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
     _selectedDate = exam?.date ?? DateTime.now().add(const Duration(days: 1));
     _selectedSubjectId = exam?.subjectId ?? provider.subjects.firstOrNull?.id;
     _dialogExamType = exam?.examType ?? 'partial';
+    final messenger = ScaffoldMessenger.of(context);
 
     await showDialog(
       context: context,
@@ -164,7 +162,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 if (!formKey.currentState!.validate()) return;
                 if (_selectedTime.trim().isNotEmpty &&
                     !isValidTime(_selectedTime)) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Usa un horario válido en formato HH:MM.'),
                     ),
@@ -182,7 +180,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       DateUtils.isSameDay(item.date, _selectedDate);
                 });
                 if (duplicate) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text(
                         'Ya existe un examen de ese tipo para esa materia y fecha.',
@@ -200,22 +198,33 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   startTime: _selectedTime,
                   classroom: _classroomController.text.trim(),
                 );
-                if (_editingExam == null) {
-                  await provider.addExam(examToSave);
-                } else {
-                  await provider.updateExam(examToSave);
-                }
-                if (!mounted) return;
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      _editingExam == null
-                          ? 'Examen guardado con recordatorios.'
-                          : 'Examen actualizado.',
+                try {
+                  if (_editingExam == null) {
+                    await provider.addExam(examToSave);
+                  } else {
+                    await provider.updateExam(examToSave);
+                  }
+                  if (!dialogContext.mounted) return;
+                  Navigator.of(dialogContext).pop();
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _editingExam == null
+                            ? 'Examen guardado.'
+                            : 'Examen actualizado.',
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (error) {
+                  if (!mounted) return;
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        error.toString().replaceFirst('Bad state: ', ''),
+                      ),
+                    ),
+                  );
+                }
               },
               child: const Text('Guardar'),
             ),
@@ -276,126 +285,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
     return filtered;
   }
 
-  Future<void> _exportExamPdf(AppProvider provider, String type) async {
-    final exams = type == 'all'
-        ? provider.exams
-        : provider.exams.where((exam) => exam.examType == type).toList();
-    if (exams.isEmpty) return;
-    final title = switch (type) {
-      'partial' => 'Exámenes parciales',
-      'final' => 'Exámenes finales',
-      _ => 'Exámenes parciales y finales',
-    };
-
-    final iconData = await rootBundle.load('assets/icon.png');
-    final iconImage = pw.MemoryImage(iconData.buffer.asUint8List());
-    final sortedExams = [...exams]..sort((a, b) {
-        final aMoment = combineDateAndTime(a.date, a.startTime);
-        final bMoment = combineDateAndTime(b.date, b.startTime);
-        return aMoment.compareTo(bMoment);
-      });
-    final pdf = pw.Document();
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.all(20),
-        build: (_) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-          children: [
-            _examPdfPosterHeader(
-              iconImage: iconImage,
-              title: 'Exámenes',
-              subtitle: title,
-              detail: DateFormat('dd/MM/yyyy').format(DateTime.now()),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Row(
-              children: [
-                _examPdfInfoPill('${sortedExams.length} evaluaciones'),
-                pw.SizedBox(width: 8),
-                _examPdfInfoPill('Parciales y finales'),
-                pw.SizedBox(width: 8),
-                _examPdfInfoPill('Exámenes'),
-              ],
-            ),
-            pw.SizedBox(height: 10),
-            pw.Expanded(
-              child: pw.Table(
-                border: pw.TableBorder.all(
-                  color: PdfColor.fromInt(0xFFD7E3F4),
-                  width: 0.7,
-                ),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(3.2),
-                  1: const pw.FlexColumnWidth(1.5),
-                  2: const pw.FlexColumnWidth(1.4),
-                  3: const pw.FlexColumnWidth(1.1),
-                  4: const pw.FlexColumnWidth(1.3),
-                  5: const pw.FlexColumnWidth(1.5),
-                },
-                children: [
-                  pw.TableRow(
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColor.fromInt(0xFFDBEAFE),
-                    ),
-                    children: [
-                      _examPdfCell('Materia', bold: true),
-                      _examPdfCell('Tipo', bold: true),
-                      _examPdfCell('Fecha', bold: true),
-                      _examPdfCell('Hora', bold: true),
-                      _examPdfCell('Aula', bold: true),
-                      _examPdfCell('Cuenta regresiva', bold: true),
-                    ],
-                  ),
-                  ...sortedExams.map((exam) {
-                    return pw.TableRow(
-                      decoration: pw.BoxDecoration(
-                        color: exam.isFinal
-                            ? PdfColor.fromInt(0xFFF5F3FF)
-                            : PdfColors.white,
-                      ),
-                      children: [
-                        _examPdfCell(provider.subjectNameForExam(exam)),
-                        _examPdfCell(exam.displayType),
-                        _examPdfCell(
-                            DateFormat('dd/MM/yyyy').format(exam.date)),
-                        _examPdfCell(
-                          exam.startTime.trim().isEmpty
-                              ? 'Sin hora'
-                              : exam.startTime,
-                        ),
-                        _examPdfCell(
-                          exam.classroom.trim().isEmpty
-                              ? 'Por confirmar'
-                              : exam.classroom,
-                        ),
-                        _examPdfCell(_countdownLabel(exam)),
-                      ],
-                    );
-                  }),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 8),
-            _examPdfFooter(
-              'Generado por Focus · Planifica tus evaluaciones con claridad',
-            ),
-          ],
-        ),
-      ),
-    );
-
-    final date = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    await Printing.sharePdf(
-      bytes: await pdf.save(),
-      filename: 'examenes_${type}_$date.pdf',
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('PDF de exámenes listo para compartir.')),
-    );
-  }
-
   String _countdownLabel(Exam exam) {
     final examMoment = combineDateAndTime(exam.date, exam.startTime);
     final days = examMoment.difference(DateTime.now()).inDays;
@@ -453,18 +342,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
       appBar: AppBar(
         title: const Text('Exámenes'),
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.picture_as_pdf),
-            onSelected: (value) {
-              final provider = Provider.of<AppProvider>(context, listen: false);
-              _exportExamPdf(provider, value);
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'all', child: Text('PDF de todos')),
-              PopupMenuItem(value: 'partial', child: Text('PDF de parciales')),
-              PopupMenuItem(value: 'final', child: Text('PDF de finales')),
-            ],
-          ),
           IconButton(
             onPressed: () => _showExamDialog(),
             icon: const Icon(Icons.add),
@@ -480,34 +357,21 @@ class _ExamsScreenState extends State<ExamsScreen> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.assignment_late_rounded, size: 52),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Primero crea una materia',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Cuando tengas tus materias, podrás registrar parciales y finales con una vista mucho más clara.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      FilledButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SubjectsScreen(),
-                          ),
+                  child: FocusEmptyState(
+                    icon: Icons.assignment_late_rounded,
+                    accent: const Color(0xFFF97316),
+                    title: 'Primero crea una materia',
+                    message:
+                        'Así cada parcial o final queda conectado a su clase y aparece en el dashboard.',
+                    action: FilledButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SubjectsScreen(),
                         ),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Crear materia'),
                       ),
-                    ],
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Crear materia'),
+                    ),
                   ),
                 ),
               );
@@ -551,12 +415,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 height: 54,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(18),
-                                  color: const Color(0xFF7C3AED)
+                                  color: FocusPalette.coral
                                       .withValues(alpha: 0.14),
                                 ),
                                 child: const Icon(
                                   Icons.assignment_late_rounded,
-                                  color: Color(0xFF7C3AED),
+                                  color: FocusPalette.coral,
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -666,8 +530,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             final hasExam = dayExams.isNotEmpty;
                             final colorScheme = Theme.of(context).colorScheme;
                             final accent = hasFinal
-                                ? const Color(0xFF7C3AED)
-                                : const Color(0xFF2563EB);
+                                ? FocusPalette.coral
+                                : FocusPalette.primary;
 
                             return GestureDetector(
                               onTap: () =>
@@ -782,7 +646,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   child: ExpansionTile(
                     initiallyExpanded: false,
                     title: Text(
-                      'Tus exámenes y detalles',
+                      'Exámenes',
                       style: Theme.of(context)
                           .textTheme
                           .titleLarge
@@ -797,7 +661,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           children: [
                             Expanded(
                               child: Text(
-                                'Gestiona tus parciales y finales',
+                                'Parciales y finales',
                                 style: Theme.of(context)
                                     .textTheme
                                     .titleMedium
@@ -828,34 +692,18 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         ),
                       ),
                       if (exams.isEmpty)
-                        Card(
-                          margin: const EdgeInsets.all(16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              children: [
-                                const Icon(Icons.event_busy_rounded, size: 48),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'No hay exámenes en este filtro',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.bold),
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Agrega uno nuevo o cambia el filtro para ver los próximos eventos.',
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 14),
-                                FilledButton.icon(
-                                  onPressed: () => _showExamDialog(),
-                                  icon: const Icon(Icons.add_rounded),
-                                  label: const Text('Agregar examen'),
-                                ),
-                              ],
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: FocusEmptyState(
+                            icon: Icons.event_busy_rounded,
+                            accent: FocusPalette.coral,
+                            title: 'Sin exámenes aquí',
+                            message:
+                                'Agrega un parcial o final, o cambia el filtro para ver otros eventos.',
+                            action: FilledButton.icon(
+                              onPressed: () => _showExamDialog(),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Agregar examen'),
                             ),
                           ),
                         )
@@ -865,8 +713,8 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           final exam = entry.value;
                           final subjectName = provider.subjectNameForExam(exam);
                           final accent = exam.isFinal
-                              ? const Color(0xFF7C3AED)
-                              : const Color(0xFF2563EB);
+                              ? FocusPalette.coral
+                              : FocusPalette.primary;
                           final isUpcoming =
                               combineDateAndTime(exam.date, exam.startTime)
                                   .isAfter(DateTime.now());
@@ -940,15 +788,31 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                             ],
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit),
-                                          onPressed: () =>
-                                              _showExamDialog(exam: exam),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete),
-                                          onPressed: () =>
-                                              _deleteExam(exam.id!),
+                                        PopupMenuButton<String>(
+                                          tooltip: 'Más acciones',
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              _showExamDialog(exam: exam);
+                                            } else if (value == 'delete') {
+                                              _deleteExam(exam.id!);
+                                            }
+                                          },
+                                          itemBuilder: (context) => const [
+                                            PopupMenuItem(
+                                              value: 'edit',
+                                              child: ListTile(
+                                                leading: Icon(Icons.edit),
+                                                title: Text('Editar'),
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: ListTile(
+                                                leading: Icon(Icons.delete),
+                                                title: Text('Eliminar'),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
@@ -1063,7 +927,7 @@ class _ExamCalendarChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent =
-        exam.isFinal ? const Color(0xFF7C3AED) : const Color(0xFF2563EB);
+        exam.isFinal ? FocusPalette.coral : FocusPalette.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -1119,142 +983,6 @@ class _ExamCalendarChip extends StatelessWidget {
       ),
     );
   }
-}
-
-pw.Widget _examPdfPosterHeader({
-  required pw.MemoryImage iconImage,
-  required String title,
-  required String subtitle,
-  required String detail,
-}) {
-  return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: pw.BoxDecoration(
-      gradient: const pw.LinearGradient(
-        colors: [
-          PdfColor.fromInt(0xFF020617),
-          PdfColor.fromInt(0xFF312E81),
-          PdfColor.fromInt(0xFF2563EB),
-        ],
-      ),
-      borderRadius: pw.BorderRadius.circular(18),
-    ),
-    child: pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-      children: [
-        pw.Row(
-          children: [
-            pw.Container(
-              width: 42,
-              height: 42,
-              padding: const pw.EdgeInsets.all(5),
-              decoration: pw.BoxDecoration(
-                color: PdfColors.white,
-                borderRadius: pw.BorderRadius.circular(12),
-              ),
-              child: pw.Image(iconImage),
-            ),
-            pw.SizedBox(width: 12),
-            pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'FOCUS',
-                  style: pw.TextStyle(
-                    color: PdfColors.white,
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                pw.Text(
-                  title,
-                  style: pw.TextStyle(
-                    color: PdfColors.white,
-                    fontSize: 24,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.Text(
-                  subtitle,
-                  style: pw.TextStyle(
-                    color: PdfColors.white.shade(0.82),
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        pw.Text(
-          detail,
-          style: pw.TextStyle(
-            color: PdfColors.white,
-            fontSize: 12,
-            fontWeight: pw.FontWeight.bold,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-pw.Widget _examPdfInfoPill(String text) {
-  return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: pw.BoxDecoration(
-      color: PdfColor.fromInt(0xFFEFF6FF),
-      borderRadius: pw.BorderRadius.circular(999),
-      border: pw.Border.all(color: PdfColor.fromInt(0xFFBFDBFE)),
-    ),
-    child: pw.Text(
-      text,
-      style: pw.TextStyle(
-        color: PdfColor.fromInt(0xFF1E3A8A),
-        fontSize: 8,
-        fontWeight: pw.FontWeight.bold,
-      ),
-    ),
-  );
-}
-
-pw.Widget _examPdfCell(String value, {bool bold = false}) {
-  return pw.Padding(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-    child: pw.Text(
-      value,
-      maxLines: 2,
-      style: bold
-          ? pw.TextStyle(
-              fontWeight: pw.FontWeight.bold,
-              fontSize: 8,
-              color: PdfColor.fromInt(0xFF1E3A8A),
-            )
-          : pw.TextStyle(
-              fontSize: 7.2,
-              color: PdfColor.fromInt(0xFF0F172A),
-            ),
-    ),
-  );
-}
-
-pw.Widget _examPdfFooter(String text) {
-  return pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: pw.BoxDecoration(
-      color: PdfColor.fromInt(0xFFF8FAFC),
-      borderRadius: pw.BorderRadius.circular(10),
-    ),
-    child: pw.Text(
-      text,
-      textAlign: pw.TextAlign.center,
-      style: pw.TextStyle(
-        fontSize: 8,
-        color: PdfColor.fromInt(0xFF64748B),
-        fontWeight: pw.FontWeight.bold,
-      ),
-    ),
-  );
 }
 
 extension<T> on List<T> {

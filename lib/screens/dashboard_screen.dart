@@ -1,16 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
+import '../models/ranking_profile.dart';
 import '../models/schedule.dart';
 import '../providers/app_provider.dart';
+import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
-import 'exam_mode_screen.dart';
-import 'exams_screen.dart';
-import 'pomodoro_screen.dart';
-import 'settings_screen.dart';
-import 'study_tasks_screen.dart';
-import 'subjects_screen.dart';
+import '../utils/focus_palette.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -21,71 +20,53 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _askedForName = false;
+  bool _nameDialogOpen = false;
+  bool _namePromptScheduled = false;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        _maybeAskForUserName(provider);
-        final nextExam = provider.nextUpcomingExam;
-        final nextClass = provider.nextScheduleEntry;
-        final nextExamMeta = nextExam == null
-            ? null
-            : [
-                if (nextExam.startTime.trim().isNotEmpty)
-                  'Hora ${nextExam.startTime}',
-                if (nextExam.classroom.trim().isNotEmpty)
-                  'Aula ${nextExam.classroom}',
-              ].join(' · ');
-
+        _scheduleUserNamePrompt(provider);
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
-            _PremiumHero(provider: provider),
-            const SizedBox(height: 16),
-            const _QuickActions(),
-            const SizedBox(height: 16),
-            _AcademicSnapshot(provider: provider),
+            if (provider.lastLoadError != null) ...[
+              const _LoadErrorBanner(),
+              const SizedBox(height: 14),
+            ],
+            _FocusHero(provider: provider),
             const SizedBox(height: 16),
             _MetricGrid(provider: provider),
             const SizedBox(height: 16),
-            _EventPanel(
-              title: 'Próxima clase',
-              accent: const Color(0xFF0EA5E9),
-              icon: Icons.event_available_rounded,
-              emptyText:
-                  'Aún no tienes una clase agendada para las próximas horas.',
-              headline: nextClass?.subject.name,
-              detail: nextClass == null
-                  ? null
-                  : '${weekdayLabel(nextClass.schedule.dayOfWeek)} · ${nextClass.schedule.startTime} a ${nextClass.schedule.endTime}',
-              meta: null,
-            ),
-            const SizedBox(height: 12),
-            _EventPanel(
-              title: 'Próximo examen',
-              accent: const Color(0xFF7C3AED),
-              icon: Icons.assignment_late_rounded,
-              emptyText: 'No hay exámenes cercanos por ahora.',
-              headline: nextExam == null
-                  ? null
-                  : provider.subjectNameForExam(nextExam),
-              detail: nextExam == null
-                  ? null
-                  : '${nextExam.displayType} · ${formatDate(nextExam.date)}',
-              meta: nextExamMeta?.isEmpty ?? true ? null : nextExamMeta,
-            ),
+            _NextEventsCard(provider: provider),
           ],
         );
       },
     );
   }
 
-  void _maybeAskForUserName(AppProvider provider) {
-    if (_askedForName || provider.settings.userName.trim().isNotEmpty) return;
-    _askedForName = true;
+  void _scheduleUserNamePrompt(AppProvider provider) {
+    if (!provider.isLoaded ||
+        _askedForName ||
+        _nameDialogOpen ||
+        _namePromptScheduled ||
+        RankingService.currentUser != null ||
+        provider.settings.userName.trim().isNotEmpty) {
+      return;
+    }
+    _namePromptScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      _namePromptScheduled = false;
+      if (!mounted ||
+          _askedForName ||
+          _nameDialogOpen ||
+          RankingService.currentUser != null ||
+          provider.settings.userName.trim().isNotEmpty) {
+        return;
+      }
+      _askedForName = true;
+      _nameDialogOpen = true;
       _showUserNameDialog(provider);
     });
   }
@@ -99,16 +80,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (dialogContext) {
           return AlertDialog(
             title: const Text('¿Cómo te llamas?'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Tu nombre',
-                hintText: 'Ej. Nelson',
+            content: SingleChildScrollView(
+              child: TextField(
+                controller: controller,
+                autofocus: false,
+                textCapitalization: TextCapitalization.words,
+                maxLength: 24,
+                decoration: const InputDecoration(
+                  labelText: 'Tu nombre',
+                  hintText: 'Ej. Nelson',
+                  counterText: '',
+                ),
+                onSubmitted: (value) =>
+                    Navigator.of(dialogContext).pop(value.trim()),
               ),
-              onSubmitted: (value) =>
-                  Navigator.of(dialogContext).pop(value.trim()),
             ),
             actions: [
               TextButton(
@@ -126,445 +111,144 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
       final cleaned = (name ?? '').trim();
       if (cleaned.isNotEmpty) {
-        await provider.updateUserName(cleaned);
+        unawaited(_saveUserNameSafely(provider, cleaned));
       }
     } finally {
+      _nameDialogOpen = false;
       controller.dispose();
+    }
+  }
+
+  Future<void> _saveUserNameSafely(AppProvider provider, String name) async {
+    try {
+      await provider.updateUserName(name);
+    } catch (error) {
+      debugPrint('No se pudo guardar el nombre del usuario: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar el nombre. Intenta de nuevo.'),
+        ),
+      );
     }
   }
 }
 
-class _QuickActions extends StatelessWidget {
-  const _QuickActions();
+class _LoadErrorBanner extends StatelessWidget {
+  const _LoadErrorBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Accesos rápidos',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _ActionButton(
-                  icon: Icons.timer_rounded,
-                  label: 'Pomodoro',
-                  onTap: () => _openPomodoro(context),
-                ),
-                _ActionButton(
-                  icon: Icons.book_rounded,
-                  label: 'Materia',
-                  onTap: () => _open(context, const SubjectsScreen()),
-                ),
-                _ActionButton(
-                  icon: Icons.assignment_rounded,
-                  label: 'Examen',
-                  onTap: () => _open(context, const ExamsScreen()),
-                ),
-                _ActionButton(
-                  icon: Icons.task_alt_rounded,
-                  label: 'Tareas',
-                  onTap: () => _open(context, const StudyTasksScreen()),
-                ),
-                _ActionButton(
-                  icon: Icons.workspace_premium_rounded,
-                  label: 'Modo examen',
-                  onTap: () => _open(context, const ExamModeScreen()),
-                ),
-                _ActionButton(
-                  icon: Icons.tune_rounded,
-                  label: 'Ajustes',
-                  onTap: () => _open(context, const SettingsScreen()),
-                ),
-              ],
-            ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(20),
       ),
-    );
-  }
-
-  void _open(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
-  }
-
-  void _openPomodoro(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const Scaffold(
-          appBar: _PomodoroQuickAppBar(),
-          body: PomodoroScreen(),
-        ),
-      ),
-    );
-  }
-}
-
-class _PomodoroQuickAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
-  const _PomodoroQuickAppBar();
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(title: const Text('Pomodoro'));
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilledButton.tonalIcon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-    );
-  }
-}
-
-class _AcademicSnapshot extends StatelessWidget {
-  final AppProvider provider;
-
-  const _AcademicSnapshot({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime.now().weekday - 1;
-    final todaySchedules = provider.weeklySchedulesMonToSat
-        .where((schedule) => schedule.dayOfWeek == today)
-        .toList();
-    final nextExams = _upcomingExams(provider).take(3).toList();
-    final nextTasks = provider.upcomingStudyTasks(limit: 3);
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.12),
-                  ),
-                  child: Icon(
-                    Icons.school_rounded,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Resumen académico',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _SnapshotChip(
-                  icon: Icons.book_rounded,
-                  label: '${provider.subjects.length} materias',
-                ),
-                _SnapshotChip(
-                  icon: Icons.view_week_rounded,
-                  label: '${provider.schedules.length} horarios',
-                ),
-                _SnapshotChip(
-                  icon: Icons.assignment_rounded,
-                  label: '${provider.exams.length} exámenes',
-                ),
-                _SnapshotChip(
-                  icon: Icons.task_alt_rounded,
-                  label: '${provider.activeStudyTasks.length} tareas',
-                ),
-                _SnapshotChip(
-                  icon: Icons.link_rounded,
-                  label: '${provider.resources.length} recursos',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _MiniList(
-              title: 'Clases de hoy',
-              emptyText: 'Hoy no tienes clases cargadas.',
-              children: todaySchedules
-                  .map((schedule) => _scheduleLine(provider, schedule))
-                  .toList(),
-            ),
-            const SizedBox(height: 12),
-            _MiniList(
-              title: 'Exámenes próximos',
-              emptyText: 'No tienes exámenes próximos.',
-              children:
-                  nextExams.map((exam) => _examLine(provider, exam)).toList(),
-            ),
-            const SizedBox(height: 12),
-            _MiniList(
-              title: 'Tareas prioritarias',
-              emptyText: 'No tienes tareas activas.',
-              children: nextTasks.map((task) {
-                final subject = provider.getSubjectById(task.subjectId)?.name;
-                return '${formatDate(task.dueDate)} · ${task.title}${subject == null ? '' : ' · $subject'}';
-              }).toList(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Exam> _upcomingExams(AppProvider provider) {
-    final now = DateTime.now();
-    return provider.exams
-        .where((exam) =>
-            !combineDateAndTime(exam.date, exam.startTime).isBefore(now))
-        .toList()
-      ..sort((a, b) => combineDateAndTime(a.date, a.startTime)
-          .compareTo(combineDateAndTime(b.date, b.startTime)));
-  }
-
-  String _scheduleLine(AppProvider provider, Schedule schedule) {
-    final subject = provider.getSubjectById(schedule.subjectId);
-    final room = schedule.classroom.trim().isEmpty
-        ? ''
-        : ' · Aula ${schedule.classroom.trim()}';
-    return '${schedule.startTime} a ${schedule.endTime} · ${subject?.name ?? 'Materia'}$room';
-  }
-
-  String _examLine(AppProvider provider, Exam exam) {
-    final time =
-        exam.startTime.trim().isEmpty ? '' : ' · ${exam.startTime.trim()}';
-    return '${formatDate(exam.date)}$time · ${provider.subjectNameForExam(exam)} · ${exam.displayType}';
-  }
-}
-
-class _SnapshotChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _SnapshotChip({
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-class _MiniList extends StatelessWidget {
-  final String title;
-  final String emptyText;
-  final List<String> children;
-
-  const _MiniList({
-    required this.title,
-    required this.emptyText,
-    required this.children,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final lines = children.take(3).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context)
-              .textTheme
-              .titleSmall
-              ?.copyWith(fontWeight: FontWeight.w900),
-        ),
-        const SizedBox(height: 8),
-        if (lines.isEmpty)
-          Text(emptyText)
-        else
-          ...lines.map(
-            (line) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.check_circle_rounded, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(line)),
-                ],
+      child: Row(
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            color: Theme.of(context).colorScheme.onErrorContainer,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Algunos datos no se cargaron bien. Revisa Ajustes o crea un backup.',
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _PremiumHero extends StatelessWidget {
+class _FocusHero extends StatelessWidget {
   final AppProvider provider;
 
-  const _PremiumHero({required this.provider});
+  const _FocusHero({required this.provider});
 
   @override
   Widget build(BuildContext context) {
     final remaining =
         (provider.nextLevelTarget - provider.gamifiedPoints).clamp(0, 999999);
-    final userName = provider.settings.userName.trim();
-    final greeting =
-        userName.isEmpty ? '👋 Hola, vamos con todo' : '👋 Hola, $userName';
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: provider.levelProgress),
-      duration: const Duration(milliseconds: 750),
+      duration: provider.settings.animationsEnabled
+          ? const Duration(milliseconds: 700)
+          : Duration.zero,
       curve: Curves.easeOutCubic,
       builder: (context, value, _) {
         return Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(22, 22, 20, 22),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(32),
-            gradient: LinearGradient(
-              colors: Theme.of(context).brightness == Brightness.dark
-                  ? const [
-                      Color(0xFF020617),
-                      Color(0xFF0F172A),
-                      Color(0xFF1D4ED8),
-                    ]
-                  : const [
-                      Color(0xFF0F172A),
-                      Color(0xFF1D4ED8),
-                      Color(0xFF38BDF8),
-                    ],
+            borderRadius: BorderRadius.circular(34),
+            gradient: const LinearGradient(
+              colors: FocusPalette.studyGradient,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF2563EB).withValues(alpha: 0.22),
-                blurRadius: 26,
-                offset: const Offset(0, 12),
+                color: FocusPalette.cyan.withValues(alpha: 0.22),
+                blurRadius: 28,
+                offset: const Offset(0, 14),
               ),
             ],
           ),
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _DashboardGreeting(provider: provider),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Nivel ${provider.level}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                        height: 1.02,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      '$remaining pts para subir',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        Text(
-                          greeting,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        _HeroChip(
+                          icon: Icons.stars_rounded,
+                          label: '${provider.gamifiedPoints} pts',
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Nivel ${provider.level}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 34,
-                            fontWeight: FontWeight.w900,
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '${provider.gamifiedPoints} puntos acumulados',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '$remaining puntos para subir de nivel',
-                          style: const TextStyle(color: Colors.white70),
+                        _HeroChip(
+                          icon: Icons.local_fire_department_rounded,
+                          label: '${provider.currentStreak} días',
                         ),
                       ],
                     ),
-                  ),
-                  SizedBox(
-                    width: 120,
-                    height: 120,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CircularProgressIndicator(
-                          value: value.clamp(0, 1),
-                          strokeWidth: 11,
-                          backgroundColor: Colors.white12,
-                          valueColor: const AlwaysStoppedAnimation(
-                            Color(0xFFFBBF24),
-                          ),
-                        ),
-                        Center(
-                          child: _LevelMedallion(
-                            level: provider.level,
-                            progress: value,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
-                  value: value.clamp(0, 1),
-                  minHeight: 10,
-                  backgroundColor: Colors.white12,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFBBF24)),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 18),
+              _LevelRing(
+                level: provider.level,
+                progress: value.clamp(0, 1),
               ),
             ],
           ),
@@ -574,59 +258,255 @@ class _PremiumHero extends StatelessWidget {
   }
 }
 
-class _LevelMedallion extends StatelessWidget {
+class _DashboardGreeting extends StatelessWidget {
+  final AppProvider provider;
+
+  const _DashboardGreeting({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (RankingService.currentUser == null) {
+      return _GreetingText(name: provider.settings.userName.trim());
+    }
+    return StreamBuilder<RankingProfile?>(
+      stream: RankingService.profileStream(),
+      builder: (context, snapshot) {
+        final rankingName = snapshot.data?.name.trim() ?? '';
+        final localName = provider.settings.userName.trim();
+        return _GreetingText(
+          name: rankingName.isNotEmpty ? rankingName : localName,
+        );
+      },
+    );
+  }
+}
+
+class _GreetingText extends StatelessWidget {
+  final String name;
+
+  const _GreetingText({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    final greeting = name.isEmpty ? 'Hola, vamos con todo' : 'Hola, $name';
+    return Text(
+      '👋 $greeting',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Colors.white70,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _HeroChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _HeroChip({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LevelRing extends StatelessWidget {
   final int level;
   final double progress;
 
-  const _LevelMedallion({
+  const _LevelRing({
     required this.level,
     required this.progress,
   });
 
   @override
   Widget build(BuildContext context) {
-    final config = switch (level) {
-      1 => (icon: Icons.rocket_launch_rounded, color: const Color(0xFF93C5FD)),
-      2 => (
-          icon: Icons.workspace_premium_rounded,
-          color: const Color(0xFF86EFAC),
-        ),
-      3 => (icon: Icons.shield_rounded, color: const Color(0xFFFDE68A)),
-      4 => (icon: Icons.auto_awesome_rounded, color: const Color(0xFFF9A8D4)),
-      _ => (icon: Icons.diamond_rounded, color: const Color(0xFFC4B5FD)),
-    };
-
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.12),
-            border: Border.all(
-              color: config.color.withValues(alpha: 0.9),
-              width: 1.8,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: config.color.withValues(alpha: 0.28),
-                blurRadius: 16,
+    return SizedBox(
+      width: 132,
+      height: 132,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 12,
+            backgroundColor: Colors.white.withValues(alpha: 0.14),
+            valueColor: const AlwaysStoppedAnimation(Color(0xFFFBBF24)),
+          ),
+          Center(
+            child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.13),
+                border: Border.all(color: Colors.white24),
               ),
-            ],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.workspace_premium_rounded,
+                    color: Color(0xFFFBBF24),
+                    size: 28,
+                  ),
+                  Text(
+                    'N$level',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          child: Icon(config.icon, color: config.color, size: 24),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          '${(progress * 100).round()}%',
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
+        ],
+      ),
+    );
+  }
+}
+
+class _NextEventsCard extends StatelessWidget {
+  final AppProvider provider;
+
+  const _NextEventsCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final nextClass = provider.nextScheduleEntry;
+    final nextExam = provider.nextUpcomingExam;
+    return _SurfaceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(
+            title: 'Próximo',
+            subtitle: '',
+            icon: Icons.bolt_rounded,
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          _EventTile(
+            icon: Icons.event_available_rounded,
+            color: FocusPalette.cyan,
+            title: nextClass == null ? 'Sin clase' : nextClass.subject.name,
+            detail: nextClass == null
+                ? 'Agrega horarios'
+                : '${_relativeDayLabel(nextClass.startsAt)} · ${nextClass.schedule.startTime} · Aula ${_classroom(nextClass.schedule)}',
+          ),
+          const SizedBox(height: 12),
+          _EventTile(
+            icon: Icons.assignment_late_rounded,
+            color: FocusPalette.coral,
+            title: nextExam == null
+                ? 'Sin examen'
+                : provider.subjectNameForExam(nextExam),
+            detail:
+                nextExam == null ? 'Agrega exámenes' : _examDetail(nextExam),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _examDetail(Exam exam) {
+    final parts = [
+      exam.displayType,
+      formatDate(exam.date),
+      if (exam.startTime.trim().isNotEmpty) exam.startTime.trim(),
+      if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom.trim()}',
+    ];
+    return parts.join(' · ');
+  }
+}
+
+class _EventTile extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String detail;
+
+  const _EventTile({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.detail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(17),
+            ),
+            child: Icon(icon, color: color),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -638,162 +518,85 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.of(context).size.width < 420;
-    final items = [
-      _MetricData(
-        Icons.stars_rounded,
-        const Color(0xFF2563EB),
-        '${provider.gamifiedPoints}',
-        'Puntos',
-      ),
-      _MetricData(
-        Icons.local_fire_department_rounded,
-        const Color(0xFFEA580C),
-        '${provider.currentStreak}',
-        'Racha',
-      ),
-      _MetricData(
-        Icons.schedule_rounded,
-        const Color(0xFF059669),
-        '${provider.totalFocusHours.toStringAsFixed(1)}h',
-        'Horas',
-      ),
-      _MetricData(
-        Icons.task_alt_rounded,
-        const Color(0xFF7C3AED),
-        '${provider.weeklyPomodoros}',
-        'Pomodoros semana',
-      ),
-    ];
-
-    return GridView.builder(
+    final compact = MediaQuery.of(context).size.width < 410;
+    return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: compact ? 2 : 4,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: compact ? 1.1 : 1,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: Duration(milliseconds: 350 + (index * 120)),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, child) => Transform.translate(
-            offset: Offset(0, 14 * (1 - value)),
-            child: Opacity(opacity: value, child: child),
-          ),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(item.icon, color: item.color),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    item.value,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.label,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
+      crossAxisCount: compact ? 2 : 4,
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: compact ? 1.22 : 1.05,
+      children: [
+        _MetricCard(
+          icon: Icons.stars_rounded,
+          value: '${provider.gamifiedPoints}',
+          label: 'Puntos',
+          color: FocusPalette.primary,
+        ),
+        _MetricCard(
+          icon: Icons.local_fire_department_rounded,
+          value: '${provider.currentStreak}',
+          label: 'Racha',
+          color: const Color(0xFFEA580C),
+        ),
+        _MetricCard(
+          icon: Icons.schedule_rounded,
+          value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
+          label: 'Semana',
+          color: const Color(0xFF059669),
+        ),
+        _MetricCard(
+          icon: Icons.workspace_premium_rounded,
+          value: '${provider.unlockedAchievementCount}',
+          label: 'Logros',
+          color: FocusPalette.teal,
+        ),
+      ],
     );
   }
 }
 
-class _EventPanel extends StatelessWidget {
-  final String title;
-  final String? headline;
-  final String? detail;
-  final String? meta;
-  final String emptyText;
+class _MetricCard extends StatelessWidget {
   final IconData icon;
-  final Color accent;
+  final String value;
+  final String label;
+  final Color color;
 
-  const _EventPanel({
-    required this.title,
-    required this.headline,
-    required this.detail,
-    required this.meta,
-    required this.emptyText,
+  const _MetricCard({
     required this.icon,
-    required this.accent,
+    required this.value,
+    required this.label,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasData = headline != null;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Icon(icon, color: accent),
+            Icon(icon, color: color),
+            const SizedBox(height: 10),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    hasData ? headline! : emptyText,
-                    style: TextStyle(
-                      fontWeight: hasData ? FontWeight.w800 : FontWeight.w600,
-                      fontSize: hasData ? 18 : 15,
-                    ),
-                  ),
-                  if (detail != null) ...[
-                    const SizedBox(height: 6),
-                    Text(detail!, style: Theme.of(context).textTheme.bodyLarge),
-                  ],
-                  if (meta != null) ...[
-                    const SizedBox(height: 4),
-                    Text(meta!, style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ],
-              ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -802,11 +605,88 @@ class _EventPanel extends StatelessWidget {
   }
 }
 
-class _MetricData {
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
+class _SurfaceCard extends StatelessWidget {
+  final Widget child;
 
-  const _MetricData(this.icon, this.color, this.value, this.label);
+  const _SurfaceCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+
+  const _SectionHeader({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color:
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              if (subtitle.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _relativeDayLabel(DateTime date) {
+  final now = DateTime.now();
+  if (DateUtils.isSameDay(now, date)) return 'Hoy';
+  if (DateUtils.isSameDay(now.add(const Duration(days: 1)), date)) {
+    return 'Mañana';
+  }
+  return weekdayLabel(date.weekday - 1);
+}
+
+String _classroom(Schedule schedule) {
+  final room = schedule.classroom.trim();
+  return room.isEmpty ? 'sin aula' : room;
 }

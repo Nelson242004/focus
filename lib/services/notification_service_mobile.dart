@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -21,6 +22,8 @@ class NotificationService {
   static const String _pomodoroChannelDescription =
       'Muestra el contador activo del Pomodoro';
   static const int _pomodoroNotificationId = 880001;
+  static const MethodChannel _nativeFocusChannel =
+      MethodChannel('focus_mode_total');
   static bool _initialized = false;
 
   static Future<void> initialize() async {
@@ -169,6 +172,16 @@ class NotificationService {
     required String subject,
   }) async {
     await initialize();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      await _nativeFocusChannel.invokeMethod('startPomodoroTimerNotification', {
+        'mode': mode,
+        'remainingSeconds': remainingSeconds,
+        'totalSeconds': totalSeconds,
+        'subject': subject.trim().isEmpty ? 'General' : subject.trim(),
+      });
+      return;
+    }
+
     final isFocus = mode == 'focus';
     final isLongBreak = mode == 'longBreak';
     final modeLabel = isFocus
@@ -238,6 +251,9 @@ class NotificationService {
 
   static Future<void> cancelPomodoroTimerNotification() async {
     await initialize();
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      await _nativeFocusChannel.invokeMethod('stopPomodoroTimerNotification');
+    }
     await _plugin.cancel(id: _pomodoroNotificationId);
   }
 

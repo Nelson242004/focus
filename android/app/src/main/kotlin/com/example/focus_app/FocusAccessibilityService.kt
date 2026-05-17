@@ -13,7 +13,10 @@ class FocusAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private val homePackages by lazy { resolveHomePackages() }
     private var lastBlockedPackage = ""
+    private var recentlyClosedPackage = ""
+    private var recentlyClosedUntilMillis = 0L
     private var pendingOverlayRunnable: Runnable? = null
+    private val closeActionSuppressMillis = 2200L
 
     private val activeWindowMonitor =
         object : Runnable {
@@ -114,6 +117,17 @@ class FocusAccessibilityService : AccessibilityService() {
         }
 
         val now = System.currentTimeMillis()
+        if (blockedPackage == recentlyClosedPackage && now < recentlyClosedUntilMillis) {
+            debugLog("Suppressing overlay after close action for $blockedPackage")
+            clearPendingOverlay()
+            overlayManager.dismissOverlay(immediate = true)
+            return
+        }
+        if (now >= recentlyClosedUntilMillis) {
+            recentlyClosedPackage = ""
+            recentlyClosedUntilMillis = 0L
+        }
+
         val lastPersistedPackage =
             prefs.getString(FocusShieldService.KEY_LAST_BLOCKED_PACKAGE, "").orEmpty()
         if (blockedPackage == lastBlockedPackage || blockedPackage == lastPersistedPackage) {
@@ -150,6 +164,7 @@ class FocusAccessibilityService : AccessibilityService() {
                         ?: "General",
                     onCloseApp = {
                         debugLog("Overlay requested close for $blockedPackage")
+                        suppressClosedPackage(blockedPackage)
                         performGlobalAction(GLOBAL_ACTION_HOME)
                         handler.postDelayed({
                             overlayManager.dismissOverlay()
@@ -161,6 +176,7 @@ class FocusAccessibilityService : AccessibilityService() {
                     },
                     onFailed = {
                         warnLog("Overlay could not be shown; using HOME fallback for $blockedPackage")
+                        suppressClosedPackage(blockedPackage)
                         performGlobalAction(GLOBAL_ACTION_HOME)
                         handler.postDelayed({
                             lastBlockedPackage = ""
@@ -173,6 +189,11 @@ class FocusAccessibilityService : AccessibilityService() {
             }
         pendingOverlayRunnable = runnable
         handler.postDelayed(runnable, 120L)
+    }
+
+    private fun suppressClosedPackage(packageName: String) {
+        recentlyClosedPackage = packageName
+        recentlyClosedUntilMillis = System.currentTimeMillis() + closeActionSuppressMillis
     }
 
     private fun clearPendingOverlay() {

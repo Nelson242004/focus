@@ -28,7 +28,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'focus_app.db');
     return openDatabase(
       path,
-      version: 14,
+      version: 15,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -47,7 +47,8 @@ class DatabaseHelper {
             name TEXT NOT NULL,
             identity TEXT NOT NULL DEFAULT 'Soy alguien que cumple incluso cuando no tiene ganas.',
             streak INTEGER DEFAULT 0,
-            history TEXT
+            history TEXT,
+            createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
           )
         ''');
         await db.execute('''
@@ -221,6 +222,12 @@ class DatabaseHelper {
               FOREIGN KEY(subjectId) REFERENCES subjects(id) ON DELETE SET NULL
             )
           ''');
+        }
+        if (oldVersion < 15) {
+          await _safeAlter(
+            db,
+            'ALTER TABLE habits ADD COLUMN createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP',
+          );
         }
       },
     );

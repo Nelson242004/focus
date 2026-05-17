@@ -8,6 +8,7 @@ import 'dashboard_screen.dart';
 import 'habits_screen.dart';
 import 'pomodoro_screen.dart';
 import 'settings_screen.dart';
+import 'subjects_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int? initialIndex;
@@ -25,6 +26,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = const [
     DashboardScreen(),
     PomodoroScreen(),
+    SubjectsScreen(),
     HabitsScreen(),
     SettingsScreen(),
   ];
@@ -37,8 +39,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _selectedIndex = widget.initialIndex ??
         switch (startScreen) {
           'pomodoro' => 1,
-          'habits' => 2,
-          'settings' => 3,
+          'subjects' => 2,
+          'habits' => 3,
+          'settings' => 4,
           _ => 0,
         };
     if (_selectedIndex >= _screens.length) _selectedIndex = 0;
@@ -67,6 +70,39 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         top: false,
         bottom: true,
         child: _screens[_selectedIndex],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) => setState(() {
+          _selectedIndex = index;
+        }),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard_rounded),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.timer_outlined),
+            selectedIcon: Icon(Icons.timer_rounded),
+            label: 'Pomodoro',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book_rounded),
+            label: 'Materias',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.check_circle_outline_rounded),
+            selectedIcon: Icon(Icons.check_circle_rounded),
+            label: 'Hábitos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded),
+            label: 'Ajustes',
+          ),
+        ],
       ),
     );
   }

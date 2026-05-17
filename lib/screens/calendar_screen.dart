@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -200,7 +201,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ].join(' · '),
             type: CalendarItemType.exam,
             color: exam.isFinal
-                ? const Color(0xFF7C3AED)
+                ? FocusPalette.coral
                 : const Color(0xFF2563EB),
             date: normalized,
           ),
@@ -410,7 +411,7 @@ class _MonthSummary extends StatelessWidget {
           child: _SummaryCard(
             label: 'Exámenes',
             value: count(CalendarItemType.exam).toString(),
-            color: const Color(0xFF7C3AED),
+            color: FocusPalette.coral,
           ),
         ),
         const SizedBox(width: 10),
@@ -498,7 +499,7 @@ class _CalendarDayTile extends StatelessWidget {
         : isToday
             ? colorScheme.primary.withValues(alpha: 0.18)
             : hasExam
-                ? const Color(0xFF7C3AED).withValues(alpha: 0.14)
+                ? FocusPalette.coral.withValues(alpha: 0.14)
                 : hasTask
                     ? const Color(0xFFF97316).withValues(alpha: 0.14)
                     : hasClass
@@ -529,7 +530,7 @@ class _CalendarDayTile extends StatelessWidget {
                 : isToday
                     ? colorScheme.primary
                     : hasExam
-                        ? const Color(0xFF7C3AED).withValues(alpha: 0.5)
+                        ? FocusPalette.coral.withValues(alpha: 0.5)
                         : hasTask
                             ? const Color(0xFFF97316).withValues(alpha: 0.5)
                             : hasClass
@@ -579,7 +580,7 @@ class _CalendarLegend extends StatelessWidget {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _LegendItem(label: 'Examen', color: Color(0xFF7C3AED)),
+        _LegendItem(label: 'Examen', color: FocusPalette.coral),
         _LegendItem(label: 'Tarea', color: Color(0xFFF97316)),
         _LegendItem(label: 'Clase', color: Color(0xFF10B981)),
         _LegendItem(label: 'Hoy / seleccionado', color: Color(0xFF1D4ED8)),

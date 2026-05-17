@@ -364,7 +364,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         career: _careerController.text,
       );
       widget.onSaved?.call();
-      if (mounted && widget.profile != null) Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

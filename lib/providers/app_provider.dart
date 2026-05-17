@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
 import '../models/app_settings.dart';
@@ -159,9 +161,10 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _notifyAndSyncWidget() async {
+  Future<void> _notifyAndSyncWidget() {
     notifyListeners();
-    await WidgetSyncService.syncFromProvider(this);
+    unawaited(WidgetSyncService.syncFromProvider(this));
+    return Future.value();
   }
 
   Future<void> _loadPomodoros() async {
@@ -200,17 +203,25 @@ class AppProvider extends ChangeNotifier {
     if (!settings.notificationsEnabled) {
       for (final exam in exams) {
         if (exam.id != null) {
-          await NotificationService.cancelExamNotifications(exam.id!);
+          try {
+            await NotificationService.cancelExamNotifications(exam.id!);
+          } catch (error) {
+            debugPrint('Focus exam notification cancel skipped: $error');
+          }
         }
       }
       return;
     }
     for (final exam in exams) {
-      if (combineDateAndTime(exam.date, exam.startTime)
-          .isAfter(DateTime.now())) {
-        await _scheduleExamNotifications(exam);
-      } else if (exam.id != null) {
-        await NotificationService.cancelExamNotifications(exam.id!);
+      try {
+        if (combineDateAndTime(exam.date, exam.startTime)
+            .isAfter(DateTime.now())) {
+          await _scheduleExamNotifications(exam);
+        } else if (exam.id != null) {
+          await NotificationService.cancelExamNotifications(exam.id!);
+        }
+      } catch (error) {
+        debugPrint('Focus exam notification sync skipped: $error');
       }
     }
   }
@@ -262,14 +273,20 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertPomodoro(p);
     p.id = id;
     await _loadPomodoros();
-    await FirebaseUserDataService.savePomodoro(p);
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.savePomodoro(p),
+      'save pomodoro',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> deletePomodoro(int id) async {
     await db.deletePomodoro(id);
     await _loadPomodoros();
-    await FirebaseUserDataService.deletePomodoro(id);
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deletePomodoro(id),
+      'delete pomodoro',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -277,22 +294,42 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertHabit(h);
     h.id = id;
     await _loadHabits();
-    await FirebaseUserDataService.saveHabit(h);
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveHabit(h),
+      'save habit',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> updateHabit(Habit h) async {
     await db.updateHabit(h);
     await _loadHabits();
-    await FirebaseUserDataService.saveHabit(h);
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveHabit(h),
+      'update habit',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteHabit(int id) async {
     await db.deleteHabit(id);
     await _loadHabits();
-    await FirebaseUserDataService.deleteHabit(id);
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deleteHabit(id),
+      'delete habit',
+    );
     await _notifyAndSyncWidget();
+  }
+
+  Future<void> _runOptionalCloudSync(
+    Future<void> Function() action,
+    String label,
+  ) async {
+    try {
+      await action();
+    } catch (error) {
+      debugPrint('Focus optional cloud sync skipped ($label): $error');
+    }
   }
 
   List<ResourceLink> resourcesByCategory(String category, {int? subjectId}) {
@@ -453,7 +490,11 @@ class AppProvider extends ChangeNotifier {
       exam.subject = s.name;
       await db.updateExam(exam);
       if (settings.notificationsEnabled) {
-        await _scheduleExamNotifications(exam);
+        try {
+          await _scheduleExamNotifications(exam);
+        } catch (error) {
+          debugPrint('Focus exam notification reschedule skipped: $error');
+        }
       }
     }
     await _loadSubjects();
@@ -500,11 +541,14 @@ class AppProvider extends ChangeNotifier {
     await _notifyAndSyncWidget();
   }
 
-  Future<void> updateSchedule(Schedule s) async {
+  Future<void> updateSchedule(
+    Schedule s, {
+    bool validateConflict = true,
+  }) async {
     if (s.dayOfWeek < 0 || s.dayOfWeek > 5) {
       throw StateError('Solo se permiten horarios de lunes a sábado.');
     }
-    if (hasScheduleConflict(s, ignoreId: s.id)) {
+    if (validateConflict && hasScheduleConflict(s, ignoreId: s.id)) {
       throw StateError('Ese horario se cruza con otro bloque.');
     }
     await db.updateSchedule(s);
@@ -540,7 +584,11 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertExam(savedExam);
     savedExam.id = id;
     if (settings.notificationsEnabled) {
-      await _scheduleExamNotifications(savedExam);
+      try {
+        await _scheduleExamNotifications(savedExam);
+      } catch (error) {
+        debugPrint('Focus exam notification schedule skipped: $error');
+      }
     }
     await _loadExams();
     _syncExamSubjectNames();
@@ -552,9 +600,17 @@ class AppProvider extends ChangeNotifier {
     await db.updateExam(normalized);
     if (normalized.id != null) {
       if (settings.notificationsEnabled) {
-        await _scheduleExamNotifications(normalized);
+        try {
+          await _scheduleExamNotifications(normalized);
+        } catch (error) {
+          debugPrint('Focus exam notification update skipped: $error');
+        }
       } else {
-        await NotificationService.cancelExamNotifications(normalized.id!);
+        try {
+          await NotificationService.cancelExamNotifications(normalized.id!);
+        } catch (error) {
+          debugPrint('Focus exam notification cancel skipped: $error');
+        }
       }
     }
     await _loadExams();
@@ -579,7 +635,11 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> deleteExam(int id) async {
     await db.deleteExam(id);
-    await NotificationService.cancelExamNotifications(id);
+    try {
+      await NotificationService.cancelExamNotifications(id);
+    } catch (error) {
+      debugPrint('Focus exam notification delete skipped: $error');
+    }
     await _loadExams();
     await _notifyAndSyncWidget();
   }
@@ -661,7 +721,13 @@ class AppProvider extends ChangeNotifier {
     final newTheme = settings.themeMode == ThemeModeSetting.light
         ? ThemeModeSetting.dark
         : ThemeModeSetting.light;
-    updateSettings(_settingsCopy(themeMode: newTheme));
+    settings = _settingsCopy(themeMode: newTheme);
+    notifyListeners();
+    unawaited(
+      db.updateSettings(settings).catchError((Object error) {
+        debugPrint('Focus theme save skipped: $error');
+      }),
+    );
   }
 
   Future<void> updateSelectedIdentity(String identity) async {

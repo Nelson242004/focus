@@ -89,6 +89,21 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    "startPomodoroTimerNotification" -> {
+                        startPomodoroTimerNotification(
+                            mode = call.argument<String>("mode") ?: "focus",
+                            subject = call.argument<String>("subject") ?: "General",
+                            remainingSeconds = call.argument<Int>("remainingSeconds") ?: 0,
+                            totalSeconds = call.argument<Int>("totalSeconds") ?: 0,
+                        )
+                        result.success(null)
+                    }
+
+                    "stopPomodoroTimerNotification" -> {
+                        stopService(Intent(this, PomodoroTimerService::class.java))
+                        result.success(null)
+                    }
+
                     "getFocusSessionStatus" -> result.success(getFocusSessionStatus())
                     else -> result.notImplemented()
                 }
@@ -128,34 +143,25 @@ class MainActivity : FlutterActivity() {
         examAtMillis: Long,
         meta: String,
     ) {
-        val prefs = getSharedPreferences(FocusHomeWidgetProvider.PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences(FocusHomeWidgetUpdater.PREFS_NAME, Context.MODE_PRIVATE)
         prefs
             .edit()
-            .putString(FocusHomeWidgetProvider.KEY_WIDGET_MODE, widgetMode)
-            .putString(FocusHomeWidgetProvider.KEY_CLASS_TITLE, classTitle)
-            .putString(FocusHomeWidgetProvider.KEY_CLASS_DETAIL, classDetail)
-            .putString(FocusHomeWidgetProvider.KEY_EXAM_TITLE, examTitle)
-            .putString(FocusHomeWidgetProvider.KEY_EXAM_DETAIL, examDetail)
-            .putString(FocusHomeWidgetProvider.KEY_EXAM_NOTE, examNote)
-            .putLong(FocusHomeWidgetProvider.KEY_EXAM_AT_MILLIS, examAtMillis)
-            .putString(FocusHomeWidgetProvider.KEY_META, meta)
-            .apply()
+            .putString(FocusHomeWidgetUpdater.KEY_WIDGET_MODE, widgetMode)
+            .putString(FocusHomeWidgetUpdater.KEY_CLASS_TITLE, classTitle)
+            .putString(FocusHomeWidgetUpdater.KEY_CLASS_DETAIL, classDetail)
+            .putString(FocusHomeWidgetUpdater.KEY_EXAM_TITLE, examTitle)
+            .putString(FocusHomeWidgetUpdater.KEY_EXAM_DETAIL, examDetail)
+            .putString(FocusHomeWidgetUpdater.KEY_EXAM_NOTE, examNote)
+            .putLong(FocusHomeWidgetUpdater.KEY_EXAM_AT_MILLIS, examAtMillis)
+            .putString(FocusHomeWidgetUpdater.KEY_META, meta)
+            .commit()
 
         val manager = AppWidgetManager.getInstance(this)
-        val fullComponent = ComponentName(this, FocusHomeWidgetProvider::class.java)
-        FocusHomeWidgetProvider.updateWidgets(
-            this,
-            manager,
-            manager.getAppWidgetIds(fullComponent),
-            R.layout.focus_home_widget,
-        )
-
         val miniComponent = ComponentName(this, FocusMiniHomeWidgetProvider::class.java)
-        FocusHomeWidgetProvider.updateWidgets(
+        FocusHomeWidgetUpdater.updateWidgets(
             this,
             manager,
             manager.getAppWidgetIds(miniComponent),
-            R.layout.focus_home_widget_mini,
         )
     }
 
@@ -357,6 +363,31 @@ class MainActivity : FlutterActivity() {
             putExtra(FocusShieldService.EXTRA_SUBJECT, subject)
             putExtra(FocusShieldService.EXTRA_DURATION_SECONDS, durationSeconds)
             putStringArrayListExtra(FocusShieldService.EXTRA_BLOCKED_APPS, serializedApps)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
+    }
+
+    private fun startPomodoroTimerNotification(
+        mode: String,
+        subject: String,
+        remainingSeconds: Int,
+        totalSeconds: Int,
+    ) {
+        if (remainingSeconds <= 0 || totalSeconds <= 0) {
+            stopService(Intent(this, PomodoroTimerService::class.java))
+            return
+        }
+
+        val intent = Intent(this, PomodoroTimerService::class.java).apply {
+            putExtra(PomodoroTimerService.EXTRA_MODE, mode)
+            putExtra(PomodoroTimerService.EXTRA_SUBJECT, subject)
+            putExtra(PomodoroTimerService.EXTRA_REMAINING_SECONDS, remainingSeconds)
+            putExtra(PomodoroTimerService.EXTRA_TOTAL_SECONDS, totalSeconds)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

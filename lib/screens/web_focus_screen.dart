@@ -6,6 +6,7 @@ import '../models/app_settings.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_links.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 
 class WebFocusScreen extends StatefulWidget {
   const WebFocusScreen({super.key});
@@ -306,7 +307,7 @@ class _WebHomeSection extends StatelessWidget {
                       child: _WebInfoCard(
                         title: 'Próximo examen',
                         icon: Icons.assignment_late_rounded,
-                        accent: const Color(0xFF7C3AED),
+                        accent: FocusPalette.teal,
                         headline: nextExam == null
                             ? 'Sin examen próximo'
                             : provider.subjectNameForExam(nextExam),
@@ -437,7 +438,7 @@ class _WebExamsSection extends StatelessWidget {
                         '${exam.startTime.trim().isEmpty ? '' : ' · ${exam.startTime}'}';
                     return _ListCard(
                       leadingColor: exam.isFinal
-                          ? const Color(0xFF7C3AED)
+                          ? FocusPalette.teal
                           : const Color(0xFF2563EB),
                       title: provider.subjectNameForExam(exam),
                       subtitle: '${exam.displayType} · $dateLabel',

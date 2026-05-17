@@ -103,7 +103,7 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    'Focus avisará si este bloque se cruza con otro horario.',
+                    'Puedes guardar horarios superpuestos si cursas materias en paralelo.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
@@ -140,9 +140,15 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                 );
                 try {
                   if (_editingSchedule == null) {
-                    await provider.addSchedule(scheduleToSave);
+                    await provider.addSchedule(
+                      scheduleToSave,
+                      validateConflict: false,
+                    );
                   } else {
-                    await provider.updateSchedule(scheduleToSave);
+                    await provider.updateSchedule(
+                      scheduleToSave,
+                      validateConflict: false,
+                    );
                   }
                   if (!mounted) return;
                   Navigator.of(context).pop();

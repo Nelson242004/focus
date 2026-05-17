@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/focus_palette.dart';
+
 class AppTutorialScreen extends StatefulWidget {
   const AppTutorialScreen({super.key});
 
@@ -42,7 +44,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         'Importar Excel',
         'Carrera, materias y secciones'
       ],
-      colors: [Color(0xFF7C3AED), Color(0xFFA78BFA)],
+      colors: [FocusPalette.teal, FocusPalette.mint],
     ),
     (
       icon: Icons.assignment_rounded,
@@ -74,7 +76,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         'Racha de constancia',
         'Logros e insignias'
       ],
-      colors: [Color(0xFFDB2777), Color(0xFFF472B6)],
+      colors: [FocusPalette.coral, FocusPalette.amber],
     ),
     (
       icon: Icons.link_rounded,

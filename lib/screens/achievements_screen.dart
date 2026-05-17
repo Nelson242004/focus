@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 
 class AchievementsScreen extends StatelessWidget {
@@ -159,13 +160,13 @@ class _AchievementsHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         gradient: const LinearGradient(
-          colors: [Color(0xFF0F172A), Color(0xFF1D4ED8)],
+          colors: FocusPalette.studyGradient,
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1D4ED8).withValues(alpha: 0.2),
+            color: FocusPalette.primaryDeep.withValues(alpha: 0.2),
             blurRadius: 24,
             offset: const Offset(0, 12),
           ),
@@ -267,8 +268,8 @@ class _LevelMedallion extends StatelessWidget {
           color: const Color(0xFF86EFAC)
         ),
       3 => (icon: Icons.shield_rounded, color: const Color(0xFFFDE68A)),
-      4 => (icon: Icons.auto_awesome_rounded, color: const Color(0xFFF9A8D4)),
-      _ => (icon: Icons.diamond_rounded, color: const Color(0xFFC4B5FD)),
+      4 => (icon: Icons.auto_awesome_rounded, color: FocusPalette.cyan),
+      _ => (icon: Icons.diamond_rounded, color: FocusPalette.teal),
     };
 
     return Column(
@@ -329,7 +330,7 @@ class _MissionCard extends StatelessWidget {
                 minHeight: 10,
                 backgroundColor:
                     Theme.of(context).colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation(Color(0xFF2563EB)),
+                valueColor: const AlwaysStoppedAnimation(FocusPalette.primary),
               ),
             ),
             const SizedBox(height: 10),
@@ -395,7 +396,7 @@ class _AchievementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = data.unlocked ? const Color(0xFF2563EB) : Colors.grey;
+    final accent = data.unlocked ? FocusPalette.primary : Colors.grey;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
