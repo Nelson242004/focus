@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,23 +9,13 @@ import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  bool _askedForName = false;
-  bool _nameDialogOpen = false;
-  bool _namePromptScheduled = false;
 
   @override
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        _scheduleUserNamePrompt(provider);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
@@ -44,93 +32,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       },
     );
-  }
-
-  void _scheduleUserNamePrompt(AppProvider provider) {
-    if (!provider.isLoaded ||
-        _askedForName ||
-        _nameDialogOpen ||
-        _namePromptScheduled ||
-        RankingService.currentUser != null ||
-        provider.settings.userName.trim().isNotEmpty) {
-      return;
-    }
-    _namePromptScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _namePromptScheduled = false;
-      if (!mounted ||
-          _askedForName ||
-          _nameDialogOpen ||
-          RankingService.currentUser != null ||
-          provider.settings.userName.trim().isNotEmpty) {
-        return;
-      }
-      _askedForName = true;
-      _nameDialogOpen = true;
-      _showUserNameDialog(provider);
-    });
-  }
-
-  Future<void> _showUserNameDialog(AppProvider provider) async {
-    final controller = TextEditingController();
-    try {
-      final name = await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('¿Cómo te llamas?'),
-            content: SingleChildScrollView(
-              child: TextField(
-                controller: controller,
-                autofocus: false,
-                textCapitalization: TextCapitalization.words,
-                maxLength: 24,
-                decoration: const InputDecoration(
-                  labelText: 'Tu nombre',
-                  hintText: 'Ej. Nelson',
-                  counterText: '',
-                ),
-                onSubmitted: (value) =>
-                    Navigator.of(dialogContext).pop(value.trim()),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(''),
-                child: const Text('Después'),
-              ),
-              FilledButton(
-                onPressed: () =>
-                    Navigator.of(dialogContext).pop(controller.text.trim()),
-                child: const Text('Guardar'),
-              ),
-            ],
-          );
-        },
-      );
-      final cleaned = (name ?? '').trim();
-      if (cleaned.isNotEmpty) {
-        unawaited(_saveUserNameSafely(provider, cleaned));
-      }
-    } finally {
-      _nameDialogOpen = false;
-      controller.dispose();
-    }
-  }
-
-  Future<void> _saveUserNameSafely(AppProvider provider, String name) async {
-    try {
-      await provider.updateUserName(name);
-    } catch (error) {
-      debugPrint('No se pudo guardar el nombre del usuario: $error');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No se pudo guardar el nombre. Intenta de nuevo.'),
-        ),
-      );
-    }
   }
 }
 

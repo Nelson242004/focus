@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
@@ -988,3 +988,4 @@ class _ExamCalendarChip extends StatelessWidget {
 extension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

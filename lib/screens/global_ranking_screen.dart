@@ -139,47 +139,76 @@ class _RankingBody extends StatelessWidget {
       future: leaderboardFuture,
       builder: (context, snapshot) {
         final entries = snapshot.data ?? const <RankingEntry>[];
+        final participantCount = entries.length;
+        final myIndex = entries.indexWhere((entry) => entry.uid == profile.uid);
+        final myEntry = myIndex == -1 ? null : entries[myIndex];
+        final myPosition = myIndex == -1 ? 0 : myIndex + 1;
+        final topEntries = entries.take(3).toList();
+        final tableEntries =
+            entries.length >= 3 ? entries.skip(3).toList() : entries;
+        final tableStartPosition = entries.length >= 3 ? 4 : 1;
 
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
-            const _SectionLabel(
-              icon: Icons.workspace_premium_rounded,
-              title: 'Top puntos',
+            _MyGlobalRankStrip(
+              profile: profile,
+              entry: myEntry,
+              position: myPosition,
+              participantCount: participantCount,
             ),
-            const SizedBox(height: 10),
-            if (entries.length >= 3) ...[
+            const SizedBox(height: 12),
+            const _AntiCheatNotice(),
+            const SizedBox(height: 18),
+            const _SectionLabel(
+              icon: Icons.emoji_events_rounded,
+              title: 'Podio semanal',
+            ),
+            const SizedBox(height: 12),
+            if (topEntries.length >= 3) ...[
               _Podium(
-                entries: entries.take(3).toList(),
-                participantCount: entries.length,
+                entries: topEntries,
+                participantCount: participantCount,
               ),
               const SizedBox(height: 18),
             ],
             const _SectionLabel(
               icon: Icons.format_list_numbered_rounded,
-              title: 'Tabla por puntos',
+              title: 'Clasificación',
             ),
             const SizedBox(height: 10),
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator())
             else if (snapshot.hasError)
               _MessagePanel(
-                icon: Icons.warning_amber_rounded,
-                title: 'No se pudo cargar',
-                message: RankingService.friendlyRankingError(snapshot.error),
+                icon: Icons.cloud_off_rounded,
+                title: 'El ranking está calentando motores',
+                message:
+                    'No pudimos traer la clasificación ahora. Revisa Firebase o inténtalo de nuevo en unos segundos.',
               )
             else if (entries.isEmpty)
               const _MessagePanel(
-                icon: Icons.emoji_events_outlined,
-                title: 'Sin participantes',
-                message: 'Cuando haya usuarios registrados aparecerán aquí.',
+                icon: Icons.local_fire_department_rounded,
+                title: 'El ranking está calentando motores',
+                message:
+                    'Cuando los primeros usuarios sumen puntos, la liga global aparecerá aquí.',
+              )
+            else if (tableEntries.isEmpty)
+              const _MessagePanel(
+                icon: Icons.auto_awesome_rounded,
+                title: 'Solo hay podio por ahora',
+                message: 'Cuando entren más usuarios aparecerá la tabla.',
               )
             else
-              ...entries.asMap().entries.map(
-                    (item) => _RankingTile(
-                      position: item.key + 1,
-                      entry: item.value,
-                      isMe: item.value.uid == profile.uid,
+              ...tableEntries.asMap().entries.map(
+                    (item) => _StaggeredRankingTile(
+                      index: item.key,
+                      child: _RankingTile(
+                        position: item.key + tableStartPosition,
+                        entry: item.value,
+                        isMe: item.value.uid == profile.uid,
+                        participantCount: participantCount,
+                      ),
                     ),
                   ),
           ],
@@ -446,6 +475,200 @@ class _DetailChip extends StatelessWidget {
   }
 }
 
+class _MyGlobalRankStrip extends StatelessWidget {
+  final RankingProfile profile;
+  final RankingEntry? entry;
+  final int position;
+  final int participantCount;
+
+  const _MyGlobalRankStrip({
+    required this.profile,
+    required this.entry,
+    required this.position,
+    required this.participantCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final points = entry?.points ?? profile.weeklyPoints;
+    final tier = _distributedRankTierForPosition(position, participantCount);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final positionLabel = position <= 0 ? 'Sin puesto' : '#$position';
+
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('my-global-rank-$position-$points'),
+      tween: Tween(begin: 0.96, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) {
+        return Transform.scale(scale: scale, child: child);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          gradient: LinearGradient(
+            colors: isDark
+                ? const [FocusPalette.ink, FocusPalette.primaryDeep]
+                : const [FocusPalette.primaryDeep, FocusPalette.cyan],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: FocusPalette.primaryDeep.withValues(alpha: 0.18),
+              blurRadius: 24,
+              offset: const Offset(0, 12),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tu liga global',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      height: 1,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _GlassRankChip(label: positionLabel),
+                      _GlassRankChip(label: '${points.clamp(0, 999999)} pts'),
+                      _GlassRankChip(label: tier.name),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 82,
+                  height: 82,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.26),
+                    ),
+                  ),
+                ),
+                Image.asset(
+                  _tierMedalAsset(tier.name),
+                  width: 64,
+                  height: 64,
+                  fit: BoxFit.contain,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassRankChip extends StatelessWidget {
+  final String label;
+
+  const _GlassRankChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _AntiCheatNotice extends StatelessWidget {
+  const _AntiCheatNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.055)
+            : FocusPalette.primary.withValues(alpha: 0.07),
+        border: Border.all(
+          color: FocusPalette.primary.withValues(alpha: 0.14),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(
+                colors: [
+                  FocusPalette.primary.withValues(alpha: 0.22),
+                  FocusPalette.teal.withValues(alpha: 0.18),
+                ],
+              ),
+            ),
+            child: Icon(
+              Icons.verified_user_rounded,
+              color: Theme.of(context).colorScheme.primary,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Text(
+              'Solo cuentan pomodoros válidos de 25 min o más. Hábitos y sesiones tienen límites para evitar trampas.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Podium extends StatelessWidget {
   final List<RankingEntry> entries;
   final int participantCount;
@@ -486,10 +709,27 @@ class _Podium extends StatelessWidget {
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: _PodiumPlace(
-                entry: entry,
-                height: height,
-                participantCount: participantCount,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: 1),
+                duration: Duration(milliseconds: 520 + (position * 80)),
+                curve: Curves.easeOutBack,
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value.clamp(0, 1),
+                    child: Transform.translate(
+                      offset: Offset(0, (1 - value) * 18),
+                      child: Transform.scale(
+                        scale: 0.92 + (value * 0.08),
+                        child: child,
+                      ),
+                    ),
+                  );
+                },
+                child: _PodiumPlace(
+                  entry: entry,
+                  height: height,
+                  participantCount: participantCount,
+                ),
               ),
             ),
           );
@@ -711,18 +951,41 @@ class _PointsPill extends StatelessWidget {
               color: FocusPalette.amber,
             ),
             SizedBox(width: large ? 5 : 3),
-            Text(
-              '$points pts',
-              maxLines: 1,
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: large ? 16 : 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
+            _AnimatedPointsText(points: points, large: large),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AnimatedPointsText extends StatelessWidget {
+  final int points;
+  final bool large;
+
+  const _AnimatedPointsText({
+    required this.points,
+    required this.large,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<int>(
+      key: ValueKey(points),
+      tween: IntTween(begin: 0, end: points),
+      duration: const Duration(milliseconds: 720),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) {
+        return Text(
+          '$value pts',
+          maxLines: 1,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
+            fontSize: large ? 16 : 11,
+            fontWeight: FontWeight.w900,
+          ),
+        );
+      },
     );
   }
 }
@@ -731,15 +994,18 @@ class _RankingTile extends StatelessWidget {
   final int position;
   final RankingEntry entry;
   final bool isMe;
+  final int participantCount;
 
   const _RankingTile({
     required this.position,
     required this.entry,
     required this.isMe,
+    required this.participantCount,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tier = _distributedRankTierForPosition(position, participantCount);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
@@ -766,7 +1032,11 @@ class _RankingTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _RankBadge(position: position, entry: entry),
+          _RankBadge(
+            position: position,
+            entry: entry,
+            participantCount: participantCount,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -816,6 +1086,8 @@ class _RankingTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                const SizedBox(height: 6),
+                _RankTierChip(tier: tier, compact: true),
               ],
             ),
           ),
@@ -827,60 +1099,76 @@ class _RankingTile extends StatelessWidget {
   }
 }
 
-class _RankBadge extends StatelessWidget {
-  final int position;
-  final RankingEntry entry;
+class _StaggeredRankingTile extends StatelessWidget {
+  final int index;
+  final Widget child;
 
-  const _RankBadge({
-    required this.position,
-    required this.entry,
+  const _StaggeredRankingTile({
+    required this.index,
+    required this.child,
   });
 
   @override
   Widget build(BuildContext context) {
+    final delay = (index.clamp(0, 8) * 55);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Duration(milliseconds: 360 + delay),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value.clamp(0, 1),
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 14),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+class _RankBadge extends StatelessWidget {
+  final int position;
+  final RankingEntry entry;
+  final int participantCount;
+
+  const _RankBadge({
+    required this.position,
+    required this.entry,
+    required this.participantCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tier = _distributedRankTierForPosition(position, participantCount);
     if (position <= 3) {
       return _TopMedalBadge(position: position, size: 46);
     }
     return Container(
-      width: 46,
-      height: 46,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: FocusPalette.amber.withValues(alpha: 0.10),
+        shape: BoxShape.circle,
+        color: tier.color.withValues(alpha: 0.10),
         border: Border.all(
-          color: FocusPalette.amber.withValues(alpha: 0.20),
+          color: tier.color.withValues(alpha: 0.22),
         ),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(6),
-            child: Image.asset(
-              'assets/medals/bronze.png',
-              fit: BoxFit.contain,
-            ),
-          ),
-          Positioned(
-            right: 3,
-            bottom: 3,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                color: Theme.of(context).cardColor.withValues(alpha: 0.92),
-              ),
-              child: Text(
-                '#$position',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: tier.color.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
           ),
         ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: Image.asset(
+          _tierMedalAsset(tier.name),
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }
@@ -992,6 +1280,14 @@ String _medalAsset(int position) {
   };
 }
 
+String _tierMedalAsset(String tierName) {
+  return switch (tierName) {
+    'Oro' => 'assets/medals/gold.png',
+    'Plata' => 'assets/medals/silver.png',
+    _ => 'assets/medals/bronze.png',
+  };
+}
+
 _RankTier _distributedRankTierForPosition(int position, int participantCount) {
   if (participantCount <= 0 || position <= 0) {
     return const _RankTier(
@@ -1098,29 +1394,86 @@ class _MessagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 54, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900),
+        padding: const EdgeInsets.all(22),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(30),
+            gradient: LinearGradient(
+              colors: isDark
+                  ? [
+                      FocusPalette.ink,
+                      FocusPalette.primaryDeep.withValues(alpha: 0.74),
+                    ]
+                  : [
+                      FocusPalette.primary.withValues(alpha: 0.10),
+                      Theme.of(context).cardColor,
+                    ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            if (action != null) ...[
-              const SizedBox(height: 16),
-              action!,
+            border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withValues(
+                    alpha: isDark ? 0.22 : 0.16,
+                  ),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: FocusPalette.primaryDeep.withValues(alpha: 0.10),
+                blurRadius: 26,
+                offset: const Offset(0, 14),
+              ),
             ],
-          ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 74,
+                height: 74,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      FocusPalette.primary.withValues(alpha: 0.22),
+                      FocusPalette.teal.withValues(alpha: 0.18),
+                    ],
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size: 38,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      height: 1.05,
+                    ),
+              ),
+              const SizedBox(height: 9),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              if (action != null) ...[
+                const SizedBox(height: 18),
+                action!,
+              ],
+            ],
+          ),
         ),
       ),
     );

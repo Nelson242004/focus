@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/study_task.dart';
@@ -512,3 +512,4 @@ class _EmptyTasks extends StatelessWidget {
 extension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

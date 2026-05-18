@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/schedule.dart';
@@ -742,3 +742,4 @@ class _ColorPickerDialog extends StatelessWidget {
     );
   }
 }
+

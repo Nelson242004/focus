@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 double? parsePolytechnicScore(String value) {
   final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
@@ -46,3 +46,4 @@ int requiredSecondPartialForSignature(
 }
 
 enum SignatureGoal { media, full }
+

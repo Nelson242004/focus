@@ -17,6 +17,7 @@ object FocusHomeWidgetUpdater {
     const val KEY_EXAM_NOTE = "exam_note"
     const val KEY_EXAM_AT_MILLIS = "exam_at_millis"
     const val KEY_META = "meta"
+    const val KEY_PROFILE_ICON_ASSET = "profile_icon_asset"
 
     fun updateWidgets(
         context: Context,
@@ -67,6 +68,8 @@ object FocusHomeWidgetUpdater {
         }
         val streak = prefs.getString(KEY_META, "0 días") ?: "0 días"
 
+        val profileIconAsset = prefs.getString(KEY_PROFILE_ICON_ASSET, "") ?: ""
+
         val launchIntent =
             context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -89,7 +92,7 @@ object FocusHomeWidgetUpdater {
             views.setTextViewText(R.id.widgetNote, note)
             views.setTextViewText(R.id.widgetUrgency, "")
             views.setTextViewText(R.id.widgetMeta, streak)
-            views.setImageViewResource(R.id.widgetMascotImage, mascotForMode(mode))
+            views.setImageViewResource(R.id.widgetMascotImage, mascotForProfile(profileIconAsset))
             views.setOnClickPendingIntent(R.id.widgetRoot, pendingIntent)
 
             views.setViewVisibility(
@@ -122,14 +125,16 @@ object FocusHomeWidgetUpdater {
         }
     }
 
-    private fun mascotForMode(mode: String): Int {
-        return when (mode) {
-            "exam" -> R.drawable.focus_mascot_exam
-            "pomodoro" -> R.drawable.focus_mascot_pomodoro
-            "break" -> R.drawable.focus_mascot_break
-            "almost_done" -> R.drawable.focus_mascot_almost_done
-            "streak_risk" -> R.drawable.focus_mascot_streak_risk
-            else -> R.drawable.focus_mascot_class
+    private fun mascotForProfile(asset: String): Int {
+        return when (asset) {
+            "assets/profile_icons/focus_flame.png" -> R.drawable.focus_profile_flame
+            "assets/profile_icons/focus_calm.png" -> R.drawable.focus_profile_calm
+            "assets/profile_icons/focus_champion.png" -> R.drawable.focus_profile_champion
+            "assets/profile_icons/focus_scholar_female.png" -> R.drawable.focus_profile_scholar_female
+            "assets/profile_icons/focus_flame_female.png" -> R.drawable.focus_profile_flame_female
+            "assets/profile_icons/focus_calm_female.png" -> R.drawable.focus_profile_calm_female
+            "assets/profile_icons/focus_champion_female.png" -> R.drawable.focus_profile_champion_female
+            else -> R.drawable.focus_profile_scholar
         }
     }
 

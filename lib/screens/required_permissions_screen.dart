@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/focus_mode_service.dart';
@@ -7,7 +7,7 @@ import 'main_navigation_screen.dart';
 
 const _permissionsCompletedKey = 'required_permissions_completed';
 
-class RequiredPermissionsGate extends StatelessWidget {
+class RequiredPermissionsGate extends StatefulWidget {
   const RequiredPermissionsGate({super.key});
 
   static Future<bool> isSetupCompleted() async {
@@ -39,9 +39,23 @@ class RequiredPermissionsGate extends StatelessWidget {
   }
 
   @override
+  State<RequiredPermissionsGate> createState() =>
+      _RequiredPermissionsGateState();
+}
+
+class _RequiredPermissionsGateState extends State<RequiredPermissionsGate> {
+  late final Future<bool> _setupFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _setupFuture = RequiredPermissionsGate.shouldSkipSetup();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: shouldSkipSetup(),
+      future: _setupFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Scaffold(
@@ -399,3 +413,4 @@ class _PermissionStatusCard extends StatelessWidget {
     );
   }
 }
+

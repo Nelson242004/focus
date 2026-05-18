@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
+import '../utils/focus_palette.dart';
 
 class AuthGateScreen extends StatefulWidget {
   final Widget child;
@@ -31,19 +32,17 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
         if (user == null) {
           return widget.requireAccount ? const LoginScreen() : widget.child;
         }
+        if (!widget.requireAccount) {
+          unawaited(RankingService.ensureCurrentWeekScore());
+          return widget.child;
+        }
         return FutureBuilder<RankingProfile?>(
-          future: widget.requireAccount
-              ? RankingService.ensureProfile()
-              : RankingService.fetchProfile(),
+          future: RankingService.ensureProfile(),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
               );
-            }
-            if (!widget.requireAccount &&
-                (profileSnapshot.hasError || profileSnapshot.data == null)) {
-              return widget.child;
             }
             final profile = profileSnapshot.data;
             if (profile == null) {
@@ -62,10 +61,1405 @@ class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _DuoLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _DuoLoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _creatingAccount = false;
+  bool _loading = false;
+  bool _obscurePassword = true;
+  bool _showEmailForm = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitEmail() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
+    try {
+      if (_creatingAccount) {
+        await RankingService.createUserWithEmail(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+      } else {
+        await RankingService.signInWithEmail(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+      }
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _submitGoogle() async {
+    setState(() => _loading = true);
+    try {
+      await RankingService.signInWithGoogle();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _resetPassword() async {
+    final email = _emailController.text.trim();
+    if (!email.contains('@')) {
+      _showMessage('Escribe tu correo primero para enviarte el enlace.');
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      await RankingService.sendPasswordResetEmail(email);
+      _showMessage('Te enviamos un enlace para recuperar tu contraseña.');
+    } catch (error) {
+      _showError(error);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _showError(Object error) {
+    if (!mounted) return;
+    _showMessage(RankingService.friendlyRankingError(error));
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _loginCanvas,
+      body: _FocusLoginBackdrop(
+        child: SafeArea(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: _showEmailForm
+                ? _EmailLoginStep(
+                    formKey: _formKey,
+                    emailController: _emailController,
+                    passwordController: _passwordController,
+                    creatingAccount: _creatingAccount,
+                    loading: _loading,
+                    obscurePassword: _obscurePassword,
+                    onBack: () => setState(() => _showEmailForm = false),
+                    onToggleMode: () => setState(
+                      () => _creatingAccount = !_creatingAccount,
+                    ),
+                    onTogglePassword: () => setState(
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+                    onSubmitEmail: _submitEmail,
+                    onSubmitGoogle: _submitGoogle,
+                    onResetPassword: _resetPassword,
+                  )
+                : _LoginChoiceStep(
+                    loading: _loading,
+                    canPop: Navigator.of(context).canPop(),
+                    onBack: () => Navigator.of(context).pop(),
+                    onSignIn: () => setState(() {
+                      _creatingAccount = false;
+                      _showEmailForm = true;
+                    }),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _loginCanvas = Color(0xFF07111F);
+const _loginPanel = Color(0xFF0D1B2E);
+const _loginPanelSoft = Color(0xFF132640);
+const _loginStroke = Color(0xFF28435F);
+const _loginPrimary = Color(0xFF38BDF8);
+const _loginPrimaryDeep = Color(0xFF2563EB);
+const _loginMint = Color(0xFF22C55E);
+const _loginTextMuted = Color(0xFF9FB4CC);
+const _loginAmber = Color(0xFFFBBF24);
+
+class _FocusLoginBackdrop extends StatelessWidget {
+  final Widget child;
+
+  const _FocusLoginBackdrop({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF06111F),
+            Color(0xFF081827),
+            Color(0xFF0A2331),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -86,
+            right: -74,
+            child: _FocusGlowOrb(
+              size: 220,
+              color: FocusPalette.cyan,
+              opacity: 0.24,
+            ),
+          ),
+          Positioned(
+            left: -90,
+            bottom: 92,
+            child: _FocusGlowOrb(
+              size: 240,
+              color: FocusPalette.teal,
+              opacity: 0.18,
+            ),
+          ),
+          Positioned(
+            right: 28,
+            bottom: 26,
+            child: _FocusGlowOrb(
+              size: 86,
+              color: FocusPalette.amber,
+              opacity: 0.12,
+            ),
+          ),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _FocusGridPainter()),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusGlowOrb extends StatelessWidget {
+  final double size;
+  final Color color;
+  final double opacity;
+
+  const _FocusGlowOrb({
+    required this.size,
+    required this.color,
+    required this.opacity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withValues(alpha: opacity),
+            color.withValues(alpha: 0),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusGridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.025)
+      ..strokeWidth = 1;
+    const gap = 34.0;
+    for (var x = 0.0; x < size.width; x += gap) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (var y = 0.0; y < size.height; y += gap) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class _LoginChoiceStep extends StatelessWidget {
+  final bool loading;
+  final bool canPop;
+  final VoidCallback onBack;
+  final VoidCallback onSignIn;
+
+  const _LoginChoiceStep({
+    required this.loading,
+    required this.canPop,
+    required this.onBack,
+    required this.onSignIn,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: const ValueKey('choice-step'),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 34),
+      children: [
+        _LoginTopBar(enabled: !loading && canPop, onBack: onBack),
+        SizedBox(height: MediaQuery.sizeOf(context).height * 0.10),
+        const _FocusWelcomeMark(),
+        const SizedBox(height: 30),
+        const Text(
+          'Bienvenido a Focus',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 38,
+            height: 1.0,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -1.1,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Organiza tus materias, protege tu enfoque y convierte cada sesión en progreso real.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _loginTextMuted,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            height: 1.38,
+          ),
+        ),
+        SizedBox(height: MediaQuery.sizeOf(context).height * 0.10),
+        const _FocusLoginFeatureStrip(),
+        const SizedBox(height: 24),
+        _DuoPrimaryButton(
+          label: 'INGRESAR',
+          loading: false,
+          onPressed: loading ? null : onSignIn,
+        ),
+      ],
+    );
+  }
+}
+
+class _FocusLoginFeatureStrip extends StatelessWidget {
+  const _FocusLoginFeatureStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: const [
+        Expanded(
+          child: _FocusMiniBenefit(
+            icon: Icons.emoji_events_rounded,
+            label: 'Ranking',
+          ),
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: _FocusMiniBenefit(
+            icon: Icons.groups_rounded,
+            label: 'Amigos',
+          ),
+        ),
+        SizedBox(width: 10),
+        Expanded(
+          child: _FocusMiniBenefit(
+            icon: Icons.shield_rounded,
+            label: 'Enfoque',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FocusMiniBenefit extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _FocusMiniBenefit({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: _loginPrimary, size: 22),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmailLoginStep extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool creatingAccount;
+  final bool loading;
+  final bool obscurePassword;
+  final VoidCallback onBack;
+  final VoidCallback onToggleMode;
+  final VoidCallback onTogglePassword;
+  final VoidCallback onSubmitEmail;
+  final VoidCallback onSubmitGoogle;
+  final VoidCallback onResetPassword;
+
+  const _EmailLoginStep({
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+    required this.creatingAccount,
+    required this.loading,
+    required this.obscurePassword,
+    required this.onBack,
+    required this.onToggleMode,
+    required this.onTogglePassword,
+    required this.onSubmitEmail,
+    required this.onSubmitGoogle,
+    required this.onResetPassword,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      key: const ValueKey('email-step'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 18, 28, 0),
+          child: _LoginTopBar(
+            enabled: !loading,
+            onBack: onBack,
+            title: creatingAccount ? 'Crear cuenta' : 'Iniciar sesión',
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(28, 34, 28, 24),
+            children: [
+              _FocusLoginHeroCard(creatingAccount: creatingAccount),
+              const SizedBox(height: 22),
+              _FocusAuthDataCard(
+                formKey: formKey,
+                emailController: emailController,
+                passwordController: passwordController,
+                creatingAccount: creatingAccount,
+                obscurePassword: obscurePassword,
+                loading: loading,
+                onTogglePassword: onTogglePassword,
+                onSubmit: onSubmitEmail,
+              ),
+              const SizedBox(height: 28),
+              _DuoPrimaryButton(
+                label: creatingAccount ? 'CREAR CUENTA' : 'INGRESAR',
+                loading: loading,
+                onPressed: loading ? null : onSubmitEmail,
+              ),
+              if (!creatingAccount) ...[
+                const SizedBox(height: 26),
+                Center(
+                  child: TextButton(
+                    onPressed: loading ? null : onResetPassword,
+                    child: const Text(
+                      'RESTABLECER CONTRASEÑA',
+                      style: TextStyle(
+                        color: _loginPrimary,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.4,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(28, 0, 28, 18),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _DuoSocialButton(
+                      label: 'GOOGLE',
+                      icon: Icons.g_mobiledata_rounded,
+                      color: const Color(0xFF4285F4),
+                      onPressed: loading ? null : onSubmitGoogle,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _DuoSocialButton(
+                      label: creatingAccount ? 'ENTRAR' : 'CREAR',
+                      icon: creatingAccount
+                          ? Icons.login_rounded
+                          : Icons.person_add_alt_1_rounded,
+                      color: _loginMint,
+                      onPressed: loading ? null : onToggleMode,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                creatingAccount
+                    ? 'Tu cuenta guarda ranking, amigos e insignias.'
+                    : 'Focus sincroniza tu progreso sin tocar tus materias.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _loginTextMuted.withValues(alpha: 0.72),
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LoginTopBar extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onBack;
+  final String? title;
+
+  const _LoginTopBar({
+    required this.enabled,
+    required this.onBack,
+    this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: IconButton(
+                onPressed: enabled ? onBack : null,
+                icon: const Icon(Icons.arrow_back_rounded, size: 27),
+                color: Colors.white.withValues(alpha: enabled ? 0.86 : 0.32),
+                tooltip: 'Volver',
+              ),
+            ),
+          ),
+          if (title != null)
+            Text(
+              title!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 23,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.3,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _FocusMascotIntro extends StatelessWidget {
+  const _FocusMascotIntro();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: _loginStroke, width: 2.4),
+          ),
+          child: const Text(
+            '¡Hola! Yo soy Focus.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: 112,
+          height: 112,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const LinearGradient(
+              colors: FocusPalette.studyGradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: FocusPalette.cyan.withValues(alpha: 0.22),
+                blurRadius: 22,
+                offset: const Offset(0, 14),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.center_focus_strong_rounded,
+            color: Colors.white,
+            size: 58,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FocusWelcomeMark extends StatelessWidget {
+  const _FocusWelcomeMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 168,
+        height: 148,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(38),
+          gradient: LinearGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.16),
+              Colors.white.withValues(alpha: 0.06),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+          boxShadow: [
+            BoxShadow(
+              color: FocusPalette.cyan.withValues(alpha: 0.26),
+              blurRadius: 34,
+              offset: const Offset(0, 18),
+            ),
+          ],
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              left: -18,
+              top: 18,
+              child: _FocusGlowOrb(
+                size: 82,
+                color: FocusPalette.teal,
+                opacity: 0.28,
+              ),
+            ),
+            Positioned(
+              right: -12,
+              bottom: -10,
+              child: _FocusGlowOrb(
+                size: 94,
+                color: FocusPalette.cyan,
+                opacity: 0.22,
+              ),
+            ),
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                gradient: const LinearGradient(
+                  colors: [_loginPrimaryDeep, _loginPrimary, _loginMint],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.24),
+                  width: 2,
+                ),
+              ),
+            ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Image.asset(
+                'assets/icon.png',
+                width: 78,
+                height: 78,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Positioned(
+              right: 24,
+              top: 24,
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _loginAmber,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: _loginCanvas,
+                  size: 16,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _FocusLoginBrief extends StatelessWidget {
+  final bool creatingAccount;
+
+  const _FocusLoginBrief({required this.creatingAccount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [
+            FocusPalette.primaryDeep.withValues(alpha: 0.96),
+            FocusPalette.cyan.withValues(alpha: 0.78),
+            FocusPalette.teal.withValues(alpha: 0.88),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: FocusPalette.cyan.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+            ),
+            child: const Icon(
+              Icons.center_focus_strong_rounded,
+              color: Colors.white,
+              size: 34,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  creatingAccount ? 'Tu perfil Focus' : 'Tu progreso te espera',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.35,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  creatingAccount
+                      ? 'Crea una cuenta para competir, sumar insignias y estudiar con amigos.'
+                      : 'Ingresa para recuperar ranking, rachas e insignias.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.78),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusLoginHeroCard extends StatelessWidget {
+  final bool creatingAccount;
+
+  const _FocusLoginHeroCard({required this.creatingAccount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          colors: [
+            _loginPanelSoft,
+            _loginPanel,
+            _loginPrimaryDeep.withValues(alpha: 0.70),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+        boxShadow: [
+          BoxShadow(
+            color: FocusPalette.primaryDeep.withValues(alpha: 0.24),
+            blurRadius: 30,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -34,
+            top: -38,
+            child: Container(
+              width: 118,
+              height: 118,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            right: 8,
+            bottom: -4,
+            child: Icon(
+              Icons.graphic_eq_rounded,
+              color: Colors.white.withValues(alpha: 0.10),
+              size: 86,
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 78,
+                height: 78,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(26),
+                  color: Colors.white.withValues(alpha: 0.95),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.12),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Image.asset('assets/icon.png', fit: BoxFit.contain),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      creatingAccount ? 'Crea tu Focus' : 'Vuelve a Focus',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                        letterSpacing: -0.6,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      creatingAccount
+                          ? 'Guarda tu progreso, amigos e insignias en un solo lugar.'
+                          : 'Recupera tu ranking, rachas e insignias para seguir estudiando.',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        height: 1.28,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: const [
+                        _FocusLoginChip(label: 'Ranking'),
+                        _FocusLoginChip(label: 'Rachas'),
+                        _FocusLoginChip(label: 'Insignias'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusLoginChip extends StatelessWidget {
+  final String label;
+
+  const _FocusLoginChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusAuthDataCard extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool creatingAccount;
+  final bool obscurePassword;
+  final bool loading;
+  final VoidCallback onTogglePassword;
+  final VoidCallback onSubmit;
+
+  const _FocusAuthDataCard({
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+    required this.creatingAccount,
+    required this.obscurePassword,
+    required this.loading,
+    required this.onTogglePassword,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Container(
+        padding: const EdgeInsets.all(1.6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(26),
+          gradient: LinearGradient(
+            colors: [
+              FocusPalette.cyan.withValues(alpha: 0.75),
+              _loginStroke,
+              FocusPalette.primary.withValues(alpha: 0.45),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: _loginPanel,
+          ),
+          child: Column(
+            children: [
+              _FocusTextField(
+                controller: emailController,
+                hint: 'Correo de Focus',
+                icon: Icons.alternate_email_rounded,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.email],
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  if (text.isEmpty) return 'Escribe tu correo.';
+                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
+                    return 'Ese correo no parece válido.';
+                  }
+                  return null;
+                },
+              ),
+              Divider(
+                height: 1,
+                thickness: 1.4,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+              _FocusTextField(
+                controller: passwordController,
+                hint: creatingAccount ? 'Mínimo 6 caracteres' : 'Contraseña',
+                icon: Icons.lock_rounded,
+                obscureText: obscurePassword,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  if (!loading) onSubmit();
+                },
+                suffixIcon: IconButton(
+                  onPressed: onTogglePassword,
+                  icon: Icon(
+                    obscurePassword
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: _loginPrimary,
+                    size: 30,
+                  ),
+                  tooltip: obscurePassword
+                      ? 'Mostrar contraseña'
+                      : 'Ocultar contraseña',
+                ),
+                validator: (value) {
+                  final text = value ?? '';
+                  if (text.isEmpty) return 'Escribe tu contraseña.';
+                  if (text.length < 6) return 'Mínimo 6 caracteres.';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FocusTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
+  final ValueChanged<String>? onSubmitted;
+
+  const _FocusTextField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.autofillHints,
+    this.suffixIcon,
+    this.validator,
+    this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      autofillHints: autofillHints,
+      validator: validator,
+      onFieldSubmitted: onSubmitted,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: _loginTextMuted.withValues(alpha: 0.72),
+          fontSize: 18,
+          fontWeight: FontWeight.w800,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: FocusPalette.cyan.withValues(alpha: 0.75),
+          size: 24,
+        ),
+        suffixIcon: suffixIcon,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        errorStyle: const TextStyle(
+          color: Color(0xFFFFB4B4),
+          fontWeight: FontWeight.w800,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _AuthDataCard extends StatelessWidget {
+  final GlobalKey<FormState> formKey;
+  final TextEditingController emailController;
+  final TextEditingController passwordController;
+  final bool creatingAccount;
+  final bool obscurePassword;
+  final bool loading;
+  final VoidCallback onTogglePassword;
+  final VoidCallback onSubmit;
+
+  const _AuthDataCard({
+    required this.formKey,
+    required this.emailController,
+    required this.passwordController,
+    required this.creatingAccount,
+    required this.obscurePassword,
+    required this.loading,
+    required this.onTogglePassword,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: _loginStroke, width: 2.4),
+        ),
+        child: Column(
+          children: [
+            _DuoTextField(
+              controller: emailController,
+              hint: 'Usuario o correo',
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              validator: (value) {
+                final text = value?.trim() ?? '';
+                if (text.isEmpty) return 'Escribe tu correo.';
+                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
+                  return 'Ese correo no parece válido.';
+                }
+                return null;
+              },
+            ),
+            Divider(height: 1, thickness: 2, color: _loginStroke),
+            _DuoTextField(
+              controller: passwordController,
+              hint: creatingAccount ? 'Mínimo 6 caracteres' : 'Contraseña',
+              obscureText: obscurePassword,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!loading) onSubmit();
+              },
+              suffixIcon: IconButton(
+                onPressed: onTogglePassword,
+                icon: Icon(
+                  obscurePassword
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  color: _loginPrimary,
+                  size: 34,
+                ),
+                tooltip: obscurePassword
+                    ? 'Mostrar contraseña'
+                    : 'Ocultar contraseña',
+              ),
+              validator: (value) {
+                final text = value ?? '';
+                if (text.isEmpty) return 'Escribe tu contraseña.';
+                if (text.length < 6) return 'Mínimo 6 caracteres.';
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DuoTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final bool obscureText;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final Widget? suffixIcon;
+  final String? Function(String?)? validator;
+  final ValueChanged<String>? onSubmitted;
+
+  const _DuoTextField({
+    required this.controller,
+    required this.hint,
+    this.obscureText = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.autofillHints,
+    this.suffixIcon,
+    this.validator,
+    this.onSubmitted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      autofillHints: autofillHints,
+      validator: validator,
+      onFieldSubmitted: onSubmitted,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 23,
+        fontWeight: FontWeight.w800,
+      ),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.32),
+          fontSize: 23,
+          fontWeight: FontWeight.w800,
+        ),
+        suffixIcon: suffixIcon,
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        errorBorder: InputBorder.none,
+        focusedErrorBorder: InputBorder.none,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+      ),
+    );
+  }
+}
+
+class _DuoPrimaryButton extends StatelessWidget {
+  final String label;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  const _DuoPrimaryButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.58,
+      child: GestureDetector(
+        onTap: enabled ? onPressed : null,
+        child: Container(
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            gradient: enabled
+                ? const LinearGradient(
+                    colors: [_loginPrimaryDeep, _loginPrimary, _loginMint],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  )
+                : null,
+            color: enabled ? null : _loginStroke,
+            boxShadow: enabled
+                ? [
+                    BoxShadow(
+                      color: _loginPrimary.withValues(alpha: 0.28),
+                      offset: const Offset(0, 14),
+                      blurRadius: 26,
+                    ),
+                  ]
+                : null,
+          ),
+          child: loading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.2,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _DuoOutlineButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+
+  const _DuoOutlineButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(66),
+        side: const BorderSide(color: _loginStroke, width: 2.6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        foregroundColor: _loginMint,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 2.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _DuoSocialButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _DuoSocialButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(58),
+        backgroundColor: Colors.white.withValues(alpha: 0.055),
+        side: BorderSide(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1.4,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        foregroundColor: Colors.white,
+      ),
+      icon: Icon(icon, color: color, size: 30),
+      label: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.6,
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _LegacyLoginScreen extends StatefulWidget {
+  const _LegacyLoginScreen();
+
+  @override
+  State<_LegacyLoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<_LegacyLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();

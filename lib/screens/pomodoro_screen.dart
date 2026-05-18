@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -2156,3 +2156,4 @@ class _HorizontalTheme {
     required this.textColor,
   });
 }
+

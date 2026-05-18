@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
@@ -969,3 +969,4 @@ class _SubjectBucket {
     required this.name,
   });
 }
+
