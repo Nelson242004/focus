@@ -129,7 +129,8 @@ class RankingEntry {
     this.lastActive,
   });
 
-  factory RankingEntry.fromMap(String uid, Map<String, dynamic> map, {int position = 0}) {
+  factory RankingEntry.fromMap(String uid, Map<String, dynamic> map,
+      {int position = 0}) {
     return RankingEntry(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',

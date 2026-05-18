@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
@@ -1011,3 +1011,4 @@ class AppProvider extends ChangeNotifier {
     return DateTime(now.year, now.month, now.day + 7, hour, minute);
   }
 }
+

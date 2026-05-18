@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/ranking_profile.dart';
 import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
+import '../services/widget_sync_service.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
@@ -127,7 +128,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                       child: ListView(
                         padding: const EdgeInsets.fromLTRB(14, 10, 14, 26),
                         children: [
-                          _SocialProfileHeader(
+                          _DuolingoFriendsHeader(
                             profile: profile!,
                             friendsCount: friends.length,
                             onCopy: _copyFriendCode,
@@ -139,7 +140,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             profile: profile,
                           ),
                           const SizedBox(height: 14),
-                          _FriendsHub(
+                          _FriendsHubDuo(
                             friends: friends,
                             search: _SearchCard(
                               controller: _searchController,
@@ -161,7 +162,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             friends: friends,
                           ),
                           const SizedBox(height: 18),
-                          _RecentBadges(profile: profile),
+                          _AllBadgesGrid(profile: profile),
                           /*
                           _CollapsibleFriendsSection(
                             icon: Icons.person_add_alt_1_rounded,
@@ -572,6 +573,9 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                         await RankingService.updateSocialStyle(
                           mascotIndex: index,
                         );
+                        await WidgetSyncService.syncProfileIconAsset(
+                          option.asset,
+                        );
                       } catch (error) {
                         if (!mounted) return;
                         setState(() => _profileIconIndex = previous);
@@ -595,6 +599,279 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
   }
 }
 
+class _DuolingoFriendsHeader extends StatefulWidget {
+  final RankingProfile profile;
+  final int friendsCount;
+  final Future<void> Function(String code) onCopy;
+  final VoidCallback onShare;
+
+  const _DuolingoFriendsHeader({
+    required this.profile,
+    required this.friendsCount,
+    required this.onCopy,
+    required this.onShare,
+  });
+
+  @override
+  State<_DuolingoFriendsHeader> createState() => _DuolingoFriendsHeaderState();
+}
+
+class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
+  late int _themeIndex;
+  late int _profileIconIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeIndex = _safeIndex(
+      widget.profile.stats['socialThemeIndex'],
+      _socialThemes.length,
+    );
+    _profileIconIndex = _safeIndex(
+      widget.profile.stats['socialMascotIndex'],
+      _profileIcons.length,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = widget.profile;
+    final code = RankingService.friendCodeForUid(profile.uid);
+    final theme = _socialThemes[_themeIndex];
+    return Container(
+      height: 226,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        gradient: LinearGradient(
+          colors: theme.colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned(
+            right: -34,
+            top: -38,
+            child: _SoftHeaderCircle(size: 130, alpha: 0.08),
+          ),
+          Positioned(
+            left: -54,
+            bottom: -70,
+            child: _SoftHeaderCircle(size: 190, alpha: 0.06),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    profile.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      height: 1.0,
+                      letterSpacing: -0.8,
+                    ),
+                  ),
+                ),
+                _ColorFanButton(
+                  selected: _themeIndex,
+                  onSelected: (index) async {
+                    final previous = _themeIndex;
+                    setState(() => _themeIndex = index);
+                    try {
+                      await RankingService.updateSocialStyle(themeIndex: index);
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      setState(() => _themeIndex = previous);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content:
+                              Text(RankingService.friendlyRankingError(error)),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    foregroundColor: Colors.white.withValues(alpha: 0.9),
+                    fixedSize: const Size(36, 36),
+                    minimumSize: const Size(36, 36),
+                    padding: EdgeInsets.zero,
+                    shape: const CircleBorder(),
+                  ),
+                  onPressed: widget.onShare,
+                  tooltip: 'Compartir código',
+                  icon: const Icon(Icons.ios_share_rounded, size: 18),
+                ),
+              ],
+            ),
+          ),
+          Align(
+            alignment: const Alignment(0.08, 0.22),
+            child: _ProfileIconBadge(
+              option: _profileIcons[_profileIconIndex],
+              colors: theme.colors,
+              size: 170,
+              onTap: () => _showProfileIconPicker(context),
+            ),
+          ),
+          Positioned(
+            left: 22,
+            bottom: 16,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(999),
+              onTap: () => widget.onCopy(code),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: Colors.black.withValues(alpha: 0.16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      code,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.45,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(
+                      Icons.copy_rounded,
+                      color: Colors.white,
+                      size: 12,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showProfileIconPicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Icono de perfil',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Elige cómo quieres aparecer en Amigos.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 0.78,
+                ),
+                itemCount: _profileIcons.length,
+                itemBuilder: (context, index) {
+                  final option = _profileIcons[index];
+                  return _ProfileIconChoice(
+                    option: option,
+                    selected: index == _profileIconIndex,
+                    onTap: () async {
+                      Navigator.pop(context);
+                      if (index == _profileIconIndex) return;
+                      final previous = _profileIconIndex;
+                      setState(() => _profileIconIndex = index);
+                      try {
+                        await RankingService.updateSocialStyle(
+                          mascotIndex: index,
+                        );
+                        await WidgetSyncService.syncProfileIconAsset(
+                          option.asset,
+                        );
+                      } catch (error) {
+                        if (!mounted) return;
+                        setState(() => _profileIconIndex = previous);
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              RankingService.friendlyRankingError(error),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SoftHeaderCircle extends StatelessWidget {
+  final double size;
+  final double alpha;
+
+  const _SoftHeaderCircle({
+    required this.size,
+    required this.alpha,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: alpha),
+      ),
+    );
+  }
+}
+
 class _SocialSummaryCard extends StatelessWidget {
   final int friendsCount;
   final RankingProfile profile;
@@ -607,20 +884,33 @@ class _SocialSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final muted = Theme.of(context).colorScheme.onSurface.withValues(
-          alpha: isDark ? 0.48 : 0.58,
-        );
+    final scheme = Theme.of(context).colorScheme;
+    final textColor = isDark ? Colors.white : FocusPalette.ink;
+    final muted = textColor.withValues(alpha: isDark ? 0.48 : 0.56);
+    final surfaceColor = isDark
+        ? const Color(0xFF10212A)
+        : scheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : FocusPalette.primary.withValues(alpha: 0.10);
     return Container(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
+      padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        color: Theme.of(context).cardColor,
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(28),
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF10212A), Color(0xFF132B33)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
+        color: isDark ? null : surfaceColor,
+        border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.05),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.045),
+            blurRadius: isDark ? 18 : 14,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -642,16 +932,20 @@ class _SocialSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.local_fire_department_rounded,
-                  iconColor: FocusPalette.coral,
+                  iconColor: isDark
+                      ? Colors.white.withValues(alpha: 0.46)
+                      : FocusPalette.coral,
                   value: '${_profileStreak(profile)} días',
+                  valueColor: textColor,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.people_alt_rounded,
-                  iconColor: FocusPalette.primary,
+                  iconColor: FocusPalette.cyan,
                   value: '$friendsCount',
+                  valueColor: textColor,
                 ),
               ),
             ],
@@ -662,8 +956,9 @@ class _SocialSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.emoji_events_rounded,
-                  iconColor: FocusPalette.mint,
+                  iconColor: FocusPalette.cyan,
                   value: profile.rank,
+                  valueColor: textColor,
                 ),
               ),
               const SizedBox(width: 14),
@@ -672,6 +967,7 @@ class _SocialSummaryCard extends StatelessWidget {
                   icon: Icons.bolt_rounded,
                   iconColor: FocusPalette.amber,
                   value: '${profile.weeklyPoints} EXP',
+                  valueColor: textColor,
                 ),
               ),
             ],
@@ -686,11 +982,13 @@ class _SummaryMetric extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String value;
+  final Color valueColor;
 
   const _SummaryMetric({
     required this.icon,
     required this.iconColor,
     required this.value,
+    required this.valueColor,
   });
 
   @override
@@ -705,6 +1003,7 @@ class _SummaryMetric extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: valueColor,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.35,
                 ),
@@ -807,11 +1106,13 @@ class _ColorFanButton extends StatelessWidget {
 class _ProfileIconBadge extends StatelessWidget {
   final _ProfileIconOption option;
   final List<Color> colors;
+  final double size;
   final VoidCallback onTap;
 
   const _ProfileIconBadge({
     required this.option,
     required this.colors,
+    this.size = 118,
     required this.onTap,
   });
 
@@ -823,8 +1124,8 @@ class _ProfileIconBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: SizedBox(
-          width: 118,
-          height: 118,
+          width: size,
+          height: size,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1106,6 +1407,19 @@ const _profileIcons = [
   _ProfileIconOption('Flame', 'assets/profile_icons/focus_flame.png'),
   _ProfileIconOption('Calma', 'assets/profile_icons/focus_calm.png'),
   _ProfileIconOption('Champion', 'assets/profile_icons/focus_champion.png'),
+  _ProfileIconOption(
+    'Scholar F',
+    'assets/profile_icons/focus_scholar_female.png',
+  ),
+  _ProfileIconOption('Flame F', 'assets/profile_icons/focus_flame_female.png'),
+  _ProfileIconOption(
+    'Calma F',
+    'assets/profile_icons/focus_calm_female.png',
+  ),
+  _ProfileIconOption(
+    'Champion F',
+    'assets/profile_icons/focus_champion_female.png',
+  ),
 ];
 
 // ignore: unused_element
@@ -1532,6 +1846,128 @@ class _FriendsPanel extends StatelessWidget {
   }
 }
 
+class _FriendsHubDuo extends StatefulWidget {
+  final List<RankingProfile> friends;
+  final Widget search;
+  final Widget requests;
+  final Widget list;
+
+  const _FriendsHubDuo({
+    required this.friends,
+    required this.search,
+    required this.requests,
+    required this.list,
+  });
+
+  @override
+  State<_FriendsHubDuo> createState() => _FriendsHubDuoState();
+}
+
+class _FriendsHubDuoState extends State<_FriendsHubDuo> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _FriendsPanel(
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _expanded
+                      ? FocusPalette.primary.withValues(alpha: 0.65)
+                      : FocusPalette.muted.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+                color: _expanded
+                    ? FocusPalette.primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.person_add_alt_1_rounded, size: 25),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'AGREGA AMIGOS',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.7,
+                          ),
+                    ),
+                  ),
+                  if (widget.friends.isNotEmpty) ...[
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        color: FocusPalette.primary.withValues(alpha: 0.12),
+                      ),
+                      child: Text(
+                        '${widget.friends.length}',
+                        style: const TextStyle(
+                          color: FocusPalette.primary,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.28),
+                ),
+                child: Column(
+                  children: [
+                    widget.search,
+                    const SizedBox(height: 12),
+                    widget.requests,
+                    widget.list,
+                  ],
+                ),
+              ),
+            ),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeOutCubic,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
 class _FriendsHub extends StatelessWidget {
   final List<RankingProfile> friends;
   final Widget search;
@@ -1948,6 +2384,9 @@ class _FriendStreaks extends StatelessWidget {
         stream: FriendsService.friendStreaksStream(),
         builder: (context, streakSnapshot) {
           final streaks = streakSnapshot.data ?? const <FriendStreak>[];
+          final visibleStreaks = streaks.take(5).toList();
+          final emptySlots =
+              (5 - visibleStreaks.length - 1).clamp(0, 4).toInt();
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1976,7 +2415,7 @@ class _FriendStreaks extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   children: [
-                    ...streaks.map(
+                    ...visibleStreaks.map(
                       (streak) => Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: _StreakBubble(
@@ -1985,7 +2424,7 @@ class _FriendStreaks extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (streaks.length < 5)
+                    if (visibleStreaks.length < 5)
                       Padding(
                         padding: const EdgeInsets.only(right: 12),
                         child: _AddFriendBubble(
@@ -1996,6 +2435,13 @@ class _FriendStreaks extends StatelessWidget {
                           ),
                         ),
                       ),
+                    ...List.generate(
+                      emptySlots,
+                      (_) => const Padding(
+                        padding: EdgeInsets.only(right: 12),
+                        child: _EmptyStreakBubble(),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -2018,6 +2464,7 @@ class _FriendStreaks extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _RecentBadges extends StatelessWidget {
   final RankingProfile profile;
 
@@ -2063,6 +2510,109 @@ class _RecentBadges extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _RecentBadgesDuo extends StatelessWidget {
+  final RankingProfile profile;
+
+  const _RecentBadgesDuo({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final badges = profile.badges.reversed.take(5).toList();
+    final emptySlots = (5 - badges.length).clamp(0, 5).toInt();
+    return _SocialSection(
+      title: 'Logros',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 92,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              children: [
+                ...badges.map(
+                  (badgeId) => Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: _BadgeBubble(badgeId: badgeId),
+                  ),
+                ),
+                ...List.generate(
+                  emptySlots,
+                  (_) => const Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: _EmptyBadgeBubble(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (badges.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Completa sesiones y hábitos para desbloquear logros.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FocusPalette.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AllBadgesGrid extends StatelessWidget {
+  final RankingProfile profile;
+
+  const _AllBadgesGrid({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final unlocked = profile.badges.toSet();
+    final orderedBadges = [
+      ...achievementBadgeIds.where(unlocked.contains),
+      ...profile.badges.where((id) => !achievementBadgeIds.contains(id)),
+    ];
+    final badges = orderedBadges.toSet().toList();
+
+    return _SocialSection(
+      title: 'Insignias',
+      child: badges.isEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _EmptyBadgeBubble(),
+                const SizedBox(height: 6),
+                Text(
+                  'Completa sesiones y hábitos para desbloquear insignias.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: FocusPalette.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            )
+          : GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: badges.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 5,
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 8,
+                childAspectRatio: 0.72,
+              ),
+              itemBuilder: (context, index) {
+                return _BadgeBubble(badgeId: badges[index]);
+              },
+            ),
     );
   }
 }
@@ -2769,6 +3319,30 @@ class _AddFriendBubble extends StatelessWidget {
           color: FocusPalette.muted.withValues(alpha: 0.8),
           size: 30,
         ),
+      ),
+    );
+  }
+}
+
+class _EmptyStreakBubble extends StatelessWidget {
+  const _EmptyStreakBubble();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: FocusPalette.muted.withValues(alpha: 0.28),
+          width: 2,
+        ),
+      ),
+      child: Icon(
+        Icons.add_rounded,
+        color: FocusPalette.muted.withValues(alpha: 0.38),
+        size: 28,
       ),
     );
   }

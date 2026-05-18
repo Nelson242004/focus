@@ -124,6 +124,14 @@ class MainActivity : FlutterActivity() {
                                 ?: call.argument<Int>("examAtMillis")?.toLong()
                                 ?: 0L,
                             meta = call.argument<String>("meta").orEmpty(),
+                            profileIconAsset = call.argument<String>("profileIconAsset").orEmpty(),
+                        )
+                        result.success(null)
+                    }
+
+                    "updateWidgetProfileIcon" -> {
+                        updateWidgetProfileIcon(
+                            profileIconAsset = call.argument<String>("profileIconAsset").orEmpty(),
                         )
                         result.success(null)
                     }
@@ -142,6 +150,7 @@ class MainActivity : FlutterActivity() {
         examNote: String,
         examAtMillis: Long,
         meta: String,
+        profileIconAsset: String,
     ) {
         val prefs = getSharedPreferences(FocusHomeWidgetUpdater.PREFS_NAME, Context.MODE_PRIVATE)
         prefs
@@ -154,8 +163,23 @@ class MainActivity : FlutterActivity() {
             .putString(FocusHomeWidgetUpdater.KEY_EXAM_NOTE, examNote)
             .putLong(FocusHomeWidgetUpdater.KEY_EXAM_AT_MILLIS, examAtMillis)
             .putString(FocusHomeWidgetUpdater.KEY_META, meta)
+            .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_ASSET, profileIconAsset)
             .commit()
 
+        refreshHomeWidgets()
+    }
+
+    private fun updateWidgetProfileIcon(profileIconAsset: String) {
+        val prefs = getSharedPreferences(FocusHomeWidgetUpdater.PREFS_NAME, Context.MODE_PRIVATE)
+        prefs
+            .edit()
+            .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_ASSET, profileIconAsset)
+            .commit()
+
+        refreshHomeWidgets()
+    }
+
+    private fun refreshHomeWidgets() {
         val manager = AppWidgetManager.getInstance(this)
         val miniComponent = ComponentName(this, FocusMiniHomeWidgetProvider::class.java)
         FocusHomeWidgetUpdater.updateWidgets(

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+﻿import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/ranking_profile.dart';
@@ -415,3 +415,4 @@ class FriendsService {
     return '${members[0]}_${members[1]}';
   }
 }
+

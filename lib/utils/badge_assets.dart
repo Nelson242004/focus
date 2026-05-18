@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import 'focus_palette.dart';
 
@@ -127,3 +127,4 @@ BadgeVisualInfo badgeVisualInfo(String id) {
 }
 
 String badgeAssetPath(String id) => badgeVisualInfo(id).asset;
+

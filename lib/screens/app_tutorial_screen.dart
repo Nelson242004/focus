@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../utils/focus_palette.dart';
 
@@ -258,3 +258,4 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schedule.dart';
 import '../models/subject.dart';
@@ -242,3 +242,4 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
     );
   }
 }
+

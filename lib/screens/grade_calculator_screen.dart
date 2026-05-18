@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../utils/focus_palette.dart';
@@ -881,3 +881,4 @@ class _GradeGoal {
 
   const _GradeGoal(this.label, this.value, this.color);
 }
+

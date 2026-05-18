@@ -200,9 +200,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom}',
             ].join(' · '),
             type: CalendarItemType.exam,
-            color: exam.isFinal
-                ? FocusPalette.coral
-                : const Color(0xFF2563EB),
+            color: exam.isFinal ? FocusPalette.coral : const Color(0xFF2563EB),
             date: normalized,
           ),
         );
