@@ -5,6 +5,7 @@ import '../models/habit.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_help_button.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -265,9 +266,29 @@ class _HabitsScreenState extends State<HabitsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hábitos atómicos'),
-        actions: [
-          IconButton(
-              onPressed: _createHabit, icon: const Icon(Icons.add_rounded)),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de habitos',
+            message:
+                'La idea aqui es repetir pocas acciones claras para construir constancia sin sobrecargarte.',
+            sections: [
+              FocusHelpSection(
+                title: 'Como usarlo',
+                items: [
+                  'Puedes tener hasta 8 habitos activos.',
+                  'Cada habito se marca una vez por dia para proteger rachas y puntos.',
+                  'La identidad asociada sirve para que el habito tenga una razon mas clara.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Ranking',
+                items: [
+                  'Los habitos tambien pueden sumar puntos al ranking global con limites diarios y reglas anti abuso.',
+                  'Crea habitos desde el bloque de la propia pantalla para no cargar la barra superior.',
+                ],
+              ),
+            ],
+          ),
         ],
       ),
       body: Consumer<AppProvider>(

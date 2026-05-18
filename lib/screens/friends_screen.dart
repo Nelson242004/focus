@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -10,6 +12,7 @@ import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_profile_mascot.dart';
 import 'auth_gate_screen.dart';
@@ -83,7 +86,33 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'friends'),
-      appBar: AppBar(title: const Text('Perfil')),
+      appBar: AppBar(
+        title: const Text('Perfil'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de perfil',
+            message:
+                'Desde aqui editas tu perfil publico y gestionas amigos sin cargar la pantalla con explicaciones largas.',
+            sections: [
+              FocusHelpSection(
+                title: 'Perfil publico',
+                items: [
+                  'Tu nombre y carrera son los datos que otros pueden ver en funciones sociales.',
+                  'Puedes cambiar personaje y color de fondo desde el editor del perfil.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Amigos',
+                items: [
+                  'Tu codigo sirve para que te agreguen rapido.',
+                  'Buscar te permite enviar solicitudes y compartir facilita invitar fuera de la app.',
+                  'El ranking entre amigos toma tu perfil publico, no la informacion privada de tu cuenta.',
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
       body: RankingService.currentUser == null
           ? _LoginRequiredPanel(onLogin: _openLogin)
           : FutureBuilder<RankingProfile?>(
@@ -520,6 +549,7 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                   children: [
                     _ColorFanButton(
                       selected: _themeIndex,
+                      size: 38,
                       onSelected: (index) async {
                         final previous = _themeIndex;
                         setState(() => _themeIndex = index);
@@ -593,14 +623,14 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                   crossAxisSpacing: 12,
                   childAspectRatio: 0.78,
                 ),
-                itemCount: _profileIcons.length,
+                itemCount: _availableProfileIconIndexes().length,
                 itemBuilder: (context, index) {
-                  final option = _profileIcons[index];
+                  final actualIndex = _availableProfileIconIndexes()[index];
+                  final option = _profileIcons[actualIndex];
                   final canUse = _isProfileIconAllowed(option.asset);
                   return _ProfileIconChoice(
                     option: option,
-                    selected: index == _profileIconIndex,
-                    locked: !canUse,
+                    selected: actualIndex == _profileIconIndex,
                     onTap: () async {
                       if (!canUse) {
                         ScaffoldMessenger.of(this.context).showSnackBar(
@@ -613,12 +643,12 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                         return;
                       }
                       Navigator.pop(context);
-                      if (index == _profileIconIndex) return;
+                      if (actualIndex == _profileIconIndex) return;
                       final previous = _profileIconIndex;
-                      setState(() => _profileIconIndex = index);
+                      setState(() => _profileIconIndex = actualIndex);
                       try {
                         await RankingService.updateSocialStyle(
-                          mascotIndex: index,
+                          mascotIndex: actualIndex,
                         );
                         await WidgetSyncService.syncProfileIconAsset(
                           option.asset,
@@ -666,7 +696,6 @@ class _DuolingoFriendsHeader extends StatefulWidget {
 class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
   late int _themeIndex;
   late int _profileIconIndex;
-  late FocusAvatarConfig _avatarConfig;
 
   @override
   void initState() {
@@ -678,7 +707,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
     _profileIconIndex = _safeProfileIconIndex(
       widget.profile.stats['socialMascotIndex'],
     );
-    _avatarConfig = _avatarConfigFromProfile(widget.profile, _profileIconIndex);
   }
 
   @override
@@ -774,29 +802,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                       ],
                     ),
                   ),
-                  _ColorFanButton(
-                    selected: _themeIndex,
-                    onSelected: (index) async {
-                      final previous = _themeIndex;
-                      setState(() => _themeIndex = index);
-                      try {
-                        await RankingService.updateSocialStyle(
-                          themeIndex: index,
-                        );
-                      } catch (error) {
-                        if (!context.mounted) return;
-                        setState(() => _themeIndex = previous);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              RankingService.friendlyRankingError(error),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(width: 8),
                   IconButton(
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.18),
@@ -814,10 +819,9 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
               ),
             ),
             Align(
-              alignment: const Alignment(0.08, 0.24),
+              alignment: const Alignment(0.08, 0.42),
               child: _ProfileIconBadge(
                 option: _profileIcons[_profileIconIndex],
-                config: _avatarConfig,
                 colors: theme.colors,
                 size: 194,
                 onTap: () => _showAvatarBuilder(context),
@@ -893,7 +897,8 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       isScrollControlled: true,
       builder: (context) => _ProfileIconPickerSheet(
         selectedIndex: _profileIconIndex,
-        onSelected: (index) async {
+        selectedThemeIndex: _themeIndex,
+        onSelected: (index, themeIndex) async {
           if (!_isProfileIconAllowed(_profileIcons[index].asset)) {
             ScaffoldMessenger.of(this.context).showSnackBar(
               const SnackBar(
@@ -905,14 +910,17 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
             return;
           }
           final previousIndex = _profileIconIndex;
-          final previousConfig = _avatarConfig;
+          final previousThemeIndex = _themeIndex;
           final config = FocusAvatarConfig.fromProfileIndex(index);
           setState(() {
             _profileIconIndex = index;
-            _avatarConfig = config;
+            _themeIndex = themeIndex;
           });
           try {
-            await RankingService.updateSocialStyle(mascotIndex: index);
+            await RankingService.updateSocialStyle(
+              mascotIndex: index,
+              themeIndex: themeIndex,
+            );
             await RankingService.updateSocialAvatar(config.toMap());
             await WidgetSyncService.syncProfileIconAsset(
               _profileIcons[index].asset,
@@ -921,7 +929,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
             if (!mounted) return;
             setState(() {
               _profileIconIndex = previousIndex;
-              _avatarConfig = previousConfig;
+              _themeIndex = previousThemeIndex;
             });
             ScaffoldMessenger.of(this.context).showSnackBar(
               SnackBar(
@@ -997,6 +1005,8 @@ class _HeaderTinyPill extends StatelessWidget {
 }
 
 class _SocialSummaryCard extends StatelessWidget {
+  static const _streakWidgetAsset =
+      'android/app/src/main/res/drawable-nodpi/focus_streak_fire.png';
   final int friendsCount;
   final RankingProfile profile;
 
@@ -1008,12 +1018,8 @@ class _SocialSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final scheme = Theme.of(context).colorScheme;
     final textColor = isDark ? Colors.white : FocusPalette.ink;
-    final muted = textColor.withValues(alpha: isDark ? 0.48 : 0.56);
-    final surfaceColor = isDark
-        ? const Color(0xFF10212A)
-        : scheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final muted = textColor.withValues(alpha: isDark ? 0.58 : 0.56);
     final borderColor = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : FocusPalette.primary.withValues(alpha: 0.10);
@@ -1021,14 +1027,7 @@ class _SocialSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 22, 24, 24),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
-        gradient: isDark
-            ? const LinearGradient(
-                colors: [Color(0xFF10212A), Color(0xFF132B33)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        color: isDark ? null : surfaceColor,
+        color: isDark ? const Color(0xFF12161C) : Colors.white,
         border: Border.all(color: borderColor),
         boxShadow: [
           BoxShadow(
@@ -1056,9 +1055,8 @@ class _SocialSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.local_fire_department_rounded,
-                  iconColor: isDark
-                      ? Colors.white.withValues(alpha: 0.46)
-                      : FocusPalette.coral,
+                  assetIcon: _streakWidgetAsset,
+                  iconColor: FocusPalette.coral,
                   value: '${_profileStreak(profile)} días',
                   valueColor: textColor,
                 ),
@@ -1152,10 +1150,12 @@ class _SummaryMetric extends StatelessWidget {
 class _ColorFanButton extends StatelessWidget {
   final int selected;
   final Future<void> Function(int index) onSelected;
+  final double size;
 
   const _ColorFanButton({
     required this.selected,
     required this.onSelected,
+    this.size = 38,
   });
 
   @override
@@ -1167,8 +1167,8 @@ class _ColorFanButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: () => _showColorFan(context),
         child: Container(
-          width: 36,
-          height: 36,
+          width: size,
+          height: size,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -1255,14 +1255,12 @@ class _ColorFanButton extends StatelessWidget {
 
 class _ProfileIconBadge extends StatelessWidget {
   final _ProfileIconOption option;
-  final FocusAvatarConfig? config;
   final List<Color> colors;
   final double size;
   final VoidCallback onTap;
 
   const _ProfileIconBadge({
     required this.option,
-    this.config,
     required this.colors,
     this.size = 118,
     required this.onTap,
@@ -1320,13 +1318,12 @@ class _ProfileIconBadge extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: FocusProfileMascot(
+                  child: _ProfileIconArtwork(
+                    asset: option.asset,
                     size: size,
-                    fallbackConfig: config ??
-                        FocusAvatarConfig.fromProfileIndex(
-                          _profileIcons.indexOf(option),
-                        ),
-                    state: FocusMascotState.idle,
+                    animate: true,
+                    celebrate: true,
+                    selected: true,
                   ),
                 ),
               ),
@@ -1358,94 +1355,107 @@ class _ProfileIconBadge extends StatelessWidget {
 class _ProfileIconChoice extends StatelessWidget {
   final _ProfileIconOption option;
   final bool selected;
-  final bool locked;
+  final double pageDelta;
   final VoidCallback onTap;
 
   const _ProfileIconChoice({
     required this.option,
     required this.selected,
-    this.locked = false,
+    this.pageDelta = 0,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tilt = (pageDelta * 0.08).clamp(-0.08, 0.08);
+    final slideX = (pageDelta * 12).clamp(-12.0, 12.0);
+    final slideY = pageDelta.abs().clamp(0.0, 1.0) * 6;
     return InkWell(
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          color: selected
-              ? FocusPalette.primary.withValues(alpha: 0.12)
-              : Theme.of(context).colorScheme.surfaceContainerHighest,
-          border: Border.all(
-            color: selected
-                ? FocusPalette.primary
-                : Theme.of(context).colorScheme.outlineVariant,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Stack(
-          children: [
-            Opacity(
-              opacity: locked ? 0.42 : 1,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: FocusProfileMascot(
-                      size: 72,
-                      animate: false,
-                      fallbackConfig: FocusAvatarConfig.fromProfileIndex(
-                        _profileIcons.indexOf(option),
-                      ),
-                      state: selected
-                          ? FocusMascotState.celebrating
-                          : FocusMascotState.idle,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    option.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: selected ? FocusPalette.primary : null,
-                    ),
-                  ),
-                ],
+      child: Transform.translate(
+        offset: Offset(slideX, slideY),
+        child: Transform.rotate(
+          angle: -tilt,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: selected
+                  ? FocusPalette.primary.withValues(alpha: 0.12)
+                  : Theme.of(context).colorScheme.surfaceContainerHighest,
+              border: Border.all(
+                color: selected
+                    ? FocusPalette.primary
+                    : Theme.of(context).colorScheme.outlineVariant,
+                width: selected ? 2 : 1,
               ),
+              boxShadow: [
+                if (selected)
+                  BoxShadow(
+                    color: _profileIconAccent(option.asset)
+                        .withValues(alpha: 0.18),
+                    blurRadius: 18,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 8),
+                  ),
+              ],
             ),
-            if (locked)
-              Positioned(
-                right: 2,
-                top: 2,
-                child: Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Center(
+                        child: _ProfileIconArtwork(
+                          asset: option.asset,
+                          size: 72,
+                          animate: true,
+                          selected: selected,
+                        ),
                       ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.lock_rounded,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      option.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? FocusPalette.primary : null,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-          ],
+                if (selected)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(24),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(alpha: 0.10),
+                              Colors.transparent,
+                              _profileIconAccent(option.asset)
+                                  .withValues(alpha: 0.08),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -1454,10 +1464,12 @@ class _ProfileIconChoice extends StatelessWidget {
 
 class _ProfileIconPickerSheet extends StatefulWidget {
   final int selectedIndex;
-  final Future<void> Function(int index) onSelected;
+  final int selectedThemeIndex;
+  final Future<void> Function(int index, int themeIndex) onSelected;
 
   const _ProfileIconPickerSheet({
     required this.selectedIndex,
+    required this.selectedThemeIndex,
     required this.onSelected,
   });
 
@@ -1468,15 +1480,24 @@ class _ProfileIconPickerSheet extends StatefulWidget {
 
 class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
   late final PageController _pageController;
+  late final List<int> _availableIndexes;
   late int _selectedIndex;
+  late int _selectedThemeIndex;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.selectedIndex;
+    _availableIndexes = _availableProfileIconIndexes();
+    _selectedIndex = _availableIndexes.contains(widget.selectedIndex)
+        ? widget.selectedIndex
+        : _availableIndexes.first;
+    _selectedThemeIndex = _safeIndex(
+      widget.selectedThemeIndex,
+      _socialThemes.length,
+    );
     _pageController = PageController(
-      initialPage: widget.selectedIndex,
+      initialPage: _availableIndexes.indexOf(_selectedIndex),
       viewportFraction: 0.48,
     );
   }
@@ -1487,10 +1508,22 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
     super.dispose();
   }
 
+  double _currentPickerPage() {
+    if (!_pageController.hasClients) {
+      return _availableIndexes.indexOf(_selectedIndex).toDouble();
+    }
+    final page = _pageController.page;
+    if (page == null) {
+      return _availableIndexes.indexOf(_selectedIndex).toDouble();
+    }
+    return page;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = _profileIcons[_selectedIndex];
-    final config = FocusAvatarConfig.fromProfileIndex(_selectedIndex);
+    final selectedTheme = _socialThemes[_selectedThemeIndex];
+    final selectedConfig = FocusAvatarConfig.fromProfileIndex(_selectedIndex);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
@@ -1525,12 +1558,17 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
                   onPressed: _saving
                       ? null
                       : () async {
-                          if (_selectedIndex == widget.selectedIndex) {
+                          if (_selectedIndex == widget.selectedIndex &&
+                              _selectedThemeIndex ==
+                                  widget.selectedThemeIndex) {
                             Navigator.pop(context);
                             return;
                           }
                           setState(() => _saving = true);
-                          await widget.onSelected(_selectedIndex);
+                          await widget.onSelected(
+                            _selectedIndex,
+                            _selectedThemeIndex,
+                          );
                           if (!context.mounted) return;
                           Navigator.pop(context);
                         },
@@ -1547,21 +1585,23 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
             ),
             const SizedBox(height: 14),
             Container(
-              height: 232,
+              height: 236,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(32),
                 gradient: LinearGradient(
-                  colors: [
-                    FocusPalette.primary.withValues(alpha: 0.12),
-                    FocusPalette.cyan.withValues(alpha: 0.08),
-                  ],
+                  colors: selectedTheme.colors,
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                border: Border.all(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 22,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
               ),
+              clipBehavior: Clip.antiAlias,
               child: Stack(
                 children: [
                   Positioned.fill(
@@ -1569,23 +1609,92 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(32),
                         gradient: RadialGradient(
-                          center: const Alignment(0.20, -0.18),
+                          center: const Alignment(0.35, 0.12),
+                          radius: 0.82,
                           colors: [
-                            FocusPalette.cyan.withValues(alpha: 0.18),
+                            Colors.white.withValues(alpha: 0.24),
+                            Colors.white.withValues(alpha: 0.04),
                             Colors.transparent,
                           ],
                         ),
                       ),
                     ),
                   ),
+                  Positioned(
+                    right: -34,
+                    top: -38,
+                    child: _SoftHeaderCircle(size: 130, alpha: 0.08),
+                  ),
+                  Positioned(
+                    left: -54,
+                    bottom: -70,
+                    child: _SoftHeaderCircle(size: 190, alpha: 0.06),
+                  ),
                   Center(
-                    child: FocusProfileMascot(
-                      size: 196,
-                      fallbackConfig: config,
-                      state: FocusMascotState.celebrating,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      switchInCurve: Curves.easeOutBack,
+                      switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: ScaleTransition(
+                            scale: Tween<double>(begin: 0.92, end: 1).animate(
+                              animation,
+                            ),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: FocusProfileMascot(
+                        key: ValueKey(selected.asset),
+                        size: 196,
+                        fallbackConfig: selectedConfig,
+                        state: FocusMascotState.celebrating,
+                        animate: true,
+                      ),
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text(
+                  'Color de fondo',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  selectedTheme.name,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: FocusPalette.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _socialThemes.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final theme = _socialThemes[index];
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => setState(() => _selectedThemeIndex = index),
+                    child: _ThemeChoicePill(
+                      theme: theme,
+                      selected: index == _selectedThemeIndex,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 16),
@@ -1593,43 +1702,42 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
               height: 126,
               child: PageView.builder(
                 controller: _pageController,
-                itemCount: _profileIcons.length,
-                onPageChanged: (index) =>
-                    setState(() => _selectedIndex = index),
+                itemCount: _availableIndexes.length,
+                onPageChanged: (pageIndex) => setState(
+                  () => _selectedIndex = _availableIndexes[pageIndex],
+                ),
                 itemBuilder: (context, index) {
-                  final option = _profileIcons[index];
-                  final active = index == _selectedIndex;
-                  final canUse = _isProfileIconAllowed(option.asset);
-                  return AnimatedScale(
-                    duration: const Duration(milliseconds: 220),
-                    scale: active ? 1 : 0.88,
-                    curve: Curves.easeOutBack,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 7),
-                      child: _ProfileIconChoice(
-                        option: option,
-                        selected: active,
-                        locked: !canUse,
-                        onTap: () {
-                          if (!canUse) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Este personaje está reservado para otra cuenta.',
-                                ),
-                              ),
-                            );
-                            return;
-                          }
-                          _pageController.animateToPage(
-                            index,
-                            duration: const Duration(milliseconds: 260),
-                            curve: Curves.easeOutCubic,
-                          );
-                          setState(() => _selectedIndex = index);
-                        },
-                      ),
-                    ),
+                  final actualIndex = _availableIndexes[index];
+                  final option = _profileIcons[actualIndex];
+                  return AnimatedBuilder(
+                    animation: _pageController,
+                    builder: (context, child) {
+                      final page = _currentPickerPage();
+                      final delta = index - page;
+                      final active = delta.abs() < 0.5;
+                      final scale = (1 - delta.abs() * 0.12).clamp(0.84, 1.0);
+                      return AnimatedScale(
+                        duration: const Duration(milliseconds: 220),
+                        scale: scale,
+                        curve: Curves.easeOutBack,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 7),
+                          child: _ProfileIconChoice(
+                            option: option,
+                            selected: active,
+                            pageDelta: delta,
+                            onTap: () {
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                              );
+                              setState(() => _selectedIndex = actualIndex);
+                            },
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
               ),
@@ -1637,6 +1745,160 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileIconArtwork extends StatefulWidget {
+  final String asset;
+  final double size;
+  final bool animate;
+  final bool celebrate;
+  final bool selected;
+
+  const _ProfileIconArtwork({
+    required this.asset,
+    required this.size,
+    this.animate = true,
+    this.celebrate = false,
+    this.selected = false,
+  });
+
+  @override
+  State<_ProfileIconArtwork> createState() => _ProfileIconArtworkState();
+}
+
+class _ProfileIconArtworkState extends State<_ProfileIconArtwork>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    if (widget.animate) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProfileIconArtwork oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.animate && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (!widget.animate && _controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final progress = widget.animate ? _controller.value : 0.0;
+        final wave = math.sin(progress * math.pi * 2);
+        final bounce = widget.celebrate
+            ? -math.sin(progress * math.pi * 2).abs() * widget.size * 0.05
+            : 0.0;
+        final drift = widget.animate ? wave * widget.size * 0.012 : 0.0;
+        final scale = widget.celebrate
+            ? 1 + wave * 0.014
+            : widget.selected
+                ? 1.02 + wave * 0.01
+                : 1 + wave * 0.006;
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              bottom: widget.size * 0.06,
+              child: Container(
+                width: widget.size * 0.46,
+                height: widget.size * 0.08,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(widget.size),
+                ),
+              ),
+            ),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [
+                      _profileIconAccent(widget.asset).withValues(
+                        alpha:
+                            widget.selected || widget.celebrate ? 0.22 : 0.10,
+                      ),
+                      _profileIconAccent(widget.asset).withValues(
+                        alpha:
+                            widget.selected || widget.celebrate ? 0.10 : 0.04,
+                      ),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (widget.selected || widget.celebrate)
+              ...List.generate(widget.celebrate ? 6 : 4, (index) {
+                final angle = progress * math.pi * 2 + (index * math.pi / 3);
+                final radius = widget.size * (widget.celebrate ? 0.34 : 0.28);
+                return Positioned(
+                  left: widget.size / 2 +
+                      math.cos(angle) * radius -
+                      widget.size * 0.035,
+                  top: widget.size / 2 +
+                      math.sin(angle) * radius -
+                      widget.size * 0.035,
+                  child: Icon(
+                    index.isEven
+                        ? Icons.auto_awesome_rounded
+                        : Icons.circle_rounded,
+                    size: widget.size * (widget.celebrate ? 0.07 : 0.045),
+                    color: index.isEven
+                        ? FocusPalette.amber.withValues(
+                            alpha: widget.celebrate ? 0.85 : 0.68,
+                          )
+                        : Colors.white.withValues(
+                            alpha: widget.celebrate ? 0.78 : 0.52,
+                          ),
+                  ),
+                );
+              }),
+            Transform.translate(
+              offset: Offset(0, bounce + drift),
+              child: Transform.scale(
+                scale: scale,
+                child: Padding(
+                  padding: EdgeInsets.all(widget.size * 0.05),
+                  child: Image.asset(
+                    widget.asset,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.image_not_supported_rounded,
+                      size: widget.size * 0.36,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -1920,15 +2182,34 @@ bool _isProfileIconAllowed(String asset) {
   return isProfileIconAllowedForEmail(asset, RankingService.currentUser?.email);
 }
 
-FocusAvatarConfig _avatarConfigFromProfile(
-  RankingProfile profile,
-  int fallbackIndex,
-) {
-  final raw = profile.stats['socialAvatar'];
-  if (raw is Map) {
-    return FocusAvatarConfig.fromMap(Map<String, dynamic>.from(raw));
+List<int> _availableProfileIconIndexes() {
+  final indexes = <int>[];
+  for (var index = 0; index < _profileIcons.length; index++) {
+    if (_isProfileIconAllowed(_profileIcons[index].asset)) {
+      indexes.add(index);
+    }
   }
-  return FocusAvatarConfig.fromProfileIndex(fallbackIndex);
+  return indexes.isEmpty ? const [0] : indexes;
+}
+
+String _profileIconAssetForDisplay(int index) {
+  final safeIndex = _safeIndex(index, _profileIcons.length);
+  return _profileIcons[safeIndex].asset;
+}
+
+Color _profileIconAccent(String asset) {
+  final normalized = asset.toLowerCase();
+  if (normalized.contains('dark')) return const Color(0xFF38BDF8);
+  if (normalized.contains('flame')) return const Color(0xFFFF7A59);
+  if (normalized.contains('calm')) return const Color(0xFF22C55E);
+  if (normalized.contains('champion')) return const Color(0xFFF59E0B);
+  if (normalized.contains('programmer')) return const Color(0xFF6366F1);
+  if (normalized.contains('doctor')) return const Color(0xFFEF4444);
+  if (normalized.contains('teacher')) return const Color(0xFF14B8A6);
+  if (normalized.contains('engineer')) return const Color(0xFF0EA5E9);
+  if (normalized.contains('architect')) return const Color(0xFFF97316);
+  if (normalized.contains('lawyer')) return const Color(0xFF8B5CF6);
+  return FocusPalette.primary;
 }
 
 int _profileStreak(RankingProfile profile) {
@@ -2767,7 +3048,7 @@ class _ProfileIconAvatar extends StatelessWidget {
       profile.stats['socialMascotIndex'],
       _profileIcons.length,
     );
-    final config = _avatarConfigFromProfile(profile, index);
+    final asset = _profileIconAssetForDisplay(index);
     return SizedBox(
       width: size,
       height: size,
@@ -2787,9 +3068,10 @@ class _ProfileIconAvatar extends StatelessWidget {
             ),
             child: const SizedBox.expand(),
           ),
-          FocusLayeredAvatar(
+          _ProfileIconArtwork(
+            asset: asset,
             size: size,
-            config: config,
+            animate: true,
           ),
         ],
       ),

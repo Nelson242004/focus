@@ -6,6 +6,7 @@ import '../services/ranking_service.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -32,6 +33,29 @@ class AchievementsScreen extends StatelessWidget {
           drawer: const FocusDrawer(selectedRoute: 'achievements'),
           appBar: AppBar(
             title: const Text('Logros'),
+            actions: const [
+              FocusHelpAction(
+                title: 'Ayuda de logros',
+                message:
+                    'Esta pantalla resume tu progreso gamificado sin meter toda la explicacion en cada bloque.',
+                sections: [
+                  FocusHelpSection(
+                    title: 'Puntos y niveles',
+                    items: [
+                      'Pomodoros, habitos y logros desbloqueados suman puntos.',
+                      'Los niveles suben por tramos y muestran cuanto te falta para el siguiente.',
+                    ],
+                  ),
+                  FocusHelpSection(
+                    title: 'Insignias',
+                    items: [
+                      'Cada insignia se desbloquea una sola vez.',
+                      'La mision semanal y la racha ayudan a empujar tu progreso general.',
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),

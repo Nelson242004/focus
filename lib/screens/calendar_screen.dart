@@ -5,6 +5,7 @@ import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -38,6 +39,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
           drawer: const FocusDrawer(selectedRoute: 'calendar'),
           appBar: AppBar(
             title: const Text('Calendario'),
+            actions: const [
+              FocusHelpAction(
+                title: 'Ayuda de calendario',
+                message:
+                    'El calendario junta examenes, tareas y otras fechas para que veas tu carga de un vistazo.',
+                sections: [
+                  FocusHelpSection(
+                    title: 'Vista',
+                    items: [
+                      'El resumen mensual te muestra cuanto se concentra en el mes actual.',
+                      'Al tocar un dia ves su agenda sin llenar toda la pantalla de texto.',
+                    ],
+                  ),
+                  FocusHelpSection(
+                    title: 'Tip',
+                    items: [
+                      'Usa Hoy para volver rapido a la fecha actual y revisar lo mas cercano.',
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
           body: SafeArea(
             top: false,

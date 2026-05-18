@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../widgets/focus_help_button.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -17,7 +18,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Historial')),
+      appBar: AppBar(
+        title: const Text('Historial'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de historial',
+            message:
+                'Aqui revisas pomodoros pasados y filtras por materia cuando quieres ver progreso real.',
+            sections: [
+              FocusHelpSection(
+                title: 'Como leerlo',
+                items: [
+                  'Buscar y filtrar sirven para encontrar sesiones sin saturar la lista.',
+                  'Cada fila muestra materia, fecha y duracion de la sesion.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Gestion',
+                items: [
+                  'Si deslizas una sesion, la eliminas del historial local.',
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
       body: Consumer<AppProvider>(
         builder: (context, provider, _) {
           final subjects = [

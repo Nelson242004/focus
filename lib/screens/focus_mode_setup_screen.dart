@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/focus_shield_app.dart';
 import '../services/focus_mode_service.dart';
+import '../widgets/focus_help_button.dart';
 
 class FocusModeSetupScreen extends StatefulWidget {
   final List<FocusShieldApp> initiallySelected;
@@ -158,6 +159,23 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Apps distractoras'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de apps distractoras',
+            message:
+                'Aqui eliges las apps que Focus va a considerar distractoras durante el modo de enfoque.',
+            sections: [
+              FocusHelpSection(
+                title: 'Como usarlo',
+                items: [
+                  'Selecciona solo las apps que realmente te sacan del estudio.',
+                  'Las recomendadas te ayudan a marcar rapido redes, video y mensajeria.',
+                  'El boton inferior guarda la lista elegida.',
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
       floatingActionButton: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.92, end: 1),

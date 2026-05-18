@@ -104,6 +104,7 @@ class RankingEntry {
   final String career;
   final String rank;
   final String photoUrl;
+  final int socialMascotIndex;
   final int points;
   final int pomodoros;
   final int focusMinutes;
@@ -121,6 +122,7 @@ class RankingEntry {
     required this.points,
     required this.pomodoros,
     required this.focusMinutes,
+    this.socialMascotIndex = 0,
     this.position = 0,
     this.trend = 0,
     this.photoUrl = '',
@@ -131,6 +133,9 @@ class RankingEntry {
 
   factory RankingEntry.fromMap(String uid, Map<String, dynamic> map,
       {int position = 0}) {
+    final stats = Map<String, dynamic>.from(map['stats'] ?? const {});
+    final rawMascotIndex =
+        map['socialMascotIndex'] ?? stats['socialMascotIndex'];
     return RankingEntry(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',
@@ -140,6 +145,9 @@ class RankingEntry {
       points: int.tryParse('${map['points'] ?? 0}') ?? 0,
       pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
       focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,
+      socialMascotIndex: rawMascotIndex is int
+          ? rawMascotIndex
+          : int.tryParse('$rawMascotIndex') ?? 0,
       position: position,
       trend: int.tryParse('${map['trend'] ?? 0}') ?? 0,
       university: map['university'],
@@ -155,6 +163,7 @@ class RankingEntry {
       'career': career,
       'rank': rank,
       'photoUrl': photoUrl,
+      'socialMascotIndex': socialMascotIndex,
       'points': points,
       'pomodoros': pomodoros,
       'focusMinutes': focusMinutes,

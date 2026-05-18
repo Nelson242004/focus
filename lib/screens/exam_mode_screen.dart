@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 import 'study_tasks_screen.dart';
 
 class ExamModeScreen extends StatelessWidget {
@@ -15,7 +16,25 @@ class ExamModeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'examMode'),
-      appBar: AppBar(title: const Text('Modo examen')),
+      appBar: AppBar(
+        title: const Text('Modo examen'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de modo examen',
+            message:
+                'Esta pantalla toma tu proximo examen y arma una vista concentrada en preparacion.',
+            sections: [
+              FocusHelpSection(
+                title: 'Que muestra',
+                items: [
+                  'Plan de preparacion, tareas relacionadas y contexto de la materia.',
+                  'Si no hay examenes proximos, la pantalla te lo muestra limpio para que cargues uno primero.',
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         bottom: true,

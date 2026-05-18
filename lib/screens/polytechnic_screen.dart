@@ -14,6 +14,7 @@ import '../services/polytechnic_cache_service.dart';
 import '../services/polytechnic_import_service.dart';
 import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 import 'grade_calculator_screen.dart';
 import 'subjects_screen.dart';
 
@@ -46,6 +47,28 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
       drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
       appBar: AppBar(
         title: const Text('Politécnica'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de politecnica',
+            message:
+                'Esta seccion sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
+            sections: [
+              FocusHelpSection(
+                title: 'Flujo',
+                items: [
+                  'Primero cargas el archivo, luego eliges carrera, materias y secciones.',
+                  'El asistente separa el proceso en pasos para que todo quede ordenado.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Resultado',
+                items: [
+                  'Las materias importadas pueden crear horarios, examenes y estructura base en la app.',
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
       body: Stack(
         children: [

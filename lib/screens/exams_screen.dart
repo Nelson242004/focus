@@ -7,6 +7,7 @@ import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
+import '../widgets/focus_help_button.dart';
 import '../widgets/time_picker_field.dart';
 import 'subjects_screen.dart';
 
@@ -341,10 +342,28 @@ class _ExamsScreenState extends State<ExamsScreen> {
       drawer: const FocusDrawer(selectedRoute: 'exams'),
       appBar: AppBar(
         title: const Text('Exámenes'),
-        actions: [
-          IconButton(
-            onPressed: () => _showExamDialog(),
-            icon: const Icon(Icons.add),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de examenes',
+            message:
+                'Aqui ves lo proximo, tu calendario y los parciales o finales de cada materia.',
+            sections: [
+              FocusHelpSection(
+                title: 'Datos importantes',
+                items: [
+                  'Solo la materia y la fecha son obligatorias.',
+                  'La hora y el aula pueden completarse despues.',
+                  'No se permiten duplicados del mismo tipo para una materia en la misma fecha.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Uso rapido',
+                items: [
+                  'El boton inferior crea un examen nuevo.',
+                  'El calendario te ayuda a detectar semanas cargadas sin meter demasiado texto en pantalla.',
+                ],
+              ),
+            ],
           ),
         ],
       ),
@@ -853,6 +872,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
             );
           },
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showExamDialog(),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Examen'),
       ),
     );
   }

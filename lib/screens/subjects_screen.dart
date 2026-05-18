@@ -7,6 +7,7 @@ import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_empty_state.dart';
+import '../widgets/focus_help_button.dart';
 import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
@@ -385,10 +386,28 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Materias'),
-        actions: [
-          IconButton(
-            onPressed: () => _showSubjectDialog(),
-            icon: const Icon(Icons.add),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de materias',
+            message:
+                'Aqui organizas tus clases y dejas lista la base para horarios, examenes y tareas.',
+            sections: [
+              FocusHelpSection(
+                title: 'Que guardar',
+                items: [
+                  'Con el nombre ya puedes crear una materia.',
+                  'Aula, profesor, seccion y color son opcionales y sirven para ordenar mejor.',
+                  'Puedes agregar el horario al crearla o hacerlo despues.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Consejos',
+                items: [
+                  'Mantener pocas materias bien cargadas hace que el dashboard y el calendario se vean mas claros.',
+                  'Si eliminas una materia, sus horarios se borran y examenes, tareas y recursos quedan sin vinculo.',
+                ],
+              ),
+            ],
           ),
         ],
       ),

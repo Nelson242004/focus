@@ -7,6 +7,7 @@ import '../providers/app_provider.dart';
 import '../utils/app_links.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_help_button.dart';
 
 class WebFocusScreen extends StatefulWidget {
   const WebFocusScreen({super.key});
@@ -64,6 +65,26 @@ class _WebFocusScreenState extends State<WebFocusScreen> {
                       : Icons.dark_mode_rounded,
                 ),
                 onPressed: provider.toggleTheme,
+              ),
+              const FocusHelpAction(
+                title: 'Ayuda de Focus Web',
+                message:
+                    'Esta vista resume como se presenta Focus en web y separa la informacion por secciones.',
+                sections: [
+                  FocusHelpSection(
+                    title: 'Secciones',
+                    items: [
+                      'Inicio muestra la vista general.',
+                      'Materias, examenes y recursos enseñan la estructura principal del producto.',
+                    ],
+                  ),
+                  FocusHelpSection(
+                    title: 'Extra',
+                    items: [
+                      'Puedes cambiar el tema desde el icono de color sin salir de esta pantalla.',
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(width: 4),
             ],

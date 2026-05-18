@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../widgets/focus_help_button.dart';
 
 class WeeklyScheduleScreen extends StatelessWidget {
   const WeeklyScheduleScreen({super.key});
@@ -22,6 +23,26 @@ class WeeklyScheduleScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             onPressed: () => _generatePdf(context),
+          ),
+          const FocusHelpAction(
+            title: 'Ayuda de horario semanal',
+            message:
+                'Esta vista junta tus bloques de lunes a viernes para que revises rapido la distribucion de clases.',
+            sections: [
+              FocusHelpSection(
+                title: 'Que muestra',
+                items: [
+                  'Solo aparecen horarios registrados de materias.',
+                  'La tabla se arma segun tu primer bloque y tu ultimo bloque del dia.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Extra',
+                items: [
+                  'El icono PDF exporta esta vista para compartirla o guardarla fuera de la app.',
+                ],
+              ),
+            ],
           ),
         ],
       ),

@@ -5,6 +5,7 @@ import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 
 class StudyTasksScreen extends StatefulWidget {
   const StudyTasksScreen({super.key});
@@ -229,11 +230,27 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
       drawer: const FocusDrawer(selectedRoute: 'tasks'),
       appBar: AppBar(
         title: const Text('Tareas'),
-        actions: [
-          IconButton(
-            tooltip: 'Nueva tarea',
-            onPressed: () => _showTaskDialog(),
-            icon: const Icon(Icons.add_rounded),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de tareas',
+            message:
+                'Esta pantalla esta pensada para ver rapido que sigue y que esta vencido.',
+            sections: [
+              FocusHelpSection(
+                title: 'Como funciona',
+                items: [
+                  'Activas muestra lo pendiente, Hoy prioriza lo urgente y Vencidas te ayuda a recuperar control.',
+                  'La materia es opcional, pero ayuda a ordenar mejor tu semana.',
+                  'La prioridad y el estado sirven para que la lista no se vuelva confusa.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Tip',
+                items: [
+                  'Usa el boton inferior para crear tareas nuevas sin cargar la barra superior.',
+                ],
+              ),
+            ],
           ),
         ],
       ),

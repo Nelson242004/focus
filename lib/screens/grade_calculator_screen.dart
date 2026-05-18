@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../utils/focus_palette.dart';
 import '../utils/polytechnic_grade_utils.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 
 class GradeCalculatorScreen extends StatefulWidget {
   const GradeCalculatorScreen({super.key});
@@ -109,7 +110,26 @@ class _GradeCalculatorScreenState extends State<GradeCalculatorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
-      appBar: AppBar(title: const Text('Calculadora Politécnica')),
+      appBar: AppBar(
+        title: const Text('Calculadora Politécnica'),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de calculadora',
+            message:
+                'La calculadora separa firma, final y detalles para mostrar solo lo necesario en cada paso.',
+            sections: [
+              FocusHelpSection(
+                title: 'Pestañas',
+                items: [
+                  'Firma usa solo el parcial 1.',
+                  'Final y detalles usan parcial 1 y parcial 2.',
+                  'Las notas validas van de 0 a 100.',
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
       body: SafeArea(
         top: false,
         bottom: true,

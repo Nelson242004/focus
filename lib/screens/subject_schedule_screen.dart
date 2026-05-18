@@ -4,6 +4,7 @@ import '../models/schedule.dart';
 import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../widgets/focus_help_button.dart';
 import '../widgets/time_picker_field.dart';
 
 class SubjectScheduleScreen extends StatefulWidget {
@@ -198,10 +199,28 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text('Horarios de ${widget.subject.name}'),
-        actions: [
-          IconButton(
-              onPressed: () => _showScheduleDialog(),
-              icon: const Icon(Icons.add)),
+        actions: const [
+          FocusHelpAction(
+            title: 'Ayuda de horarios',
+            message:
+                'Aqui agregas o ajustas los bloques de una materia concreta.',
+            sections: [
+              FocusHelpSection(
+                title: 'Que puedes hacer',
+                items: [
+                  'Guardar varios bloques para la misma materia.',
+                  'Agregar aula si la conoces o dejarla para despues.',
+                  'Permitir superposiciones si cursas en paralelo.',
+                ],
+              ),
+              FocusHelpSection(
+                title: 'Uso',
+                items: [
+                  'El boton inferior crea un bloque nuevo.',
+                ],
+              ),
+            ],
+          ),
         ],
       ),
       body: _schedules.isEmpty
@@ -239,6 +258,11 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                 );
               },
             ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showScheduleDialog(),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Horario'),
+      ),
     );
   }
 }
