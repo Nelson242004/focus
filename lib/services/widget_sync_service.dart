@@ -7,6 +7,7 @@ import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
+import '../utils/profile_icon_access.dart';
 
 class WidgetSyncService {
   static const MethodChannel _channel = MethodChannel('focus_home_widget');
@@ -23,6 +24,20 @@ class WidgetSyncService {
     'assets/profile_icons/focus_flame_female.png',
     'assets/profile_icons/focus_calm_female.png',
     'assets/profile_icons/focus_champion_female.png',
+    'assets/profile_icons/focus_dark.png',
+    'assets/profile_icons/focus_dark_female.png',
+    'assets/profile_icons/focus_programmer.png',
+    'assets/profile_icons/focus_doctor.png',
+    'assets/profile_icons/focus_teacher.png',
+    'assets/profile_icons/focus_engineer.png',
+    'assets/profile_icons/focus_architect.png',
+    'assets/profile_icons/focus_lawyer.png',
+    'assets/profile_icons/focus_programmer_female.png',
+    'assets/profile_icons/focus_doctor_female.png',
+    'assets/profile_icons/focus_teacher_female.png',
+    'assets/profile_icons/focus_engineer_female.png',
+    'assets/profile_icons/focus_architect_female.png',
+    'assets/profile_icons/focus_lawyer_female.png',
   ];
 
   static Future<void> syncFromProvider(AppProvider provider) async {
@@ -106,7 +121,10 @@ class WidgetSyncService {
 
   static Future<void> syncProfileIconAsset(String asset) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
-    final normalized = _normalizeProfileIconAsset(asset);
+    final normalized = _normalizeProfileIconAsset(
+      asset,
+      RankingService.currentUser?.email,
+    );
     await _saveProfileIconAsset(normalized);
     try {
       await _channel.invokeMethod<void>('updateWidgetProfileIcon', {
@@ -175,13 +193,18 @@ class WidgetSyncService {
     if (index < 0 || index >= _profileIconAssets.length) {
       return _defaultProfileIconAsset;
     }
-    return _profileIconAssets[index];
+    return allowedProfileIconAssetOrDefault(
+      _profileIconAssets[index],
+      RankingService.currentUser?.email,
+      defaultAsset: _defaultProfileIconAsset,
+    );
   }
 
   static Future<String> _storedProfileIconAsset() async {
     final prefs = await SharedPreferences.getInstance();
     return _normalizeProfileIconAsset(
       prefs.getString(_profileIconAssetKey) ?? _defaultProfileIconAsset,
+      RankingService.currentUser?.email,
     );
   }
 
@@ -189,14 +212,16 @@ class WidgetSyncService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _profileIconAssetKey,
-      _normalizeProfileIconAsset(asset),
+      _normalizeProfileIconAsset(asset, RankingService.currentUser?.email),
     );
   }
 
-  static String _normalizeProfileIconAsset(String asset) {
-    return _profileIconAssets.contains(asset)
-        ? asset
-        : _defaultProfileIconAsset;
+  static String _normalizeProfileIconAsset(String asset, String? email) {
+    if (!_profileIconAssets.contains(asset)) return _defaultProfileIconAsset;
+    return allowedProfileIconAssetOrDefault(
+      asset,
+      email,
+      defaultAsset: _defaultProfileIconAsset,
+    );
   }
 }
-

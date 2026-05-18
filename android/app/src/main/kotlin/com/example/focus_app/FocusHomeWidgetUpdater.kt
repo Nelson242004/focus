@@ -134,6 +134,20 @@ object FocusHomeWidgetUpdater {
             "assets/profile_icons/focus_flame_female.png" -> R.drawable.focus_profile_flame_female
             "assets/profile_icons/focus_calm_female.png" -> R.drawable.focus_profile_calm_female
             "assets/profile_icons/focus_champion_female.png" -> R.drawable.focus_profile_champion_female
+            "assets/profile_icons/focus_dark.png" -> R.drawable.focus_profile_dark
+            "assets/profile_icons/focus_dark_female.png" -> R.drawable.focus_profile_dark_female
+            "assets/profile_icons/focus_programmer.png" -> R.drawable.focus_profile_programmer
+            "assets/profile_icons/focus_doctor.png" -> R.drawable.focus_profile_doctor
+            "assets/profile_icons/focus_teacher.png" -> R.drawable.focus_profile_teacher
+            "assets/profile_icons/focus_engineer.png" -> R.drawable.focus_profile_engineer
+            "assets/profile_icons/focus_architect.png" -> R.drawable.focus_profile_architect
+            "assets/profile_icons/focus_lawyer.png" -> R.drawable.focus_profile_lawyer
+            "assets/profile_icons/focus_programmer_female.png" -> R.drawable.focus_profile_programmer_female
+            "assets/profile_icons/focus_doctor_female.png" -> R.drawable.focus_profile_doctor_female
+            "assets/profile_icons/focus_teacher_female.png" -> R.drawable.focus_profile_teacher_female
+            "assets/profile_icons/focus_engineer_female.png" -> R.drawable.focus_profile_engineer_female
+            "assets/profile_icons/focus_architect_female.png" -> R.drawable.focus_profile_architect_female
+            "assets/profile_icons/focus_lawyer_female.png" -> R.drawable.focus_profile_lawyer_female
             else -> R.drawable.focus_profile_scholar
         }
     }

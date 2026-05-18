@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
+import '../utils/profile_icon_access.dart';
 import '../widgets/focus_drawer.dart';
 import 'dashboard_screen.dart';
 import 'friends_screen.dart';
@@ -113,6 +114,20 @@ class _ProfileAppBarButton extends StatelessWidget {
     'assets/profile_icons/focus_flame_female.png',
     'assets/profile_icons/focus_calm_female.png',
     'assets/profile_icons/focus_champion_female.png',
+    'assets/profile_icons/focus_dark.png',
+    'assets/profile_icons/focus_dark_female.png',
+    'assets/profile_icons/focus_programmer.png',
+    'assets/profile_icons/focus_doctor.png',
+    'assets/profile_icons/focus_teacher.png',
+    'assets/profile_icons/focus_engineer.png',
+    'assets/profile_icons/focus_architect.png',
+    'assets/profile_icons/focus_lawyer.png',
+    'assets/profile_icons/focus_programmer_female.png',
+    'assets/profile_icons/focus_doctor_female.png',
+    'assets/profile_icons/focus_teacher_female.png',
+    'assets/profile_icons/focus_engineer_female.png',
+    'assets/profile_icons/focus_architect_female.png',
+    'assets/profile_icons/focus_lawyer_female.png',
   ];
 
   @override
@@ -136,7 +151,11 @@ class _ProfileAppBarButton extends StatelessWidget {
     final rawIndex = profile?.stats['socialMascotIndex'];
     final index = rawIndex is int ? rawIndex : int.tryParse('$rawIndex') ?? 0;
     if (index < 0 || index >= _profileAssets.length) return _defaultAsset;
-    return _profileAssets[index];
+    return allowedProfileIconAssetOrDefault(
+      _profileAssets[index],
+      RankingService.currentUser?.email,
+      defaultAsset: _defaultAsset,
+    );
   }
 
   static void _openProfile(BuildContext context) {

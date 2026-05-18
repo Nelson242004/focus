@@ -8,6 +8,7 @@ import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
+import '../utils/profile_icon_access.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_profile_mascot.dart';
@@ -56,29 +57,24 @@ class _FriendsScreenState extends State<FriendsScreen> {
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-          content: Text(
-              'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo $code copiado.')),
+      SnackBar(content: Text('Código $code copiado.')),
     );
   }
 
   Future<void> _shareFriendInvite(RankingProfile profile) async {
     final code = RankingService.friendCodeForUid(profile.uid);
     final message =
-        'AgrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©game en Focus con mi cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo de amigo:\n\n$code\n\nEntra a Perfil > Buscar y pega este cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo.';
+        'Agrégame en Focus con mi código de amigo:\n\n$code\n\nEntra a Perfil > Buscar y pega este código.';
     try {
       await Share.share(
         message,
-        subject:
-            'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de Focus',
+        subject: 'Invitación de Focus',
       );
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: message));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n copiada al portapapeles.')),
+        const SnackBar(content: Text('Invitación copiada al portapapeles.')),
       );
     }
   }
@@ -174,7 +170,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           _CollapsibleFriendsSection(
                             icon: Icons.person_add_alt_1_rounded,
                             title: 'Agregar amigo',
-                            subtitle: 'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo, nombre o correo',
+                            subtitle: 'Código, nombre o correo',
                             child: _SearchCard(
                               controller: _searchController,
                               searchFuture: _searchFuture,
@@ -250,9 +246,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                '${friend.name} saliÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ de tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.')),
+        SnackBar(content: Text('${friend.name} salió de tu círculo.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -272,15 +266,13 @@ class _LoginRequiredPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredState(
       icon: Icons.people_alt_rounded,
-      title:
-          'Inicia sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n para usar tu perfil',
+      title: 'Inicia sesión para usar tu perfil',
       message:
-          'Crea tu perfil para competir con compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros y aparecer en rankings.',
+          'Crea tu perfil para competir con compañeros y aparecer en rankings.',
       action: FilledButton.icon(
         onPressed: onLogin,
         icon: const Icon(Icons.login_rounded),
-        label: const Text(
-            'Iniciar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n'),
+        label: const Text('Iniciar sesión'),
       ),
     );
   }
@@ -413,9 +405,8 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
       widget.profile.stats['socialThemeIndex'],
       _socialThemes.length,
     );
-    _profileIconIndex = _safeIndex(
+    _profileIconIndex = _safeProfileIconIndex(
       widget.profile.stats['socialMascotIndex'],
-      _profileIcons.length,
     );
   }
 
@@ -557,8 +548,7 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                         fixedSize: const Size(38, 38),
                       ),
                       onPressed: widget.onShare,
-                      tooltip:
-                          'Compartir cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
+                      tooltip: 'Compartir código',
                       icon: const Icon(Icons.ios_share_rounded, size: 17),
                     ),
                   ],
@@ -590,7 +580,7 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Elige cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mo quieres aparecer en Perfil.',
+                'Elige cómo quieres aparecer en Perfil.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -606,10 +596,22 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                 itemCount: _profileIcons.length,
                 itemBuilder: (context, index) {
                   final option = _profileIcons[index];
+                  final canUse = _isProfileIconAllowed(option.asset);
                   return _ProfileIconChoice(
                     option: option,
                     selected: index == _profileIconIndex,
+                    locked: !canUse,
                     onTap: () async {
+                      if (!canUse) {
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Este personaje está reservado para otra cuenta.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
                       Navigator.pop(context);
                       if (index == _profileIconIndex) return;
                       final previous = _profileIconIndex;
@@ -673,9 +675,8 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       widget.profile.stats['socialThemeIndex'],
       _socialThemes.length,
     );
-    _profileIconIndex = _safeIndex(
+    _profileIconIndex = _safeProfileIconIndex(
       widget.profile.stats['socialMascotIndex'],
-      _profileIcons.length,
     );
     _avatarConfig = _avatarConfigFromProfile(widget.profile, _profileIconIndex);
   }
@@ -893,6 +894,16 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       builder: (context) => _ProfileIconPickerSheet(
         selectedIndex: _profileIconIndex,
         onSelected: (index) async {
+          if (!_isProfileIconAllowed(_profileIcons[index].asset)) {
+            ScaffoldMessenger.of(this.context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Este personaje está reservado para otra cuenta.',
+                ),
+              ),
+            );
+            return;
+          }
           final previousIndex = _profileIconIndex;
           final previousConfig = _avatarConfig;
           final config = FocusAvatarConfig.fromProfileIndex(index);
@@ -1200,21 +1211,36 @@ class _ColorFanButton extends StatelessWidget {
                     .titleMedium
                     ?.copyWith(fontWeight: FontWeight.w900),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Elige una paleta para tu tarjeta de perfil.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: FocusPalette.muted,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: List.generate(
-                  _socialThemes.length,
-                  (index) => InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () async {
-                      Navigator.pop(context);
-                      if (index != selected) await onSelected(index);
-                    },
-                    child: _ThemeChoicePill(
-                      theme: _socialThemes[index],
-                      selected: index == selected,
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+                ),
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: List.generate(
+                      _socialThemes.length,
+                      (index) => InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () async {
+                          Navigator.pop(context);
+                          if (index != selected) await onSelected(index);
+                        },
+                        child: _ThemeChoicePill(
+                          theme: _socialThemes[index],
+                          selected: index == selected,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1332,11 +1358,13 @@ class _ProfileIconBadge extends StatelessWidget {
 class _ProfileIconChoice extends StatelessWidget {
   final _ProfileIconOption option;
   final bool selected;
+  final bool locked;
   final VoidCallback onTap;
 
   const _ProfileIconChoice({
     required this.option,
     required this.selected,
+    this.locked = false,
     required this.onTap,
   });
 
@@ -1360,31 +1388,63 @@ class _ProfileIconChoice extends StatelessWidget {
             width: selected ? 2 : 1,
           ),
         ),
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: FocusProfileMascot(
-                size: 72,
-                animate: false,
-                fallbackConfig: FocusAvatarConfig.fromProfileIndex(
-                  _profileIcons.indexOf(option),
+            Opacity(
+              opacity: locked ? 0.42 : 1,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: FocusProfileMascot(
+                      size: 72,
+                      animate: false,
+                      fallbackConfig: FocusAvatarConfig.fromProfileIndex(
+                        _profileIcons.indexOf(option),
+                      ),
+                      state: selected
+                          ? FocusMascotState.celebrating
+                          : FocusMascotState.idle,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    option.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: selected ? FocusPalette.primary : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (locked)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.lock_rounded,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                state: selected
-                    ? FocusMascotState.celebrating
-                    : FocusMascotState.idle,
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              option.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-                color: selected ? FocusPalette.primary : null,
-              ),
-            ),
           ],
         ),
       ),
@@ -1539,6 +1599,7 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
                 itemBuilder: (context, index) {
                   final option = _profileIcons[index];
                   final active = index == _selectedIndex;
+                  final canUse = _isProfileIconAllowed(option.asset);
                   return AnimatedScale(
                     duration: const Duration(milliseconds: 220),
                     scale: active ? 1 : 0.88,
@@ -1548,7 +1609,18 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
                       child: _ProfileIconChoice(
                         option: option,
                         selected: active,
+                        locked: !canUse,
                         onTap: () {
+                          if (!canUse) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Este personaje está reservado para otra cuenta.',
+                                ),
+                              ),
+                            );
+                            return;
+                          }
                           _pageController.animateToPage(
                             index,
                             duration: const Duration(milliseconds: 260),
@@ -1760,6 +1832,18 @@ const _socialThemes = [
   _SocialTheme('Bosque', [FocusPalette.teal, FocusPalette.mint]),
   _SocialTheme('Amanecer', [FocusPalette.coral, FocusPalette.amber]),
   _SocialTheme('Noche', [FocusPalette.ink, FocusPalette.primaryDeep]),
+  _SocialTheme('Laguna', [Color(0xFF0369A1), Color(0xFF06B6D4)]),
+  _SocialTheme('Menta', [Color(0xFF047857), Color(0xFF34D399)]),
+  _SocialTheme('Lavanda', [Color(0xFF6D28D9), Color(0xFFA78BFA)]),
+  _SocialTheme('Cereza', [Color(0xFFBE123C), Color(0xFFFB7185)]),
+  _SocialTheme('Solar', [Color(0xFFB45309), Color(0xFFFBBF24)]),
+  _SocialTheme('Grafito', [Color(0xFF111827), Color(0xFF475569)]),
+  _SocialTheme('Océano', [Color(0xFF1E3A8A), Color(0xFF14B8A6)]),
+  _SocialTheme('Aurora', [Color(0xFF7C2D12), Color(0xFFDB2777)]),
+  _SocialTheme('Lima', [Color(0xFF365314), Color(0xFF84CC16)]),
+  _SocialTheme('Cielo', [Color(0xFF2563EB), Color(0xFF93C5FD)]),
+  _SocialTheme('Uva', [Color(0xFF581C87), Color(0xFFE879F9)]),
+  _SocialTheme('Tinta', [Color(0xFF020617), Color(0xFF334155)]),
 ];
 
 const _profileIcons = [
@@ -1780,14 +1864,42 @@ const _profileIcons = [
     'Champion F',
     'assets/profile_icons/focus_champion_female.png',
   ),
+  _ProfileIconOption('Dark', 'assets/profile_icons/focus_dark.png'),
+  _ProfileIconOption('Dark F', 'assets/profile_icons/focus_dark_female.png'),
+  _ProfileIconOption(
+      'Programador', 'assets/profile_icons/focus_programmer.png'),
+  _ProfileIconOption('Médico', 'assets/profile_icons/focus_doctor.png'),
+  _ProfileIconOption('Docente', 'assets/profile_icons/focus_teacher.png'),
+  _ProfileIconOption('Ingeniería', 'assets/profile_icons/focus_engineer.png'),
+  _ProfileIconOption(
+      'Arquitectura', 'assets/profile_icons/focus_architect.png'),
+  _ProfileIconOption('Derecho', 'assets/profile_icons/focus_lawyer.png'),
+  _ProfileIconOption(
+    'Programadora',
+    'assets/profile_icons/focus_programmer_female.png',
+  ),
+  _ProfileIconOption('Médica', 'assets/profile_icons/focus_doctor_female.png'),
+  _ProfileIconOption(
+    'Docente F',
+    'assets/profile_icons/focus_teacher_female.png',
+  ),
+  _ProfileIconOption(
+    'Ingeniera',
+    'assets/profile_icons/focus_engineer_female.png',
+  ),
+  _ProfileIconOption(
+    'Arquitecta',
+    'assets/profile_icons/focus_architect_female.png',
+  ),
+  _ProfileIconOption(
+    'Abogada',
+    'assets/profile_icons/focus_lawyer_female.png',
+  ),
 ];
 
 // ignore: unused_element
 const _socialMascots = [
-  _MascotOption(
-      'BÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºho',
-      Icons.psychology_alt_rounded,
-      FocusPalette.primary),
+  _MascotOption('Búho', Icons.psychology_alt_rounded, FocusPalette.primary),
   _MascotOption('Cohete', Icons.rocket_launch_rounded, FocusPalette.coral),
   _MascotOption('Hoja', Icons.eco_rounded, FocusPalette.mint),
   _MascotOption('Rayo', Icons.bolt_rounded, FocusPalette.amber),
@@ -1797,6 +1909,15 @@ int _safeIndex(Object? value, int length) {
   final parsed = int.tryParse('$value') ?? 0;
   if (length <= 0) return 0;
   return parsed.clamp(0, length - 1).toInt();
+}
+
+int _safeProfileIconIndex(Object? value) {
+  final index = _safeIndex(value, _profileIcons.length);
+  return _isProfileIconAllowed(_profileIcons[index].asset) ? index : 0;
+}
+
+bool _isProfileIconAllowed(String asset) {
+  return isProfileIconAllowedForEmail(asset, RankingService.currentUser?.email);
 }
 
 FocusAvatarConfig _avatarConfigFromProfile(
@@ -1859,7 +1980,7 @@ String _rankMedalAsset(String rank) {
                 Align(
                   alignment: Alignment.topRight,
                   child: IconButton.filledTonal(
-                    tooltip: 'Copiar cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
+                    tooltip: 'Copiar código',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.86),
                       foregroundColor: FocusPalette.ink,
@@ -1989,8 +2110,7 @@ class _CompactFriendHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton.filledTonal(
-            tooltip:
-                'Copiar cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
+            tooltip: 'Copiar código',
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: FocusPalette.primaryDeep,
@@ -2071,7 +2191,7 @@ class _FriendCodeHero extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo Focus',
+                          'Círculo Focus',
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
@@ -2083,8 +2203,8 @@ class _FriendCodeHero extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           friendsCount == 0
-                              ? 'Invita compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros y compara puntos.'
-                              : '$friendsCount amigos activos en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.',
+                              ? 'Invita compañeros y compara puntos.'
+                              : '$friendsCount amigos activos en tu círculo.',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ],
@@ -2109,7 +2229,7 @@ class _FriendCodeHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo de amigo',
+                            'Tu código de amigo',
                             style: TextStyle(
                               color: Colors.white70,
                               fontWeight: FontWeight.w700,
@@ -2152,8 +2272,7 @@ class _FriendCodeHero extends StatelessWidget {
                   ),
                   _HeroChip(
                     icon: Icons.person_add_alt_1_rounded,
-                    label:
-                        'Solicitudes rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidas',
+                    label: 'Solicitudes rápidas',
                   ),
                 ],
               ),
@@ -2406,8 +2525,8 @@ class _FriendsHub extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     friends.isEmpty
-                        ? 'Busca por cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo o nombre'
-                        : '${friends.length} en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
+                        ? 'Busca por código o nombre'
+                        : '${friends.length} en tu círculo',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2456,8 +2575,8 @@ class _FriendsHub extends StatelessWidget {
           ),
           subtitle: Text(
             friends.isEmpty
-                ? 'Busca y agrega compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros'
-                : '${friends.length} en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
+                ? 'Busca y agrega compañeros'
+                : '${friends.length} en tu círculo',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -2729,8 +2848,7 @@ class _FocusSummaryGrid extends StatelessWidget {
           _SummaryItem(
             icon: Icons.local_fire_department_rounded,
             color: FocusPalette.coral,
-            value:
-                '$streak dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as',
+            value: '$streak días',
           ),
           _SummaryItem(
             icon: Icons.stars_rounded,
@@ -2836,7 +2954,7 @@ class _FriendStreaks extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn no tienes rachas privadas. Toca + para invitar a un amigo.',
+                    'Aún no tienes rachas privadas. Toca + para invitar a un amigo.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: FocusPalette.muted,
                           fontWeight: FontWeight.w700,
@@ -2861,8 +2979,7 @@ class _RecentBadges extends StatelessWidget {
   Widget build(BuildContext context) {
     final badges = profile.badges.reversed.take(5).toList();
     return _SocialSection(
-      title:
-          'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ltimas insignias',
+      title: 'Últimas insignias',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2889,7 +3006,7 @@ class _RecentBadges extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Completa pomodoros, rachas y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para ganar insignias.',
+                'Completa pomodoros, rachas y hábitos para ganar insignias.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: FocusPalette.muted,
                       fontWeight: FontWeight.w700,
@@ -2943,7 +3060,7 @@ class _RecentBadgesDuo extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Completa sesiones y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para desbloquear logros.',
+                'Completa sesiones y hábitos para desbloquear logros.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: FocusPalette.muted,
                       fontWeight: FontWeight.w700,
@@ -2979,7 +3096,7 @@ class _AllBadgesGrid extends StatelessWidget {
                 const _EmptyBadgeBubble(),
                 const SizedBox(height: 6),
                 Text(
-                  'Completa sesiones y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para desbloquear insignias.',
+                  'Completa sesiones y hábitos para desbloquear insignias.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: FocusPalette.muted,
                         fontWeight: FontWeight.w700,
@@ -3078,7 +3195,7 @@ class _EmptyBadgeBubble extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'VacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o',
+            'Vacío',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: FocusPalette.muted,
                   fontWeight: FontWeight.w900,
@@ -3333,8 +3450,7 @@ Future<void> _confirmRemoveStreak(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Eliminar racha'),
-      content: Text(
-          'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿Quieres quitar la racha con ${streak.friend.name}?'),
+      content: Text('¿Quieres quitar la racha con ${streak.friend.name}?'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
@@ -3411,7 +3527,7 @@ void _showStartStreakSheet(
                             ScaffoldMessenger.of(rootContext).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de racha enviada a ${friend.name}.',
+                                  'Invitación de racha enviada a ${friend.name}.',
                                 ),
                               ),
                             );
@@ -3617,7 +3733,7 @@ class _SocialInfoSection extends StatelessWidget {
             ),
           ),
           title: const Text(
-            'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mo funciona',
+            'Cómo funciona',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
           subtitle: const Text('Perfil, ranking, rachas y medallas'),
@@ -3632,13 +3748,13 @@ class _SocialInfoSection extends StatelessWidget {
               icon: Icons.groups_rounded,
               title: 'Ranking de amigos',
               text:
-                  'Compara tus puntos solo con tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo. Ahora tienes $friendsCount amigos agregados.',
+                  'Compara tus puntos solo con tu círculo. Ahora tienes $friendsCount amigos agregados.',
             ),
             _InfoTile(
               icon: Icons.local_fire_department_rounded,
               title: 'Rachas entre amigos',
               text:
-                  'Muestra quiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n mantiene mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as de estudio seguidos. Tu racha actual es ${_profileStreak(profile)} dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as.',
+                  'Muestra quién mantiene más días de estudio seguidos. Tu racha actual es ${_profileStreak(profile)} días.',
             ),
             _InfoTile(
               icon: Icons.military_tech_rounded,
@@ -3769,7 +3885,7 @@ class _FriendsRanking extends StatelessWidget {
             icon: Icons.leaderboard_rounded,
             title: 'Ranking de amigos',
             subtitle: friendsCount == 0
-                ? 'Apareces tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº hasta que agregues compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros.'
+                ? 'Apareces tú hasta que agregues compañeros.'
                 : 'Competencia semanal solo por puntos.',
             action: IconButton(
               tooltip: 'Actualizar',
@@ -3857,9 +3973,7 @@ class _LeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isCurrentUser
-                      ? 'Vas liderando'
-                      : 'LÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­der semanal',
+                  isCurrentUser ? 'Vas liderando' : 'Líder semanal',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontWeight: FontWeight.w800,
@@ -3960,9 +4074,7 @@ class _FriendRankTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isCurrentUser
-                      ? '${entry.name} (tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº)'
-                      : entry.name,
+                  isCurrentUser ? '${entry.name} (tú)' : entry.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900),
@@ -4023,8 +4135,7 @@ class _RequestsCard extends StatelessWidget {
               if (requests.isEmpty)
                 const _EmptyInline(
                   icon: Icons.check_circle_outline_rounded,
-                  text:
-                      'Cuando alguien use tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo, aparecerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ aquÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­.',
+                  text: 'Cuando alguien use tu código, aparecerá aquí.',
                 )
               else
                 ...requests.map(
@@ -4078,7 +4189,7 @@ class _RequestTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Quiere entrar a tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.',
+                  'Quiere entrar a tu círculo.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -4158,8 +4269,7 @@ class _SearchCard extends StatelessWidget {
                   controller: controller,
                   textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
-                    labelText:
-                        'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo o nombre',
+                    labelText: 'Código o nombre',
                     hintText: 'FOC-ABC123 o Nelson',
                     prefixIcon: Icon(Icons.search_rounded),
                     border: InputBorder.none,
@@ -4196,8 +4306,7 @@ class _SearchCard extends StatelessWidget {
               if (results.isEmpty) {
                 return const _EmptyInline(
                   icon: Icons.person_search_rounded,
-                  text:
-                      'No encontramos ese perfil. Revisa el cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo.',
+                  text: 'No encontramos ese perfil. Revisa el código.',
                 );
               }
               return Column(
@@ -4238,7 +4347,7 @@ class _FriendsList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mi cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
+          'Mi círculo',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: FocusPalette.muted,
                 fontWeight: FontWeight.w900,
