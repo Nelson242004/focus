@@ -283,6 +283,9 @@ class DatabaseHelper {
         shortBreakTime: int.tryParse(parts.elementAtOrNull(2) ?? '') ?? 5,
         longBreakTime: int.tryParse(parts.elementAtOrNull(3) ?? '') ?? 15,
         weeklyGoal: int.tryParse(parts.elementAtOrNull(4) ?? '') ?? 8,
+        weeklyFocusMinutesGoal: 300,
+        dailyHabitGoal: 3,
+        streakGoal: 7,
         sound: (parts.elementAtOrNull(5) ?? '').trim().isNotEmpty
             ? parts[5]
             : 'chime',
@@ -525,4 +528,3 @@ class DatabaseHelper {
     }
   }
 }
-

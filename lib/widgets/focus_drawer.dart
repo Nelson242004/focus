@@ -135,7 +135,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.people_alt_rounded,
-                    label: 'Amigos',
+                    label: 'Perfil',
                     selected: selectedRoute == 'friends',
                     onTap: () => _replace(context, const FriendsScreen()),
                   ),
@@ -367,4 +367,3 @@ class _DrawerHeaderContent extends StatelessWidget {
     );
   }
 }
-

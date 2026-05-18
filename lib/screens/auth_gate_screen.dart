@@ -195,13 +195,10 @@ class _DuoLoginScreenState extends State<LoginScreen> {
 
 const _loginCanvas = Color(0xFF07111F);
 const _loginPanel = Color(0xFF0D1B2E);
-const _loginPanelSoft = Color(0xFF132640);
 const _loginStroke = Color(0xFF28435F);
-const _loginPrimary = Color(0xFF38BDF8);
-const _loginPrimaryDeep = Color(0xFF2563EB);
-const _loginMint = Color(0xFF22C55E);
+const _loginPrimary = FocusPalette.primary;
+const _loginMint = FocusPalette.mint;
 const _loginTextMuted = Color(0xFF9FB4CC);
-const _loginAmber = Color(0xFFFBBF24);
 
 class _FocusLoginBackdrop extends StatelessWidget {
   final Widget child;
@@ -211,104 +208,37 @@ class _FocusLoginBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF06111F),
-            Color(0xFF081827),
-            Color(0xFF0A2331),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -86,
-            right: -74,
-            child: _FocusGlowOrb(
-              size: 220,
-              color: FocusPalette.cyan,
-              opacity: 0.24,
-            ),
-          ),
-          Positioned(
-            left: -90,
-            bottom: 92,
-            child: _FocusGlowOrb(
-              size: 240,
-              color: FocusPalette.teal,
-              opacity: 0.18,
-            ),
-          ),
-          Positioned(
-            right: 28,
-            bottom: 26,
-            child: _FocusGlowOrb(
-              size: 86,
-              color: FocusPalette.amber,
-              opacity: 0.12,
-            ),
-          ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(painter: _FocusGridPainter()),
-            ),
-          ),
-          child,
-        ],
-      ),
+      decoration: const BoxDecoration(color: _loginCanvas),
+      child: child,
     );
   }
 }
 
-class _FocusGlowOrb extends StatelessWidget {
-  final double size;
-  final Color color;
-  final double opacity;
+class _LoginSurfaceCard extends StatelessWidget {
+  final Widget child;
 
-  const _FocusGlowOrb({
-    required this.size,
-    required this.color,
-    required this.opacity,
-  });
+  const _LoginSurfaceCard({required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: size,
-      height: size,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [
-            color.withValues(alpha: opacity),
-            color.withValues(alpha: 0),
-          ],
-        ),
+        borderRadius: BorderRadius.circular(24),
+        color: _loginPanel,
+        border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.18),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
+      child: child,
     );
   }
-}
-
-class _FocusGridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.025)
-      ..strokeWidth = 1;
-    const gap = 34.0;
-    for (var x = 0.0; x < size.width; x += gap) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (var y = 0.0; y < size.height; y += gap) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _LoginChoiceStep extends StatelessWidget {
@@ -331,38 +261,44 @@ class _LoginChoiceStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 34),
       children: [
         _LoginTopBar(enabled: !loading && canPop, onBack: onBack),
-        SizedBox(height: MediaQuery.sizeOf(context).height * 0.10),
-        const _FocusWelcomeMark(),
-        const SizedBox(height: 30),
-        const Text(
-          'Bienvenido a Focus',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 38,
-            height: 1.0,
-            fontWeight: FontWeight.w900,
-            letterSpacing: -1.1,
+        SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
+        _LoginSurfaceCard(
+          child: Column(
+            children: [
+              const _FocusWelcomeMark(),
+              const SizedBox(height: 18),
+              const Text(
+                'Bienvenido a Focus',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  height: 1.05,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Inicia sesión para usar perfil, ranking y progreso social.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _loginTextMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const _FocusLoginFeatureStrip(),
+              const SizedBox(height: 20),
+              _DuoPrimaryButton(
+                label: 'Iniciar sesión',
+                loading: false,
+                onPressed: loading ? null : onSignIn,
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          'Organiza tus materias, protege tu enfoque y convierte cada sesión en progreso real.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: _loginTextMuted,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            height: 1.38,
-          ),
-        ),
-        SizedBox(height: MediaQuery.sizeOf(context).height * 0.10),
-        const _FocusLoginFeatureStrip(),
-        const SizedBox(height: 24),
-        _DuoPrimaryButton(
-          label: 'INGRESAR',
-          loading: false,
-          onPressed: loading ? null : onSignIn,
         ),
       ],
     );
@@ -374,27 +310,22 @@ class _FocusLoginFeatureStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
       children: const [
-        Expanded(
-          child: _FocusMiniBenefit(
-            icon: Icons.emoji_events_rounded,
-            label: 'Ranking',
-          ),
+        _FocusMiniBenefit(
+          icon: Icons.emoji_events_rounded,
+          label: 'Ranking',
         ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _FocusMiniBenefit(
-            icon: Icons.groups_rounded,
-            label: 'Amigos',
-          ),
+        _FocusMiniBenefit(
+          icon: Icons.groups_rounded,
+          label: 'Perfil',
         ),
-        SizedBox(width: 10),
-        Expanded(
-          child: _FocusMiniBenefit(
-            icon: Icons.shield_rounded,
-            label: 'Enfoque',
-          ),
+        _FocusMiniBenefit(
+          icon: Icons.shield_rounded,
+          label: 'Enfoque',
         ),
       ],
     );
@@ -410,16 +341,17 @@ class _FocusMiniBenefit extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(18),
+        color: Colors.white.withValues(alpha: 0.045),
+        borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
-      child: Column(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: _loginPrimary, size: 22),
-          const SizedBox(height: 7),
+          Icon(icon, color: _loginPrimary, size: 16),
+          const SizedBox(width: 6),
           Text(
             label,
             maxLines: 1,
@@ -679,93 +611,17 @@ class _FocusWelcomeMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        width: 168,
-        height: 148,
+        width: 76,
+        height: 76,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(38),
-          gradient: LinearGradient(
-            colors: [
-              Colors.white.withValues(alpha: 0.16),
-              Colors.white.withValues(alpha: 0.06),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-          boxShadow: [
-            BoxShadow(
-              color: FocusPalette.cyan.withValues(alpha: 0.26),
-              blurRadius: 34,
-              offset: const Offset(0, 18),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(22),
+          color: Colors.white,
+          border: Border.all(color: _loginStroke.withValues(alpha: 0.42)),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              left: -18,
-              top: 18,
-              child: _FocusGlowOrb(
-                size: 82,
-                color: FocusPalette.teal,
-                opacity: 0.28,
-              ),
-            ),
-            Positioned(
-              right: -12,
-              bottom: -10,
-              child: _FocusGlowOrb(
-                size: 94,
-                color: FocusPalette.cyan,
-                opacity: 0.22,
-              ),
-            ),
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: const LinearGradient(
-                  colors: [_loginPrimaryDeep, _loginPrimary, _loginMint],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.24),
-                  width: 2,
-                ),
-              ),
-            ),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: Image.asset(
-                'assets/icon.png',
-                width: 78,
-                height: 78,
-                fit: BoxFit.contain,
-              ),
-            ),
-            Positioned(
-              right: 24,
-              top: 24,
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _loginAmber,
-                  border: Border.all(color: Colors.white, width: 2),
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: _loginCanvas,
-                  size: 16,
-                ),
-              ),
-            ),
-          ],
+        child: Image.asset(
+          'assets/icon.png',
+          fit: BoxFit.contain,
         ),
       ),
     );
@@ -862,137 +718,52 @@ class _FocusLoginHeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          colors: [
-            _loginPanelSoft,
-            _loginPanel,
-            _loginPrimaryDeep.withValues(alpha: 0.70),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-        boxShadow: [
-          BoxShadow(
-            color: FocusPalette.primaryDeep.withValues(alpha: 0.24),
-            blurRadius: 30,
-            offset: const Offset(0, 16),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(24),
+        color: _loginPanel,
+        border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
       ),
-      child: Stack(
+      child: Row(
         children: [
-          Positioned(
-            right: -34,
-            top: -38,
-            child: Container(
-              width: 118,
-              height: 118,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
+          Container(
+            width: 58,
+            height: 58,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: Colors.white,
             ),
+            child: Image.asset('assets/icon.png', fit: BoxFit.contain),
           ),
-          Positioned(
-            right: 8,
-            bottom: -4,
-            child: Icon(
-              Icons.graphic_eq_rounded,
-              color: Colors.white.withValues(alpha: 0.10),
-              size: 86,
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  creatingAccount ? 'Crear cuenta' : 'Iniciar sesión',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  creatingAccount
+                      ? 'Guarda tu perfil, puntos y ranking.'
+                      : 'Entra para recuperar tu perfil y ranking.',
+                  style: TextStyle(
+                    color: _loginTextMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.28,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Row(
-            children: [
-              Container(
-                width: 78,
-                height: 78,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(26),
-                  color: Colors.white.withValues(alpha: 0.95),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Image.asset('assets/icon.png', fit: BoxFit.contain),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      creatingAccount ? 'Crea tu Focus' : 'Vuelve a Focus',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 27,
-                        fontWeight: FontWeight.w900,
-                        height: 1,
-                        letterSpacing: -0.6,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      creatingAccount
-                          ? 'Guarda tu progreso, amigos e insignias en un solo lugar.'
-                          : 'Recupera tu ranking, rachas e insignias para seguir estudiando.',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.82),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.28,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: const [
-                        _FocusLoginChip(label: 'Ranking'),
-                        _FocusLoginChip(label: 'Rachas'),
-                        _FocusLoginChip(label: 'Insignias'),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FocusLoginChip extends StatelessWidget {
-  final String label;
-
-  const _FocusLoginChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w900,
-          letterSpacing: 0.2,
-        ),
       ),
     );
   }
@@ -1024,78 +795,64 @@ class _FocusAuthDataCard extends StatelessWidget {
     return Form(
       key: formKey,
       child: Container(
-        padding: const EdgeInsets.all(1.6),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          gradient: LinearGradient(
-            colors: [
-              FocusPalette.cyan.withValues(alpha: 0.75),
-              _loginStroke,
-              FocusPalette.primary.withValues(alpha: 0.45),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          borderRadius: BorderRadius.circular(24),
+          color: _loginPanel,
+          border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: _loginPanel,
-          ),
-          child: Column(
-            children: [
-              _FocusTextField(
-                controller: emailController,
-                hint: 'Correo de Focus',
-                icon: Icons.alternate_email_rounded,
-                keyboardType: TextInputType.emailAddress,
-                autofillHints: const [AutofillHints.email],
-                validator: (value) {
-                  final text = value?.trim() ?? '';
-                  if (text.isEmpty) return 'Escribe tu correo.';
-                  if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
-                    return 'Ese correo no parece válido.';
-                  }
-                  return null;
-                },
-              ),
-              Divider(
-                height: 1,
-                thickness: 1.4,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-              _FocusTextField(
-                controller: passwordController,
-                hint: creatingAccount ? 'Mínimo 6 caracteres' : 'Contraseña',
-                icon: Icons.lock_rounded,
-                obscureText: obscurePassword,
-                autofillHints: const [AutofillHints.password],
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  if (!loading) onSubmit();
-                },
-                suffixIcon: IconButton(
-                  onPressed: onTogglePassword,
-                  icon: Icon(
-                    obscurePassword
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
-                    color: _loginPrimary,
-                    size: 30,
-                  ),
-                  tooltip: obscurePassword
-                      ? 'Mostrar contraseña'
-                      : 'Ocultar contraseña',
+        child: Column(
+          children: [
+            _FocusTextField(
+              controller: emailController,
+              hint: 'Correo de Focus',
+              icon: Icons.alternate_email_rounded,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              validator: (value) {
+                final text = value?.trim() ?? '';
+                if (text.isEmpty) return 'Escribe tu correo.';
+                if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(text)) {
+                  return 'Ese correo no parece válido.';
+                }
+                return null;
+              },
+            ),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            _FocusTextField(
+              controller: passwordController,
+              hint: creatingAccount ? 'Mínimo 6 caracteres' : 'Contraseña',
+              icon: Icons.lock_rounded,
+              obscureText: obscurePassword,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                if (!loading) onSubmit();
+              },
+              suffixIcon: IconButton(
+                onPressed: onTogglePassword,
+                icon: Icon(
+                  obscurePassword
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  color: _loginPrimary,
+                  size: 24,
                 ),
-                validator: (value) {
-                  final text = value ?? '';
-                  if (text.isEmpty) return 'Escribe tu contraseña.';
-                  if (text.length < 6) return 'Mínimo 6 caracteres.';
-                  return null;
-                },
+                tooltip: obscurePassword
+                    ? 'Mostrar contraseña'
+                    : 'Ocultar contraseña',
               ),
-            ],
-          ),
+              validator: (value) {
+                final text = value ?? '';
+                if (text.isEmpty) return 'Escribe tu contraseña.';
+                if (text.length < 6) return 'Mínimo 6 caracteres.';
+                return null;
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -1139,20 +896,20 @@ class _FocusTextField extends StatelessWidget {
       onFieldSubmitted: onSubmitted,
       style: const TextStyle(
         color: Colors.white,
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: FontWeight.w800,
       ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
           color: _loginTextMuted.withValues(alpha: 0.72),
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: FontWeight.w800,
         ),
         prefixIcon: Icon(
           icon,
-          color: FocusPalette.cyan.withValues(alpha: 0.75),
-          size: 24,
+          color: _loginPrimary,
+          size: 22,
         ),
         suffixIcon: suffixIcon,
         border: InputBorder.none,
@@ -1165,7 +922,7 @@ class _FocusTextField extends StatelessWidget {
           fontWeight: FontWeight.w800,
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+            const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
       ),
     );
   }
@@ -1335,21 +1092,14 @@ class _DuoPrimaryButton extends StatelessWidget {
           height: 64,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: enabled
-                ? const LinearGradient(
-                    colors: [_loginPrimaryDeep, _loginPrimary, _loginMint],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  )
-                : null,
-            color: enabled ? null : _loginStroke,
+            borderRadius: BorderRadius.circular(18),
+            color: enabled ? _loginPrimary : _loginStroke,
             boxShadow: enabled
                 ? [
                     BoxShadow(
-                      color: _loginPrimary.withValues(alpha: 0.28),
-                      offset: const Offset(0, 14),
-                      blurRadius: 26,
+                      color: _loginPrimary.withValues(alpha: 0.18),
+                      offset: const Offset(0, 8),
+                      blurRadius: 16,
                     ),
                   ]
                 : null,
@@ -1367,9 +1117,9 @@ class _DuoPrimaryButton extends StatelessWidget {
                   label,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 19,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2.2,
+                    letterSpacing: 0,
                   ),
                 ),
         ),
@@ -1429,15 +1179,15 @@ class _DuoSocialButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(58),
-        backgroundColor: Colors.white.withValues(alpha: 0.055),
+        backgroundColor: Colors.white.withValues(alpha: 0.035),
         side: BorderSide(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: _loginStroke.withValues(alpha: 0.82),
           width: 1.4,
         ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         foregroundColor: Colors.white,
       ),
-      icon: Icon(icon, color: color, size: 30),
+      icon: Icon(icon, color: color, size: 24),
       label: Text(
         label,
         maxLines: 1,

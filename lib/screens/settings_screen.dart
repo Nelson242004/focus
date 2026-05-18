@@ -25,6 +25,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   int _weeklyGoal = 8;
+  int _weeklyFocusMinutesGoal = 300;
+  int _dailyHabitGoal = 3;
+  int _streakGoal = 7;
   String _selectedSound = 'chime';
   String _selectedStartScreen = 'dashboard';
   String _breakAfterFocus = 'auto';
@@ -43,6 +46,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
     _weeklyGoal = provider.settings.weeklyGoal.clamp(1, 99);
+    _weeklyFocusMinutesGoal =
+        provider.settings.weeklyFocusMinutesGoal.clamp(25, 3000);
+    _dailyHabitGoal = provider.settings.dailyHabitGoal.clamp(1, 20);
+    _streakGoal = provider.settings.streakGoal.clamp(1, 365);
     _selectedSound = provider.settings.sound;
     _selectedStartScreen = provider.settings.startScreen == 'statistics'
         ? 'dashboard'
@@ -79,6 +86,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         shortBreakTime: provider.settings.shortBreakTime,
         longBreakTime: provider.settings.longBreakTime,
         weeklyGoal: goal,
+        weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal.clamp(25, 3000),
+        dailyHabitGoal: _dailyHabitGoal.clamp(1, 20),
+        streakGoal: _streakGoal.clamp(1, 365),
         sound: _selectedSound,
         selectedIdentity: provider.settings.selectedIdentity,
         startScreen: _selectedStartScreen,
@@ -100,6 +110,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _setWeeklyGoal(int value) {
     setState(() => _weeklyGoal = value.clamp(1, 99));
+  }
+
+  void _setWeeklyFocusMinutesGoal(int value) {
+    setState(() => _weeklyFocusMinutesGoal = value.clamp(25, 3000));
+  }
+
+  void _setDailyHabitGoal(int value) {
+    setState(() => _dailyHabitGoal = value.clamp(1, 20));
+  }
+
+  void _setStreakGoal(int value) {
+    setState(() => _streakGoal = value.clamp(1, 365));
+  }
+
+  Future<void> _resetPreferences() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Restablecer configuración'),
+        content: const Text(
+          'Volverán a sus valores iniciales la apariencia, notificaciones, inicio y metas. Tus datos de estudio no se borran.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restablecer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final defaults = AppSettings(
+      onboardingCompleted: provider.settings.onboardingCompleted,
+      userName: provider.settings.userName,
+    );
+    await provider.updateSettings(defaults);
+    if (!mounted) return;
+    setState(() {
+      _weeklyGoal = defaults.weeklyGoal;
+      _weeklyFocusMinutesGoal = defaults.weeklyFocusMinutesGoal;
+      _dailyHabitGoal = defaults.dailyHabitGoal;
+      _streakGoal = defaults.streakGoal;
+      _selectedSound = defaults.sound;
+      _selectedStartScreen = defaults.startScreen;
+      _breakAfterFocus = defaults.breakAfterFocus;
+      _textScale = defaults.textScale;
+      _animationsEnabled = defaults.animationsEnabled;
+      _notificationsEnabled = defaults.notificationsEnabled;
+      _examReminderDayBefore = defaults.examReminderDayBefore;
+      _examReminderTwoHoursBefore = defaults.examReminderTwoHoursBefore;
+      _examReminderThirtyMinutesBefore =
+          defaults.examReminderThirtyMinutesBefore;
+      _accentColor = defaults.accentColor;
+    });
+    _showMessage('Configuración restablecida. Tus datos siguen intactos.');
   }
 
   Future<void> _exportData() async {
@@ -358,31 +429,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: 'Apariencia',
               icon: Icons.palette_rounded,
               children: [
+                _ThemePreview(
+                  accentColor: _accentColor,
+                  darkMode:
+                      provider.settings.themeMode == ThemeModeSetting.dark,
+                ),
+                const SizedBox(height: 12),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Modo oscuro puro'),
+                  title: const Text('Modo oscuro'),
                   subtitle: const Text(
                       'Usa una interfaz más cómoda para estudiar de noche.'),
                   value: provider.settings.themeMode == ThemeModeSetting.dark,
                   onChanged: (_) => provider.toggleTheme(),
                 ),
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedStartScreen,
-                  decoration:
-                      const InputDecoration(labelText: 'Pantalla inicial'),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'dashboard', child: Text('Dashboard')),
-                    DropdownMenuItem(
-                        value: 'pomodoro', child: Text('Pomodoro')),
-                    DropdownMenuItem(
-                        value: 'subjects', child: Text('Materias')),
-                    DropdownMenuItem(value: 'habits', child: Text('Hábitos')),
-                  ],
-                  onChanged: (value) => setState(
-                      () => _selectedStartScreen = value ?? 'dashboard'),
-                ),
-                const SizedBox(height: 10),
                 Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
                 Slider(
                   value: _textScale,
@@ -430,6 +490,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => setState(
+                      () => _accentColor = AppSettings().accentColor,
+                    ),
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: const Text('Restablecer apariencia'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _SettingsSection(
+              title: 'Inicio y experiencia',
+              icon: Icons.dashboard_customize_rounded,
+              children: [
+                _StartScreenSelector(
+                  value: _selectedStartScreen,
+                  onChanged: (value) =>
+                      setState(() => _selectedStartScreen = value),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _breakAfterFocus,
+                  decoration: const InputDecoration(
+                    labelText: 'Después de un bloque de enfoque',
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'auto',
+                      child: Text('Sugerir descanso automáticamente'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'short',
+                      child: Text('Ir a descanso corto'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'long',
+                      child: Text('Ir a descanso largo'),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => _breakAfterFocus = value ?? 'auto'),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.timer_rounded),
+                  title: const Text('Pomodoro y sonidos'),
+                  subtitle: const Text(
+                    'Los tiempos, sonido y Modo Enfoque Total se ajustan desde Pomodoro.',
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -439,12 +554,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text('Recordatorios de exámenes'),
+                  title: const Text('Notificaciones'),
                   subtitle: Text(_notificationSummary()),
                   value: _notificationsEnabled,
                   onChanged: (value) =>
                       setState(() => _notificationsEnabled = value),
                 ),
+                const _SettingsGroupLabel('Exámenes'),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Avisar 1 día antes'),
@@ -475,6 +591,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           )
                       : null,
                 ),
+                const SizedBox(height: 6),
+                const _SettingsGroupLabel('Pomodoro y hábitos'),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.hourglass_bottom_rounded),
+                  title: const Text('Pomodoro'),
+                  subtitle: const Text(
+                    'Los avisos del temporizador se controlan desde Pomodoro.',
+                  ),
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.task_alt_rounded),
+                  title: const Text('Hábitos'),
+                  subtitle: const Text(
+                    'Los recordatorios de hábitos todavía no están activos.',
+                  ),
+                ),
                 FutureBuilder<int>(
                   future: NotificationService.pendingNotificationsCount(),
                   builder: (context, snapshot) {
@@ -500,41 +634,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Objetivo semanal',
+              title: 'Metas',
               icon: Icons.flag_rounded,
               children: [
-                const Text(
-                  'Los tiempos, sonido y Modo Enfoque Total se ajustan desde la pantalla Pomodoro.',
-                ),
-                const SizedBox(height: 12),
-                _WeeklyGoalControl(
+                _GoalControl(
+                  icon: Icons.flag_rounded,
+                  title: 'Pomodoros por semana',
+                  valueLabel: '$_weeklyGoal sesiones',
                   value: _weeklyGoal,
+                  min: 1,
+                  max: 99,
                   onChanged: _setWeeklyGoal,
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _saveSettings,
-                    icon: const Icon(Icons.save_rounded),
-                    label: const Text('Guardar objetivo'),
-                  ),
+                _GoalControl(
+                  icon: Icons.schedule_rounded,
+                  title: 'Minutos de enfoque semanales',
+                  valueLabel: '$_weeklyFocusMinutesGoal min',
+                  value: _weeklyFocusMinutesGoal,
+                  min: 25,
+                  max: 3000,
+                  step: 25,
+                  onChanged: _setWeeklyFocusMinutesGoal,
+                ),
+                const SizedBox(height: 12),
+                _GoalControl(
+                  icon: Icons.check_circle_rounded,
+                  title: 'Hábitos diarios esperados',
+                  valueLabel: '$_dailyHabitGoal hábitos',
+                  value: _dailyHabitGoal,
+                  min: 1,
+                  max: 20,
+                  onChanged: _setDailyHabitGoal,
+                ),
+                const SizedBox(height: 12),
+                _GoalControl(
+                  icon: Icons.local_fire_department_rounded,
+                  title: 'Días de racha objetivo',
+                  valueLabel: '$_streakGoal días',
+                  value: _streakGoal,
+                  min: 1,
+                  max: 365,
+                  onChanged: _setStreakGoal,
+                ),
+                const SizedBox(height: 12),
+                _GoalsProgressPanel(
+                  provider: provider,
+                  weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal,
+                  dailyHabitGoal: _dailyHabitGoal,
+                  streakGoal: _streakGoal,
                 ),
               ],
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Actualizaciones',
-              icon: Icons.system_update_alt_rounded,
-              children: [
-                _UpdateCard(onCheck: _checkForUpdates),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _SettingsSection(
-              title: 'Estudio local y backup',
+              title: 'Datos y backup',
               icon: Icons.backup_rounded,
               children: [
+                const _PrivacyDataNotice(),
+                const SizedBox(height: 12),
                 _AcademicLocalNotice(provider: provider),
                 const SizedBox(height: 12),
                 Wrap(
@@ -562,14 +720,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 14),
             _SettingsSection(
-              title: 'Diagnóstico',
+              title: 'Sistema',
               icon: Icons.health_and_safety_rounded,
               children: [
                 const Text(
                   'Revisa rápidamente si Focus está listo para estudiar.',
                 ),
                 const SizedBox(height: 12),
+                _UpdateCard(onCheck: _checkForUpdates),
+                const SizedBox(height: 12),
                 _DiagnosticPanel(provider: provider),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _resetPreferences,
+                  icon: const Icon(Icons.restart_alt_rounded),
+                  label: const Text('Restablecer configuración'),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -668,12 +834,24 @@ class _AccountSettingsContent extends StatelessWidget {
   }
 }
 
-class _WeeklyGoalControl extends StatelessWidget {
+class _GoalControl extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String valueLabel;
   final int value;
+  final int min;
+  final int max;
+  final int step;
   final ValueChanged<int> onChanged;
 
-  const _WeeklyGoalControl({
+  const _GoalControl({
+    required this.icon,
+    required this.title,
+    required this.valueLabel,
     required this.value,
+    required this.min,
+    required this.max,
+    this.step = 1,
     required this.onChanged,
   });
 
@@ -696,35 +874,294 @@ class _WeeklyGoalControl extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               color: accent.withValues(alpha: 0.12),
             ),
-            child: Icon(Icons.flag_rounded, color: accent),
+            child: Icon(icon, color: accent),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Pomodoros por semana',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$value sesiones',
+                  valueLabel,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
             ),
           ),
           IconButton.filledTonal(
-            onPressed: value <= 1 ? null : () => onChanged(value - 1),
+            onPressed: value <= min ? null : () => onChanged(value - step),
             icon: const Icon(Icons.remove_rounded),
           ),
           const SizedBox(width: 8),
           IconButton.filled(
-            onPressed: value >= 99 ? null : () => onChanged(value + 1),
+            onPressed: value >= max ? null : () => onChanged(value + step),
             icon: const Icon(Icons.add_rounded),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _GoalsProgressPanel extends StatelessWidget {
+  final AppProvider provider;
+  final int weeklyFocusMinutesGoal;
+  final int dailyHabitGoal;
+  final int streakGoal;
+
+  const _GoalsProgressPanel({
+    required this.provider,
+    required this.weeklyFocusMinutesGoal,
+    required this.dailyHabitGoal,
+    required this.streakGoal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final todayHabits =
+        provider.habits.where((habit) => habit.history.contains(today)).length;
+    final weeklyFocusMinutes = (provider.weeklyFocusHours * 60).round();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: Theme.of(context)
+            .colorScheme
+            .surfaceContainerHighest
+            .withValues(alpha: 0.32),
+      ),
+      child: Column(
+        children: [
+          _GoalProgressRow(
+            icon: Icons.timer_rounded,
+            label: 'Enfoque semanal',
+            current: weeklyFocusMinutes,
+            goal: weeklyFocusMinutesGoal,
+            suffix: 'min',
+          ),
+          _GoalProgressRow(
+            icon: Icons.task_alt_rounded,
+            label: 'Hábitos de hoy',
+            current: todayHabits,
+            goal: dailyHabitGoal,
+            suffix: '',
+          ),
+          _GoalProgressRow(
+            icon: Icons.local_fire_department_rounded,
+            label: 'Racha',
+            current: provider.currentStreak,
+            goal: streakGoal,
+            suffix: 'días',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GoalProgressRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int current;
+  final int goal;
+  final String suffix;
+
+  const _GoalProgressRow({
+    required this.icon,
+    required this.label,
+    required this.current,
+    required this.goal,
+    required this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = goal <= 0 ? 0.0 : (current / goal).clamp(0.0, 1.0);
+    final valueText =
+        suffix.isEmpty ? '$current / $goal' : '$current / $goal $suffix';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    Text(valueText),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                LinearProgressIndicator(value: progress),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemePreview extends StatelessWidget {
+  final String accentColor;
+  final bool darkMode;
+
+  const _ThemePreview({
+    required this.accentColor,
+    required this.darkMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = colorFromHex(accentColor);
+    final background = darkMode ? const Color(0xFF101820) : Colors.white;
+    final foreground = darkMode ? Colors.white : FocusPalette.ink;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: background,
+        border: Border.all(color: accent.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              color: accent.withValues(alpha: 0.14),
+            ),
+            child: Icon(Icons.palette_rounded, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  darkMode ? 'Vista oscura' : 'Vista clara',
+                  style: TextStyle(
+                    color: foreground,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: 0.68,
+                    color: accent,
+                    backgroundColor: accent.withValues(alpha: 0.12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StartScreenSelector extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  const _StartScreenSelector({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = const [
+      _StartScreenOption('dashboard', 'Dashboard', Icons.dashboard_rounded),
+      _StartScreenOption('pomodoro', 'Pomodoro', Icons.timer_rounded),
+      _StartScreenOption('subjects', 'Materias', Icons.book_rounded),
+      _StartScreenOption('habits', 'Hábitos', Icons.task_alt_rounded),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Pantalla inicial',
+          style: Theme.of(context)
+              .textTheme
+              .titleSmall
+              ?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: items.map((item) {
+            final selected = value == item.value;
+            return ChoiceChip(
+              selected: selected,
+              avatar: Icon(item.icon, size: 18),
+              label: Text(item.label),
+              onSelected: (_) => onChanged(item.value),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+class _StartScreenOption {
+  final String value;
+  final String label;
+  final IconData icon;
+
+  const _StartScreenOption(this.value, this.label, this.icon);
+}
+
+class _SettingsGroupLabel extends StatelessWidget {
+  final String text;
+
+  const _SettingsGroupLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Text(
+          text.toUpperCase(),
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: FocusPalette.muted,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+        ),
       ),
     );
   }
@@ -765,27 +1202,114 @@ class _SettingsHero extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.tune_rounded, color: Colors.white, size: 34),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Centro de control',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900),
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: Colors.white, size: 34),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Centro de control',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.activeStudyTasks.length} tareas activas.',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.activeStudyTasks.length} tareas activas.',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          FutureBuilder<List<Object?>>(
+            future: Future.wait<Object?>([
+              NotificationService.pendingNotificationsCount(),
+              BackupService.latestBackupData(),
+            ]),
+            builder: (context, snapshot) {
+              final data = snapshot.data;
+              final pending =
+                  data == null || data.isEmpty ? 0 : (data[0] as int? ?? 0);
+              final hasBackup =
+                  data != null && data.length > 1 && data[1] != null;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _HeroStatusChip(
+                    icon: RankingService.currentUser == null
+                        ? Icons.person_off_rounded
+                        : Icons.verified_user_rounded,
+                    label: RankingService.currentUser == null
+                        ? 'Sin cuenta'
+                        : 'Cuenta activa',
+                  ),
+                  _HeroStatusChip(
+                    icon: hasBackup
+                        ? Icons.cloud_done_rounded
+                        : Icons.backup_rounded,
+                    label: hasBackup ? 'Backup reciente' : 'Sin backup local',
+                  ),
+                  _HeroStatusChip(
+                    icon: provider.settings.notificationsEnabled
+                        ? Icons.notifications_active_rounded
+                        : Icons.notifications_off_rounded,
+                    label: provider.settings.notificationsEnabled
+                        ? '$pending avisos'
+                        : 'Avisos apagados',
+                  ),
+                  _HeroStatusChip(
+                    icon: Icons.flag_rounded,
+                    label:
+                        '${provider.weeklyPomodoros}/${provider.settings.weeklyGoal} semanal',
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroStatusChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _HeroStatusChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withValues(alpha: 0.16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
           ),
         ],
@@ -856,6 +1380,47 @@ class _AcademicLocalNotice extends StatelessWidget {
                 label: '${provider.resources.length} recursos',
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyDataNotice extends StatelessWidget {
+  const _PrivacyDataNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: FocusPalette.mint.withValues(alpha: 0.08),
+        border: Border.all(color: FocusPalette.mint.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.privacy_tip_rounded),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Privacidad y datos',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w900),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Tus materias, horarios, exámenes, recursos y sesiones se guardan en este dispositivo. Si inicias sesión, tu perfil público, puntos y ranking usan tu cuenta.',
           ),
         ],
       ),

@@ -19,7 +19,7 @@
         android:layout_marginEnd="-10dp"
         android:adjustViewBounds="true"
         android:scaleType="fitCenter"
-        android:src="@drawable/focus_mascot_class" />
+        android:src="@drawable/focus_profile_scholar" />
 
     <LinearLayout
         android:id="@+id/widgetContent"

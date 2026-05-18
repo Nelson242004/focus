@@ -504,7 +504,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       icon: Icons.emoji_events_rounded,
       title: 'Haz visible tu progreso',
       text: 'Suma puntos, cuida tu racha y compite con amigos cuando quieras.',
-      highlights: ['Puntos', 'Ranking', 'Amigos'],
+      highlights: ['Puntos', 'Ranking', 'Perfil'],
       colors: [FocusPalette.teal, FocusPalette.mint],
     ),
   ];
@@ -752,4 +752,3 @@ class _OnboardingPill extends StatelessWidget {
     );
   }
 }
-

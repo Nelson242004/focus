@@ -6,6 +6,9 @@ class AppSettings {
   int shortBreakTime;
   int longBreakTime;
   int weeklyGoal;
+  int weeklyFocusMinutesGoal;
+  int dailyHabitGoal;
+  int streakGoal;
   String sound;
   String selectedIdentity;
   String startScreen;
@@ -26,6 +29,9 @@ class AppSettings {
     this.shortBreakTime = 5,
     this.longBreakTime = 15,
     this.weeklyGoal = 8,
+    this.weeklyFocusMinutesGoal = 300,
+    this.dailyHabitGoal = 3,
+    this.streakGoal = 7,
     this.sound = 'chime',
     this.selectedIdentity =
         'Soy una persona constante que cumple lo que se propone.',
@@ -49,6 +55,9 @@ class AppSettings {
       'shortBreakTime': shortBreakTime,
       'longBreakTime': longBreakTime,
       'weeklyGoal': weeklyGoal,
+      'weeklyFocusMinutesGoal': weeklyFocusMinutesGoal,
+      'dailyHabitGoal': dailyHabitGoal,
+      'streakGoal': streakGoal,
       'sound': sound,
       'selectedIdentity': selectedIdentity,
       'startScreen': startScreen,
@@ -75,6 +84,10 @@ class AppSettings {
       shortBreakTime: int.tryParse('${map['shortBreakTime'] ?? 5}') ?? 5,
       longBreakTime: int.tryParse('${map['longBreakTime'] ?? 15}') ?? 15,
       weeklyGoal: int.tryParse('${map['weeklyGoal'] ?? 8}') ?? 8,
+      weeklyFocusMinutesGoal:
+          int.tryParse('${map['weeklyFocusMinutesGoal'] ?? 300}') ?? 300,
+      dailyHabitGoal: int.tryParse('${map['dailyHabitGoal'] ?? 3}') ?? 3,
+      streakGoal: int.tryParse('${map['streakGoal'] ?? 7}') ?? 7,
       sound: '${map['sound'] ?? 'chime'}',
       selectedIdentity: map['selectedIdentity']?.toString() ??
           'Soy una persona constante que cumple lo que se propone.',

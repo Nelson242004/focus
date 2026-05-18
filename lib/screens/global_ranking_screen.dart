@@ -1394,7 +1394,7 @@ class _MessagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = Theme.of(context).colorScheme.primary;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(22),
@@ -1402,30 +1402,15 @@ class _MessagePanel extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            gradient: LinearGradient(
-              colors: isDark
-                  ? [
-                      FocusPalette.ink,
-                      FocusPalette.primaryDeep.withValues(alpha: 0.74),
-                    ]
-                  : [
-                      FocusPalette.primary.withValues(alpha: 0.10),
-                      Theme.of(context).cardColor,
-                    ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withValues(
-                    alpha: isDark ? 0.22 : 0.16,
-                  ),
-            ),
+            borderRadius: BorderRadius.circular(24),
+            color: Theme.of(context).cardColor,
+            border:
+                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
             boxShadow: [
               BoxShadow(
-                color: FocusPalette.primaryDeep.withValues(alpha: 0.10),
-                blurRadius: 26,
-                offset: const Offset(0, 14),
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
@@ -1433,21 +1418,16 @@ class _MessagePanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 74,
-                height: 74,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: [
-                      FocusPalette.primary.withValues(alpha: 0.22),
-                      FocusPalette.teal.withValues(alpha: 0.18),
-                    ],
-                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  color: accent.withValues(alpha: 0.10),
                 ),
                 child: Icon(
                   icon,
-                  size: 38,
-                  color: Theme.of(context).colorScheme.primary,
+                  size: 30,
+                  color: accent,
                 ),
               ),
               const SizedBox(height: 16),
@@ -1466,6 +1446,7 @@ class _MessagePanel extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       height: 1.35,
                       fontWeight: FontWeight.w600,
+                      color: FocusPalette.muted,
                     ),
               ),
               if (action != null) ...[

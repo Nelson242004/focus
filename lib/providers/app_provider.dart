@@ -677,6 +677,9 @@ class AppProvider extends ChangeNotifier {
     int? shortBreakTime,
     int? longBreakTime,
     int? weeklyGoal,
+    int? weeklyFocusMinutesGoal,
+    int? dailyHabitGoal,
+    int? streakGoal,
     String? sound,
     String? selectedIdentity,
     String? startScreen,
@@ -697,6 +700,10 @@ class AppProvider extends ChangeNotifier {
       shortBreakTime: shortBreakTime ?? settings.shortBreakTime,
       longBreakTime: longBreakTime ?? settings.longBreakTime,
       weeklyGoal: weeklyGoal ?? settings.weeklyGoal,
+      weeklyFocusMinutesGoal:
+          weeklyFocusMinutesGoal ?? settings.weeklyFocusMinutesGoal,
+      dailyHabitGoal: dailyHabitGoal ?? settings.dailyHabitGoal,
+      streakGoal: streakGoal ?? settings.streakGoal,
       sound: sound ?? settings.sound,
       selectedIdentity: selectedIdentity ?? settings.selectedIdentity,
       startScreen: startScreen ?? settings.startScreen,
@@ -1011,4 +1018,3 @@ class AppProvider extends ChangeNotifier {
     return DateTime(now.year, now.month, now.day + 7, hour, minute);
   }
 }
-

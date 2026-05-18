@@ -61,7 +61,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _shareFriendInvite(RankingProfile profile) async {
     final code = RankingService.friendCodeForUid(profile.uid);
     final message =
-        'Agrégame en Focus con mi código de amigo:\n\n$code\n\nEntra a Amigos > Buscar y pega este código.';
+        'Agrégame en Focus con mi código de amigo:\n\n$code\n\nEntra a Perfil > Buscar y pega este código.';
     try {
       await Share.share(
         message,
@@ -80,7 +80,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const FocusDrawer(selectedRoute: 'friends'),
-      appBar: AppBar(title: const Text('Amigos')),
+      appBar: AppBar(title: const Text('Perfil')),
       body: RankingService.currentUser == null
           ? _LoginRequiredPanel(onLogin: _openLogin)
           : FutureBuilder<RankingProfile?>(
@@ -263,7 +263,7 @@ class _LoginRequiredPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredState(
       icon: Icons.people_alt_rounded,
-      title: 'Inicia sesión para usar amigos',
+      title: 'Inicia sesión para usar tu perfil',
       message:
           'Crea tu perfil para competir con compañeros y aparecer en rankings.',
       action: FilledButton.icon(
@@ -288,7 +288,7 @@ class _ErrorPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredState(
       icon: Icons.warning_amber_rounded,
-      title: 'No se pudo cargar Amigos',
+      title: 'No se pudo cargar Perfil',
       message: message,
       action: FilledButton.icon(
         onPressed: onRetry,
@@ -314,27 +314,60 @@ class _CenteredState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            action,
-          ],
+        padding: const EdgeInsets.all(22),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            color: Theme.of(context).cardColor,
+            border:
+                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: accent.withValues(alpha: 0.10),
+                ),
+                child: Icon(icon, size: 30, color: accent),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: FocusPalette.muted,
+                      height: 1.35,
+                    ),
+              ),
+              const SizedBox(height: 18),
+              action,
+            ],
+          ),
         ),
       ),
     );
@@ -545,7 +578,7 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Elige cómo quieres aparecer en Amigos.',
+                'Elige cómo quieres aparecer en Perfil.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -796,7 +829,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Elige cómo quieres aparecer en Amigos.',
+                'Elige cómo quieres aparecer en Perfil.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -956,6 +989,7 @@ class _SocialSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.emoji_events_rounded,
+                  assetIcon: _rankMedalAsset(profile.rank),
                   iconColor: FocusPalette.cyan,
                   value: profile.rank,
                   valueColor: textColor,
@@ -966,7 +1000,7 @@ class _SocialSummaryCard extends StatelessWidget {
                 child: _SummaryMetric(
                   icon: Icons.bolt_rounded,
                   iconColor: FocusPalette.amber,
-                  value: '${profile.weeklyPoints} EXP',
+                  value: '${profile.totalPoints} pts',
                   valueColor: textColor,
                 ),
               ),
@@ -980,12 +1014,14 @@ class _SocialSummaryCard extends StatelessWidget {
 
 class _SummaryMetric extends StatelessWidget {
   final IconData icon;
+  final String? assetIcon;
   final Color iconColor;
   final String value;
   final Color valueColor;
 
   const _SummaryMetric({
     required this.icon,
+    this.assetIcon,
     required this.iconColor,
     required this.value,
     required this.valueColor,
@@ -995,7 +1031,15 @@ class _SummaryMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: iconColor, size: 34),
+        if (assetIcon == null)
+          Icon(icon, color: iconColor, size: 34)
+        else
+          Image.asset(
+            assetIcon!,
+            width: 34,
+            height: 34,
+            fit: BoxFit.contain,
+          ),
         const SizedBox(width: 12),
         Expanded(
           child: Text(
@@ -1445,6 +1489,14 @@ int _profileBestStreak(RankingProfile profile) {
       _profileStreak(profile);
 }
 
+String _rankMedalAsset(String rank) {
+  return switch (rank.trim().toLowerCase()) {
+    'oro' => 'assets/medals/gold.png',
+    'plata' => 'assets/medals/silver.png',
+    _ => 'assets/medals/bronze.png',
+  };
+}
+
 /*
                 Align(
                   alignment: Alignment.topLeft,
@@ -1497,7 +1549,7 @@ int _profileBestStreak(RankingProfile profile) {
             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
             child: Row(
               children: [
-                _SocialStat(label: 'Amigos', value: '$friendsCount'),
+                _SocialStat(label: 'Perfil', value: '$friendsCount'),
                 _SocialStat(label: 'Puntos', value: '${profile.weeklyPoints}'),
                 _SocialStat(
                   label: 'Racha',
@@ -1582,7 +1634,7 @@ class _CompactFriendHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  friendsCount == 0 ? 'Amigos' : '$friendsCount amigos',
+                  friendsCount == 0 ? 'Perfil' : '$friendsCount amigos',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -2013,7 +2065,7 @@ class _FriendsHub extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Amigos',
+                    'Perfil',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.2,
@@ -2067,7 +2119,7 @@ class _FriendsHub extends StatelessWidget {
             ),
           ),
           title: const Text(
-            'Amigos',
+            'Perfil',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
           subtitle: Text(
@@ -2349,10 +2401,11 @@ class _FocusSummaryGrid extends StatelessWidget {
           _SummaryItem(
             icon: Icons.stars_rounded,
             color: FocusPalette.amber,
-            value: '${profile.weeklyPoints} EXP',
+            value: '${profile.totalPoints} pts',
           ),
           _SummaryItem(
             icon: Icons.emoji_events_rounded,
+            assetIcon: _rankMedalAsset(profile.rank),
             color: FocusPalette.cyan,
             value: profile.rank,
           ),
@@ -2816,11 +2869,13 @@ class _SocialSection extends StatelessWidget {
 
 class _SummaryItem extends StatelessWidget {
   final IconData icon;
+  final String? assetIcon;
   final Color color;
   final String value;
 
   const _SummaryItem({
     required this.icon,
+    this.assetIcon,
     required this.color,
     required this.value,
   });
@@ -2836,7 +2891,15 @@ class _SummaryItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color),
+          if (assetIcon == null)
+            Icon(icon, color: color)
+          else
+            Image.asset(
+              assetIcon!,
+              width: 24,
+              height: 24,
+              fit: BoxFit.contain,
+            ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -3221,7 +3284,7 @@ class _SocialInfoSection extends StatelessWidget {
             'Cómo funciona',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
-          subtitle: const Text('Amigos, ranking, rachas y medallas'),
+          subtitle: const Text('Perfil, ranking, rachas y medallas'),
           children: [
             _InfoTile(
               icon: Icons.public_rounded,
