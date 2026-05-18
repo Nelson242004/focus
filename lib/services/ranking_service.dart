@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -210,6 +210,15 @@ class RankingService {
       payload['stats.socialMascotIndex'] = mascotIndex;
     }
     await _firestore.collection('users').doc(user.uid).update(payload);
+  }
+
+  static Future<void> updateSocialAvatar(Map<String, dynamic> avatar) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).update({
+      'stats.socialAvatar': avatar,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   static Future<void> ensureCurrentWeekScore() async {
@@ -972,4 +981,3 @@ class RankingService {
         .join(' ');
   }
 }
-

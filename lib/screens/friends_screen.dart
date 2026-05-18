@@ -9,6 +9,8 @@ import '../services/widget_sync_service.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_layered_avatar.dart';
+import '../widgets/focus_profile_mascot.dart';
 import 'auth_gate_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -54,24 +56,29 @@ class _FriendsScreenState extends State<FriendsScreen> {
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Código $code copiado.')),
+      SnackBar(
+          content: Text(
+              'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo $code copiado.')),
     );
   }
 
   Future<void> _shareFriendInvite(RankingProfile profile) async {
     final code = RankingService.friendCodeForUid(profile.uid);
     final message =
-        'Agrégame en Focus con mi código de amigo:\n\n$code\n\nEntra a Perfil > Buscar y pega este código.';
+        'AgrÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©game en Focus con mi cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo de amigo:\n\n$code\n\nEntra a Perfil > Buscar y pega este cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo.';
     try {
       await Share.share(
         message,
-        subject: 'Invitación de Focus',
+        subject:
+            'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de Focus',
       );
     } catch (_) {
       await Clipboard.setData(ClipboardData(text: message));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitación copiada al portapapeles.')),
+        const SnackBar(
+            content: Text(
+                'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n copiada al portapapeles.')),
       );
     }
   }
@@ -167,7 +174,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           _CollapsibleFriendsSection(
                             icon: Icons.person_add_alt_1_rounded,
                             title: 'Agregar amigo',
-                            subtitle: 'Código, nombre o correo',
+                            subtitle: 'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo, nombre o correo',
                             child: _SearchCard(
                               controller: _searchController,
                               searchFuture: _searchFuture,
@@ -243,7 +250,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${friend.name} salió de tu círculo.')),
+        SnackBar(
+            content: Text(
+                '${friend.name} saliÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³ de tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.')),
       );
     } catch (error) {
       if (!mounted) return;
@@ -263,13 +272,15 @@ class _LoginRequiredPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return _CenteredState(
       icon: Icons.people_alt_rounded,
-      title: 'Inicia sesión para usar tu perfil',
+      title:
+          'Inicia sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n para usar tu perfil',
       message:
-          'Crea tu perfil para competir con compañeros y aparecer en rankings.',
+          'Crea tu perfil para competir con compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros y aparecer en rankings.',
       action: FilledButton.icon(
         onPressed: onLogin,
         icon: const Icon(Icons.login_rounded),
-        label: const Text('Iniciar sesión'),
+        label: const Text(
+            'Iniciar sesiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n'),
       ),
     );
   }
@@ -546,7 +557,8 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                         fixedSize: const Size(38, 38),
                       ),
                       onPressed: widget.onShare,
-                      tooltip: 'Compartir código',
+                      tooltip:
+                          'Compartir cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
                       icon: const Icon(Icons.ios_share_rounded, size: 17),
                     ),
                   ],
@@ -578,7 +590,7 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Elige cómo quieres aparecer en Perfil.',
+                'Elige cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mo quieres aparecer en Perfil.',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
@@ -652,6 +664,7 @@ class _DuolingoFriendsHeader extends StatefulWidget {
 class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
   late int _themeIndex;
   late int _profileIconIndex;
+  late FocusAvatarConfig _avatarConfig;
 
   @override
   void initState() {
@@ -664,6 +677,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       widget.profile.stats['socialMascotIndex'],
       _profileIcons.length,
     );
+    _avatarConfig = _avatarConfigFromProfile(widget.profile, _profileIconIndex);
   }
 
   @override
@@ -671,199 +685,107 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
     final profile = widget.profile;
     final code = RankingService.friendCodeForUid(profile.uid);
     final theme = _socialThemes[_themeIndex];
-    return Container(
-      height: 226,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        gradient: LinearGradient(
-          colors: theme.colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 18),
+            child: child,
+          ),
+        );
+      },
+      child: Container(
+        height: 236,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(32),
+          gradient: LinearGradient(
+            colors: theme.colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 22,
+              offset: const Offset(0, 12),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 22,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned(
-            right: -34,
-            top: -38,
-            child: _SoftHeaderCircle(size: 130, alpha: 0.08),
-          ),
-          Positioned(
-            left: -54,
-            bottom: -70,
-            child: _SoftHeaderCircle(size: 190, alpha: 0.06),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Text(
-                    profile.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      height: 1.0,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
-                ),
-                _ColorFanButton(
-                  selected: _themeIndex,
-                  onSelected: (index) async {
-                    final previous = _themeIndex;
-                    setState(() => _themeIndex = index);
-                    try {
-                      await RankingService.updateSocialStyle(themeIndex: index);
-                    } catch (error) {
-                      if (!context.mounted) return;
-                      setState(() => _themeIndex = previous);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              Text(RankingService.friendlyRankingError(error)),
-                        ),
-                      );
-                    }
-                  },
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    foregroundColor: Colors.white.withValues(alpha: 0.9),
-                    fixedSize: const Size(36, 36),
-                    minimumSize: const Size(36, 36),
-                    padding: EdgeInsets.zero,
-                    shape: const CircleBorder(),
-                  ),
-                  onPressed: widget.onShare,
-                  tooltip: 'Compartir código',
-                  icon: const Icon(Icons.ios_share_rounded, size: 18),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: const Alignment(0.08, 0.22),
-            child: _ProfileIconBadge(
-              option: _profileIcons[_profileIconIndex],
-              colors: theme.colors,
-              size: 170,
-              onTap: () => _showProfileIconPicker(context),
-            ),
-          ),
-          Positioned(
-            left: 22,
-            bottom: 16,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: () => widget.onCopy(code),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        clipBehavior: Clip.antiAlias,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: Colors.black.withValues(alpha: 0.16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.22),
+                  gradient: RadialGradient(
+                    center: const Alignment(0.35, 0.12),
+                    radius: 0.82,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.24),
+                      Colors.white.withValues(alpha: 0.04),
+                      Colors.transparent,
+                    ],
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      code,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 0.45,
-                      ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Icon(
-                      Icons.copy_rounded,
-                      color: Colors.white,
-                      size: 12,
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showProfileIconPicker(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Icono de perfil',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
+            Positioned(
+              right: -34,
+              top: -38,
+              child: _SoftHeaderCircle(size: 130, alpha: 0.08),
+            ),
+            Positioned(
+              left: -54,
+              bottom: -70,
+              child: _SoftHeaderCircle(size: 190, alpha: 0.06),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            height: 1.0,
+                            letterSpacing: -0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _HeaderTinyPill(
+                          icon: Icons.auto_awesome_rounded,
+                          text: '${profile.totalPoints} pts',
+                        ),
+                      ],
                     ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Elige cómo quieres aparecer en Perfil.',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.78,
-                ),
-                itemCount: _profileIcons.length,
-                itemBuilder: (context, index) {
-                  final option = _profileIcons[index];
-                  return _ProfileIconChoice(
-                    option: option,
-                    selected: index == _profileIconIndex,
-                    onTap: () async {
-                      Navigator.pop(context);
-                      if (index == _profileIconIndex) return;
-                      final previous = _profileIconIndex;
-                      setState(() => _profileIconIndex = index);
+                  ),
+                  _ColorFanButton(
+                    selected: _themeIndex,
+                    onSelected: (index) async {
+                      final previous = _themeIndex;
+                      setState(() => _themeIndex = index);
                       try {
                         await RankingService.updateSocialStyle(
-                          mascotIndex: index,
-                        );
-                        await WidgetSyncService.syncProfileIconAsset(
-                          option.asset,
+                          themeIndex: index,
                         );
                       } catch (error) {
-                        if (!mounted) return;
-                        setState(() => _profileIconIndex = previous);
-                        ScaffoldMessenger.of(this.context).showSnackBar(
+                        if (!context.mounted) return;
+                        setState(() => _themeIndex = previous);
+                        ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
                               RankingService.friendlyRankingError(error),
@@ -872,12 +794,131 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                         );
                       }
                     },
-                  );
-                },
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.white.withValues(alpha: 0.18),
+                      foregroundColor: Colors.white.withValues(alpha: 0.92),
+                      fixedSize: const Size(38, 38),
+                      minimumSize: const Size(38, 38),
+                      padding: EdgeInsets.zero,
+                      shape: const CircleBorder(),
+                    ),
+                    onPressed: widget.onShare,
+                    tooltip: 'Compartir código',
+                    icon: const Icon(Icons.ios_share_rounded, size: 18),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+            Align(
+              alignment: const Alignment(0.08, 0.24),
+              child: _ProfileIconBadge(
+                option: _profileIcons[_profileIconIndex],
+                config: _avatarConfig,
+                colors: theme.colors,
+                size: 194,
+                onTap: () => _showAvatarBuilder(context),
+              ),
+            ),
+            Positioned(
+              left: 22,
+              right: 18,
+              bottom: 16,
+              child: Row(
+                children: [
+                  Flexible(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: () => widget.onCopy(code),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: Colors.black.withValues(alpha: 0.17),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                code,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.45,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.copy_rounded,
+                              color: Colors.white,
+                              size: 13,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  _HeaderTinyPill(
+                    icon: Icons.groups_rounded,
+                    text: '${widget.friendsCount}',
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  void _showAvatarBuilder(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _ProfileIconPickerSheet(
+        selectedIndex: _profileIconIndex,
+        onSelected: (index) async {
+          final previousIndex = _profileIconIndex;
+          final previousConfig = _avatarConfig;
+          final config = FocusAvatarConfig.fromProfileIndex(index);
+          setState(() {
+            _profileIconIndex = index;
+            _avatarConfig = config;
+          });
+          try {
+            await RankingService.updateSocialStyle(mascotIndex: index);
+            await RankingService.updateSocialAvatar(config.toMap());
+            await WidgetSyncService.syncProfileIconAsset(
+              _profileIcons[index].asset,
+            );
+          } catch (error) {
+            if (!mounted) return;
+            setState(() {
+              _profileIconIndex = previousIndex;
+              _avatarConfig = previousConfig;
+            });
+            ScaffoldMessenger.of(this.context).showSnackBar(
+              SnackBar(
+                content: Text(RankingService.friendlyRankingError(error)),
+              ),
+            );
+          }
+        },
       ),
     );
   }
@@ -900,6 +941,45 @@ class _SoftHeaderCircle extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: alpha),
+      ),
+    );
+  }
+}
+
+class _HeaderTinyPill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _HeaderTinyPill({
+    required this.icon,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.black.withValues(alpha: 0.14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 14),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1122,18 +1202,18 @@ class _ColorFanButton extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: 10,
+                runSpacing: 10,
                 children: List.generate(
                   _socialThemes.length,
                   (index) => InkWell(
-                    borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(18),
                     onTap: () async {
                       Navigator.pop(context);
                       if (index != selected) await onSelected(index);
                     },
-                    child: _ThemeDot(
-                      colors: _socialThemes[index].colors,
+                    child: _ThemeChoicePill(
+                      theme: _socialThemes[index],
                       selected: index == selected,
                     ),
                   ),
@@ -1149,12 +1229,14 @@ class _ColorFanButton extends StatelessWidget {
 
 class _ProfileIconBadge extends StatelessWidget {
   final _ProfileIconOption option;
+  final FocusAvatarConfig? config;
   final List<Color> colors;
   final double size;
   final VoidCallback onTap;
 
   const _ProfileIconBadge({
     required this.option,
+    this.config,
     required this.colors,
     this.size = 118,
     required this.onTap,
@@ -1212,9 +1294,13 @@ class _ProfileIconBadge extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: Image.asset(
-                    option.asset,
-                    fit: BoxFit.contain,
+                  child: FocusProfileMascot(
+                    size: size,
+                    fallbackConfig: config ??
+                        FocusAvatarConfig.fromProfileIndex(
+                          _profileIcons.indexOf(option),
+                        ),
+                    state: FocusMascotState.idle,
                   ),
                 ),
               ),
@@ -1277,7 +1363,16 @@ class _ProfileIconChoice extends StatelessWidget {
         child: Column(
           children: [
             Expanded(
-              child: Image.asset(option.asset, fit: BoxFit.contain),
+              child: FocusProfileMascot(
+                size: 72,
+                animate: false,
+                fallbackConfig: FocusAvatarConfig.fromProfileIndex(
+                  _profileIcons.indexOf(option),
+                ),
+                state: selected
+                    ? FocusMascotState.celebrating
+                    : FocusMascotState.idle,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -1292,6 +1387,227 @@ class _ProfileIconChoice extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileIconPickerSheet extends StatefulWidget {
+  final int selectedIndex;
+  final Future<void> Function(int index) onSelected;
+
+  const _ProfileIconPickerSheet({
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  @override
+  State<_ProfileIconPickerSheet> createState() =>
+      _ProfileIconPickerSheetState();
+}
+
+class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
+  late final PageController _pageController;
+  late int _selectedIndex;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.selectedIndex;
+    _pageController = PageController(
+      initialPage: widget.selectedIndex,
+      viewportFraction: 0.48,
+    );
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = _profileIcons[_selectedIndex];
+    final config = FocusAvatarConfig.fromProfileIndex(_selectedIndex);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Elige tu personaje',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        selected.name,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: FocusPalette.primary,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () async {
+                          if (_selectedIndex == widget.selectedIndex) {
+                            Navigator.pop(context);
+                            return;
+                          }
+                          setState(() => _saving = true);
+                          await widget.onSelected(_selectedIndex);
+                          if (!context.mounted) return;
+                          Navigator.pop(context);
+                        },
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  label: const Text('Guardar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              height: 232,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(32),
+                gradient: LinearGradient(
+                  colors: [
+                    FocusPalette.primary.withValues(alpha: 0.12),
+                    FocusPalette.cyan.withValues(alpha: 0.08),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(32),
+                        gradient: RadialGradient(
+                          center: const Alignment(0.20, -0.18),
+                          colors: [
+                            FocusPalette.cyan.withValues(alpha: 0.18),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: FocusProfileMascot(
+                      size: 196,
+                      fallbackConfig: config,
+                      state: FocusMascotState.celebrating,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 126,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _profileIcons.length,
+                onPageChanged: (index) =>
+                    setState(() => _selectedIndex = index),
+                itemBuilder: (context, index) {
+                  final option = _profileIcons[index];
+                  final active = index == _selectedIndex;
+                  return AnimatedScale(
+                    duration: const Duration(milliseconds: 220),
+                    scale: active ? 1 : 0.88,
+                    curve: Curves.easeOutBack,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 7),
+                      child: _ProfileIconChoice(
+                        option: option,
+                        selected: active,
+                        onTap: () {
+                          _pageController.animateToPage(
+                            index,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeOutCubic,
+                          );
+                          setState(() => _selectedIndex = index);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeChoicePill extends StatelessWidget {
+  final _SocialTheme theme;
+  final bool selected;
+
+  const _ThemeChoicePill({
+    required this.theme,
+    required this.selected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.fromLTRB(8, 7, 12, 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: selected
+            ? FocusPalette.primary.withValues(alpha: 0.12)
+            : Theme.of(context).colorScheme.surfaceContainerHighest,
+        border: Border.all(
+          color: selected
+              ? FocusPalette.primary
+              : Theme.of(context).colorScheme.outlineVariant,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ThemeDot(colors: theme.colors, selected: selected),
+          const SizedBox(width: 8),
+          Text(
+            theme.name,
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: selected ? FocusPalette.primary : null,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1468,7 +1784,10 @@ const _profileIcons = [
 
 // ignore: unused_element
 const _socialMascots = [
-  _MascotOption('Búho', Icons.psychology_alt_rounded, FocusPalette.primary),
+  _MascotOption(
+      'BÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºho',
+      Icons.psychology_alt_rounded,
+      FocusPalette.primary),
   _MascotOption('Cohete', Icons.rocket_launch_rounded, FocusPalette.coral),
   _MascotOption('Hoja', Icons.eco_rounded, FocusPalette.mint),
   _MascotOption('Rayo', Icons.bolt_rounded, FocusPalette.amber),
@@ -1478,6 +1797,17 @@ int _safeIndex(Object? value, int length) {
   final parsed = int.tryParse('$value') ?? 0;
   if (length <= 0) return 0;
   return parsed.clamp(0, length - 1).toInt();
+}
+
+FocusAvatarConfig _avatarConfigFromProfile(
+  RankingProfile profile,
+  int fallbackIndex,
+) {
+  final raw = profile.stats['socialAvatar'];
+  if (raw is Map) {
+    return FocusAvatarConfig.fromMap(Map<String, dynamic>.from(raw));
+  }
+  return FocusAvatarConfig.fromProfileIndex(fallbackIndex);
 }
 
 int _profileStreak(RankingProfile profile) {
@@ -1529,7 +1859,7 @@ String _rankMedalAsset(String rank) {
                 Align(
                   alignment: Alignment.topRight,
                   child: IconButton.filledTonal(
-                    tooltip: 'Copiar código',
+                    tooltip: 'Copiar cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.white.withValues(alpha: 0.86),
                       foregroundColor: FocusPalette.ink,
@@ -1659,7 +1989,8 @@ class _CompactFriendHeader extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           IconButton.filledTonal(
-            tooltip: 'Copiar código',
+            tooltip:
+                'Copiar cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo',
             style: IconButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: FocusPalette.primaryDeep,
@@ -1740,7 +2071,7 @@ class _FriendCodeHero extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Círculo Focus',
+                          'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo Focus',
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
@@ -1752,8 +2083,8 @@ class _FriendCodeHero extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           friendsCount == 0
-                              ? 'Invita compañeros y compara puntos.'
-                              : '$friendsCount amigos activos en tu círculo.',
+                              ? 'Invita compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros y compara puntos.'
+                              : '$friendsCount amigos activos en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ],
@@ -1778,7 +2109,7 @@ class _FriendCodeHero extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Tu código de amigo',
+                            'Tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo de amigo',
                             style: TextStyle(
                               color: Colors.white70,
                               fontWeight: FontWeight.w700,
@@ -1821,7 +2152,8 @@ class _FriendCodeHero extends StatelessWidget {
                   ),
                   _HeroChip(
                     icon: Icons.person_add_alt_1_rounded,
-                    label: 'Solicitudes rápidas',
+                    label:
+                        'Solicitudes rÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡pidas',
                   ),
                 ],
               ),
@@ -2074,8 +2406,8 @@ class _FriendsHub extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     friends.isEmpty
-                        ? 'Busca por código o nombre'
-                        : '${friends.length} en tu círculo',
+                        ? 'Busca por cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo o nombre'
+                        : '${friends.length} en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -2124,8 +2456,8 @@ class _FriendsHub extends StatelessWidget {
           ),
           subtitle: Text(
             friends.isEmpty
-                ? 'Busca y agrega compañeros'
-                : '${friends.length} en tu círculo',
+                ? 'Busca y agrega compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros'
+                : '${friends.length} en tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -2316,6 +2648,7 @@ class _ProfileIconAvatar extends StatelessWidget {
       profile.stats['socialMascotIndex'],
       _profileIcons.length,
     );
+    final config = _avatarConfigFromProfile(profile, index);
     return SizedBox(
       width: size,
       height: size,
@@ -2335,9 +2668,9 @@ class _ProfileIconAvatar extends StatelessWidget {
             ),
             child: const SizedBox.expand(),
           ),
-          Image.asset(
-            _profileIcons[index].asset,
-            fit: BoxFit.contain,
+          FocusLayeredAvatar(
+            size: size,
+            config: config,
           ),
         ],
       ),
@@ -2396,7 +2729,8 @@ class _FocusSummaryGrid extends StatelessWidget {
           _SummaryItem(
             icon: Icons.local_fire_department_rounded,
             color: FocusPalette.coral,
-            value: '$streak días',
+            value:
+                '$streak dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as',
           ),
           _SummaryItem(
             icon: Icons.stars_rounded,
@@ -2502,7 +2836,7 @@ class _FriendStreaks extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    'Aún no tienes rachas privadas. Toca + para invitar a un amigo.',
+                    'AÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âºn no tienes rachas privadas. Toca + para invitar a un amigo.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: FocusPalette.muted,
                           fontWeight: FontWeight.w700,
@@ -2527,7 +2861,8 @@ class _RecentBadges extends StatelessWidget {
   Widget build(BuildContext context) {
     final badges = profile.badges.reversed.take(5).toList();
     return _SocialSection(
-      title: 'Últimas insignias',
+      title:
+          'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ltimas insignias',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2554,7 +2889,7 @@ class _RecentBadges extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Completa pomodoros, rachas y hábitos para ganar insignias.',
+                'Completa pomodoros, rachas y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para ganar insignias.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: FocusPalette.muted,
                       fontWeight: FontWeight.w700,
@@ -2608,7 +2943,7 @@ class _RecentBadgesDuo extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(
-                'Completa sesiones y hábitos para desbloquear logros.',
+                'Completa sesiones y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para desbloquear logros.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: FocusPalette.muted,
                       fontWeight: FontWeight.w700,
@@ -2644,7 +2979,7 @@ class _AllBadgesGrid extends StatelessWidget {
                 const _EmptyBadgeBubble(),
                 const SizedBox(height: 6),
                 Text(
-                  'Completa sesiones y hábitos para desbloquear insignias.',
+                  'Completa sesiones y hÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡bitos para desbloquear insignias.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: FocusPalette.muted,
                         fontWeight: FontWeight.w700,
@@ -2743,7 +3078,7 @@ class _EmptyBadgeBubble extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Vacío',
+            'VacÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­o',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: FocusPalette.muted,
                   fontWeight: FontWeight.w900,
@@ -2998,7 +3333,8 @@ Future<void> _confirmRemoveStreak(
     context: context,
     builder: (context) => AlertDialog(
       title: const Text('Eliminar racha'),
-      content: Text('¿Quieres quitar la racha con ${streak.friend.name}?'),
+      content: Text(
+          'ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿Quieres quitar la racha con ${streak.friend.name}?'),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
@@ -3075,7 +3411,7 @@ void _showStartStreakSheet(
                             ScaffoldMessenger.of(rootContext).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Invitación de racha enviada a ${friend.name}.',
+                                  'InvitaciÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³n de racha enviada a ${friend.name}.',
                                 ),
                               ),
                             );
@@ -3281,7 +3617,7 @@ class _SocialInfoSection extends StatelessWidget {
             ),
           ),
           title: const Text(
-            'Cómo funciona',
+            'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³mo funciona',
             style: TextStyle(fontWeight: FontWeight.w900),
           ),
           subtitle: const Text('Perfil, ranking, rachas y medallas'),
@@ -3296,13 +3632,13 @@ class _SocialInfoSection extends StatelessWidget {
               icon: Icons.groups_rounded,
               title: 'Ranking de amigos',
               text:
-                  'Compara tus puntos solo con tu círculo. Ahora tienes $friendsCount amigos agregados.',
+                  'Compara tus puntos solo con tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo. Ahora tienes $friendsCount amigos agregados.',
             ),
             _InfoTile(
               icon: Icons.local_fire_department_rounded,
               title: 'Rachas entre amigos',
               text:
-                  'Muestra quién mantiene más días de estudio seguidos. Tu racha actual es ${_profileStreak(profile)} días.',
+                  'Muestra quiÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â©n mantiene mÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡s dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as de estudio seguidos. Tu racha actual es ${_profileStreak(profile)} dÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­as.',
             ),
             _InfoTile(
               icon: Icons.military_tech_rounded,
@@ -3433,7 +3769,7 @@ class _FriendsRanking extends StatelessWidget {
             icon: Icons.leaderboard_rounded,
             title: 'Ranking de amigos',
             subtitle: friendsCount == 0
-                ? 'Apareces tú hasta que agregues compañeros.'
+                ? 'Apareces tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº hasta que agregues compaÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â±eros.'
                 : 'Competencia semanal solo por puntos.',
             action: IconButton(
               tooltip: 'Actualizar',
@@ -3521,7 +3857,9 @@ class _LeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isCurrentUser ? 'Vas liderando' : 'Líder semanal',
+                  isCurrentUser
+                      ? 'Vas liderando'
+                      : 'LÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­der semanal',
                   style: const TextStyle(
                     color: Colors.white70,
                     fontWeight: FontWeight.w800,
@@ -3622,7 +3960,9 @@ class _FriendRankTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isCurrentUser ? '${entry.name} (tú)' : entry.name,
+                  isCurrentUser
+                      ? '${entry.name} (tÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Âº)'
+                      : entry.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.w900),
@@ -3683,7 +4023,8 @@ class _RequestsCard extends StatelessWidget {
               if (requests.isEmpty)
                 const _EmptyInline(
                   icon: Icons.check_circle_outline_rounded,
-                  text: 'Cuando alguien use tu código, aparecerá aquí.',
+                  text:
+                      'Cuando alguien use tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo, aparecerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ aquÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­.',
                 )
               else
                 ...requests.map(
@@ -3737,7 +4078,7 @@ class _RequestTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Quiere entrar a tu círculo.',
+                  'Quiere entrar a tu cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo.',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -3817,7 +4158,8 @@ class _SearchCard extends StatelessWidget {
                   controller: controller,
                   textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
-                    labelText: 'Código o nombre',
+                    labelText:
+                        'CÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo o nombre',
                     hintText: 'FOC-ABC123 o Nelson',
                     prefixIcon: Icon(Icons.search_rounded),
                     border: InputBorder.none,
@@ -3854,7 +4196,8 @@ class _SearchCard extends StatelessWidget {
               if (results.isEmpty) {
                 return const _EmptyInline(
                   icon: Icons.person_search_rounded,
-                  text: 'No encontramos ese perfil. Revisa el código.',
+                  text:
+                      'No encontramos ese perfil. Revisa el cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â³digo.',
                 );
               }
               return Column(
@@ -3895,7 +4238,7 @@ class _FriendsList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mi círculo',
+          'Mi cÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â­rculo',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: FocusPalette.muted,
                 fontWeight: FontWeight.w900,
