@@ -16,7 +16,7 @@ import '../utils/app_utils.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import 'grade_calculator_screen.dart';
-import 'subjects_screen.dart';
+import 'main_navigation_screen.dart';
 
 enum _SubjectSelectionState { none, taking }
 
@@ -808,7 +808,9 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   void _goToSubjectsScreen() {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SubjectsScreen()),
+      MaterialPageRoute(
+        builder: (_) => const MainNavigationScreen(initialIndex: 2),
+      ),
       (route) => false,
     );
   }
@@ -1277,4 +1279,3 @@ class _MutedHint extends StatelessWidget {
     );
   }
 }
-

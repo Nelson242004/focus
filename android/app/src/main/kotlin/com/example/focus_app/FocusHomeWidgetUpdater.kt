@@ -127,6 +127,7 @@ object FocusHomeWidgetUpdater {
 
     private fun mascotForProfile(asset: String): Int {
         return when (asset) {
+            "assets/profile_icons/focus_scholar.png" -> R.drawable.focus_profile_scholar
             "assets/profile_icons/focus_flame.png" -> R.drawable.focus_profile_flame
             "assets/profile_icons/focus_calm.png" -> R.drawable.focus_profile_calm
             "assets/profile_icons/focus_champion.png" -> R.drawable.focus_profile_champion
@@ -148,6 +149,20 @@ object FocusHomeWidgetUpdater {
             "assets/profile_icons/focus_engineer_female.png" -> R.drawable.focus_profile_engineer_female
             "assets/profile_icons/focus_architect_female.png" -> R.drawable.focus_profile_architect_female
             "assets/profile_icons/focus_lawyer_female.png" -> R.drawable.focus_profile_lawyer_female
+            "assets/profile_icons/focus_pink_cool.png" -> R.drawable.focus_profile_pink_cool
+            "assets/profile_icons/focus_pink_cool_female.png" -> R.drawable.focus_profile_pink_cool_female
+            "assets/profile_icons/focus_pink_skater.png" -> R.drawable.focus_profile_pink_skater
+            "assets/profile_icons/focus_pink_skater_female.png" -> R.drawable.focus_profile_pink_skater_female
+            "assets/profile_icons/focus_pink_music.png" -> R.drawable.focus_profile_pink_music
+            "assets/profile_icons/focus_pink_music_female.png" -> R.drawable.focus_profile_pink_music_female
+            "assets/profile_icons/focus_pink_artist.png" -> R.drawable.focus_profile_pink_artist
+            "assets/profile_icons/focus_pink_artist_female.png" -> R.drawable.focus_profile_pink_artist_female
+            "assets/profile_icons/focus_red_basket.png" -> R.drawable.focus_profile_red_basket
+            "assets/profile_icons/focus_purple_camera.png" -> R.drawable.focus_profile_purple_camera
+            "assets/profile_icons/focus_green_tech.png" -> R.drawable.focus_profile_green_tech
+            "assets/profile_icons/focus_black_gamer.png" -> R.drawable.focus_profile_black_gamer
+            "assets/profile_icons/focus_orange_travel.png" -> R.drawable.focus_profile_orange_travel
+            "assets/profile_icons/focus_yellow_gym.png" -> R.drawable.focus_profile_yellow_gym
             else -> R.drawable.focus_profile_scholar
         }
     }

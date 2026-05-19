@@ -210,6 +210,13 @@ class RankingService {
       payload['stats.socialMascotIndex'] = mascotIndex;
     }
     await _firestore.collection('users').doc(user.uid).update(payload);
+    if (mascotIndex != null) {
+      try {
+        await ensureCurrentWeekScore();
+      } catch (error) {
+        debugPrint('[FocusRanking] Sync de icono en ranking omitido: $error');
+      }
+    }
   }
 
   static Future<void> updateSocialAvatar(Map<String, dynamic> avatar) async {
