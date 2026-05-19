@@ -7,7 +7,6 @@ import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_empty_state.dart';
-import '../widgets/focus_help_button.dart';
 import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
@@ -386,30 +385,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Materias'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de materias',
-            message:
-                'Aqui organizas tus clases y dejas lista la base para horarios, examenes y tareas.',
-            sections: [
-              FocusHelpSection(
-                title: 'Que guardar',
-                items: [
-                  'Con el nombre ya puedes crear una materia.',
-                  'Aula, profesor, seccion y color son opcionales y sirven para ordenar mejor.',
-                  'Puedes agregar el horario al crearla o hacerlo despues.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Consejos',
-                items: [
-                  'Mantener pocas materias bien cargadas hace que el dashboard y el calendario se vean mas claros.',
-                  'Si eliminas una materia, sus horarios se borran y examenes, tareas y recursos quedan sin vinculo.',
-                ],
-              ),
-            ],
-          ),
-        ],
       ),
       body: SafeArea(
         top: false,
@@ -440,39 +415,23 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Gestiona tus materias',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                            FilledButton.icon(
-                              onPressed: () => _showSubjectDialog(),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Nueva'),
-                            ),
-                          ],
+                        child: Text(
+                          'Gestiona tus materias',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w800),
                         ),
                       ),
                       if (subjects.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16),
-                          child: FocusEmptyState(
+                          child: FocusProfileEmptyState(
                             icon: Icons.menu_book_rounded,
                             accent: const Color(0xFF0EA5E9),
                             title: 'Carga tu primera materia',
                             message:
-                                'Empieza solo con el nombre. Después puedes sumar horarios, aula, profesor y sección.',
-                            action: FilledButton.icon(
-                              onPressed: () => _showSubjectDialog(),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Agregar materia'),
-                            ),
+                                'Empieza solo con el nombre desde el botón +. Después puedes sumar horarios, aula, profesor y sección.',
                           ),
                         )
                       else
@@ -674,6 +633,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           },
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showSubjectDialog(),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Materia'),
+      ),
     );
   }
 }
@@ -761,4 +725,3 @@ class _ColorPickerDialog extends StatelessWidget {
     );
   }
 }
-

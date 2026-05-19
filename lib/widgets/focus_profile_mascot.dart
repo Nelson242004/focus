@@ -20,12 +20,14 @@ class FocusProfileMascot extends StatefulWidget {
   final double size;
   final FocusMascotState state;
   final FocusAvatarConfig fallbackConfig;
+  final String? profileIconAsset;
   final bool animate;
 
   const FocusProfileMascot({
     super.key,
     required this.size,
     required this.fallbackConfig,
+    this.profileIconAsset,
     this.state = FocusMascotState.idle,
     this.animate = true,
   });
@@ -82,6 +84,7 @@ class _FocusProfileMascotState extends State<FocusProfileMascot>
             final progress = widget.animate ? _fallbackController.value : 0.0;
             final pulse = math.sin(progress * math.pi * 2);
             final config = _fallbackConfigForState();
+            final asset = widget.profileIconAsset ?? config.presetAsset;
             final jump = widget.state == FocusMascotState.celebrating
                 ? -math.sin(progress * math.pi * 2).abs() * widget.size * 0.05
                 : 0.0;
@@ -129,8 +132,8 @@ class _FocusProfileMascotState extends State<FocusProfileMascot>
                           );
                         },
                         child: Image.asset(
-                          config.presetAsset,
-                          key: ValueKey(config.presetAsset),
+                          asset,
+                          key: ValueKey(asset),
                           width: widget.size * 0.92,
                           height: widget.size * 0.92,
                           fit: BoxFit.contain,

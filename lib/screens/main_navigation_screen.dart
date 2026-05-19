@@ -6,6 +6,7 @@ import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_help_button.dart';
 import 'dashboard_screen.dart';
 import 'friends_screen.dart';
 import 'habits_screen.dart';
@@ -56,7 +57,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Focus'),
-        actions: const [_ProfileAppBarButton()],
+        actions: [
+          switch (_selectedIndex) {
+            1 => const _PomodoroHelpAction(),
+            2 => const _SubjectsHelpAction(),
+            3 => const _HabitsHelpAction(),
+            4 => const _SettingsHelpAction(),
+            _ => const _ProfileAppBarButton(),
+          },
+        ],
       ),
       drawer: FocusDrawer(selectedMainIndex: _selectedIndex),
       body: SafeArea(
@@ -101,40 +110,143 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
+class _SubjectsHelpAction extends StatelessWidget {
+  const _SubjectsHelpAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return const FocusHelpAction(
+      title: 'Ayuda de materias',
+      message:
+          'Aqui organizas tus clases y dejas lista la base para horarios, examenes y tareas.',
+      sections: [
+        FocusHelpSection(
+          title: 'Que guardar',
+          items: [
+            'Con el nombre ya puedes crear una materia.',
+            'Aula, profesor, seccion y color son opcionales y sirven para ordenar mejor.',
+            'Puedes agregar el horario al crearla o hacerlo despues.',
+          ],
+        ),
+        FocusHelpSection(
+          title: 'Consejos',
+          items: [
+            'Mantener pocas materias bien cargadas hace que el dashboard y el calendario se vean mas claros.',
+            'Si eliminas una materia, sus horarios se borran y examenes, tareas y recursos quedan sin vinculo.',
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _HabitsHelpAction extends StatelessWidget {
+  const _HabitsHelpAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return const FocusHelpAction(
+      title: 'Ayuda de habitos',
+      message:
+          'La idea aqui es repetir pocas acciones claras para construir constancia sin sobrecargarte.',
+      sections: [
+        FocusHelpSection(
+          title: 'Como usarlo',
+          items: [
+            'Puedes tener hasta 8 habitos activos.',
+            'Cada habito se marca una vez por dia para proteger rachas y puntos.',
+            'La identidad asociada sirve para que el habito tenga una razon mas clara.',
+          ],
+        ),
+        FocusHelpSection(
+          title: 'Ranking',
+          items: [
+            'Los habitos tambien pueden sumar puntos al ranking global con limites diarios y reglas anti abuso.',
+            'Crea habitos desde el bloque de la propia pantalla para no cargar la barra superior.',
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _PomodoroHelpAction extends StatelessWidget {
+  const _PomodoroHelpAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return const FocusHelpAction(
+      title: 'Ayuda de Pomodoro',
+      message:
+          'Usa Pomodoro para trabajar en bloques cortos, registrar puntos y proteger tu enfoque.',
+      sections: [
+        FocusHelpSection(
+          title: 'Como usarlo',
+          items: [
+            'Elige una materia si quieres asociar la sesion a una clase.',
+            'Pulsa iniciar para comenzar el bloque y pausa solo si necesitas cortar el ritmo.',
+            'Los descansos sirven para recuperar energia antes del siguiente bloque.',
+          ],
+        ),
+        FocusHelpSection(
+          title: 'Puntos y ranking',
+          items: [
+            'Los puntos se otorgan al completar bloques de enfoque validos.',
+            'Hay limites diarios para evitar puntos inflados.',
+            'Si no iniciaste sesion, el temporizador funciona igual, pero el ranking no se sincroniza.',
+          ],
+        ),
+        FocusHelpSection(
+          title: 'Configuracion',
+          items: [
+            'Puedes ajustar duracion, sonido y descanso automatico desde la tarjeta de configuracion.',
+            'El bloqueo de apps ayuda a reducir distracciones durante el enfoque.',
+            'El modo horizontal deja una vista mas limpia para usar el celular como temporizador.',
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsHelpAction extends StatelessWidget {
+  const _SettingsHelpAction();
+
+  @override
+  Widget build(BuildContext context) {
+    return const FocusHelpAction(
+      title: 'Ayuda de configuracion',
+      message:
+          'Aqui ajustas la app, tu cuenta y tus copias de seguridad. La ayuda concentra lo secundario para que la pantalla siga limpia.',
+      sections: [
+        FocusHelpSection(
+          title: 'Lo principal',
+          items: [
+            'Apariencia cambia tema, color, texto y animaciones.',
+            'Notificaciones controla recordatorios y pruebas.',
+            'Backup exporta o restaura tus datos del dispositivo.',
+          ],
+        ),
+        FocusHelpSection(
+          title: 'Importante',
+          items: [
+            'Guardar aplica los cambios manuales de esta pantalla.',
+            'Borrar datos elimina la informacion local y no se puede deshacer.',
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _ProfileAppBarButton extends StatelessWidget {
   const _ProfileAppBarButton();
-
-  static const _defaultAsset = 'assets/profile_icons/focus_scholar.png';
-  static const _profileAssets = [
-    'assets/profile_icons/focus_scholar.png',
-    'assets/profile_icons/focus_flame.png',
-    'assets/profile_icons/focus_calm.png',
-    'assets/profile_icons/focus_champion.png',
-    'assets/profile_icons/focus_scholar_female.png',
-    'assets/profile_icons/focus_flame_female.png',
-    'assets/profile_icons/focus_calm_female.png',
-    'assets/profile_icons/focus_champion_female.png',
-    'assets/profile_icons/focus_dark.png',
-    'assets/profile_icons/focus_dark_female.png',
-    'assets/profile_icons/focus_programmer.png',
-    'assets/profile_icons/focus_doctor.png',
-    'assets/profile_icons/focus_teacher.png',
-    'assets/profile_icons/focus_engineer.png',
-    'assets/profile_icons/focus_architect.png',
-    'assets/profile_icons/focus_lawyer.png',
-    'assets/profile_icons/focus_programmer_female.png',
-    'assets/profile_icons/focus_doctor_female.png',
-    'assets/profile_icons/focus_teacher_female.png',
-    'assets/profile_icons/focus_engineer_female.png',
-    'assets/profile_icons/focus_architect_female.png',
-    'assets/profile_icons/focus_lawyer_female.png',
-  ];
 
   @override
   Widget build(BuildContext context) {
     if (RankingService.currentUser == null) {
       return _ProfileIconButton(
-          asset: _defaultAsset, onTap: () => _openProfile(context));
+          asset: defaultProfileIconAsset, onTap: () => _openProfile(context));
     }
     return StreamBuilder<RankingProfile?>(
       stream: RankingService.profileStream(),
@@ -148,13 +260,10 @@ class _ProfileAppBarButton extends StatelessWidget {
   }
 
   static String _assetFromProfile(RankingProfile? profile) {
-    final rawIndex = profile?.stats['socialMascotIndex'];
-    final index = rawIndex is int ? rawIndex : int.tryParse('$rawIndex') ?? 0;
-    if (index < 0 || index >= _profileAssets.length) return _defaultAsset;
-    return allowedProfileIconAssetOrDefault(
-      _profileAssets[index],
-      RankingService.currentUser?.email,
-      defaultAsset: _defaultAsset,
+    return profileIconAssetFromIndex(
+      profile?.stats['socialMascotIndex'],
+      email: RankingService.currentUser?.email,
+      enforceAccess: true,
     );
   }
 

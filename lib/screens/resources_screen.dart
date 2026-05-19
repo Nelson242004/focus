@@ -271,13 +271,8 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
       drawer: const FocusDrawer(selectedRoute: 'resources'),
       appBar: AppBar(
         title: const Text('Recursos'),
-        actions: [
-          IconButton(
-            tooltip: 'Sugerir recurso',
-            onPressed: _suggestResource,
-            icon: const Icon(Icons.mail_outline_rounded),
-          ),
-          const FocusHelpAction(
+        actions: const [
+          FocusHelpAction(
             title: 'Ayuda de recursos',
             message:
                 'Guarda solo enlaces utiles para estudiar y deja el resto fuera para que la biblioteca se mantenga limpia.',
@@ -294,7 +289,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                 items: [
                   'Usa buscar y filtros para no llenar la pantalla con texto secundario.',
                   'El boton inferior sirve para agregar recursos nuevos.',
-                  'Si quieres sugerir recursos para Focus, usa el icono de correo.',
+                  'Si quieres sugerir recursos para Focus, usa el boton Sugerir recurso.',
                 ],
               ),
             ],
@@ -702,4 +697,3 @@ class _ResourceSection extends StatelessWidget {
     };
   }
 }
-

@@ -14,7 +14,6 @@ import '../services/ranking_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
-import '../widgets/focus_help_button.dart';
 import 'auth_gate_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -403,28 +402,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             tooltip: 'Guardar',
             onPressed: _saveSettings,
             icon: const Icon(Icons.save_rounded),
-          ),
-          const FocusHelpAction(
-            title: 'Ayuda de configuracion',
-            message:
-                'Aqui ajustas la app, tu cuenta y tus copias de seguridad. La ayuda concentra lo secundario para que la pantalla siga limpia.',
-            sections: [
-              FocusHelpSection(
-                title: 'Lo principal',
-                items: [
-                  'Apariencia cambia tema, color, texto y animaciones.',
-                  'Notificaciones controla recordatorios y pruebas.',
-                  'Backup exporta o restaura tus datos del dispositivo.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Importante',
-                items: [
-                  'Guardar aplica los cambios manuales de esta pantalla.',
-                  'Borrar datos elimina la informacion local y no se puede deshacer.',
-                ],
-              ),
-            ],
           ),
         ],
       ),

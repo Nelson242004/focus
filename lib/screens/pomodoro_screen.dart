@@ -1116,8 +1116,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             const SizedBox(height: 4),
                             Text(
                               _mode == 'focus'
-                                  ? 'Activa tu pomodoro y entra en tu bloque de enfoque sin distracciones.'
-                                  : 'Recupera energía mientras Focus prepara el siguiente bloque.',
+                                  ? 'Bloque corto, claro y sin distracciones.'
+                                  : 'Descansa antes del siguiente bloque.',
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
                           ],
@@ -2156,4 +2156,3 @@ class _HorizontalTheme {
     required this.textColor,
   });
 }
-

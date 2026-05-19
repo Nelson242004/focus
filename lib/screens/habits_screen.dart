@@ -5,7 +5,7 @@ import '../models/habit.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
-import '../widgets/focus_help_button.dart';
+import '../widgets/focus_empty_state.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -266,36 +266,23 @@ class _HabitsScreenState extends State<HabitsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hábitos atómicos'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de habitos',
-            message:
-                'La idea aqui es repetir pocas acciones claras para construir constancia sin sobrecargarte.',
-            sections: [
-              FocusHelpSection(
-                title: 'Como usarlo',
-                items: [
-                  'Puedes tener hasta 8 habitos activos.',
-                  'Cada habito se marca una vez por dia para proteger rachas y puntos.',
-                  'La identidad asociada sirve para que el habito tenga una razon mas clara.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Ranking',
-                items: [
-                  'Los habitos tambien pueden sumar puntos al ranking global con limites diarios y reglas anti abuso.',
-                  'Crea habitos desde el bloque de la propia pantalla para no cargar la barra superior.',
-                ],
-              ),
-            ],
-          ),
-        ],
       ),
       body: Consumer<AppProvider>(
         builder: (context, provider, _) {
           final habits = provider.habits;
           if (habits.isEmpty) {
-            return _EmptyHabitsState(onCreate: _createHabit);
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: FocusProfileEmptyState(
+                  icon: Icons.auto_awesome_rounded,
+                  accent: FocusPalette.primary,
+                  title: 'Carga tu primer hábito',
+                  message:
+                      'Empieza con una acción pequeña y repetible desde el botón +.',
+                ),
+              ),
+            );
           }
 
           final today = _dateToString(DateTime.now());
@@ -339,7 +326,6 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 currentHabits: habits.length,
                 maxHabits: _maxHabits,
                 canCreateMore: canCreateMore,
-                onCreate: _createHabit,
               ),
               const SizedBox(height: 12),
               ...orderedHabits.map((habit) => _HabitCard(
@@ -355,60 +341,15 @@ class _HabitsScreenState extends State<HabitsScreen> {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _createHabit,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Hábito'),
+      ),
     );
   }
 
   String _dateToString(DateTime date) => date.toIso8601String().split('T')[0];
-}
-
-class _EmptyHabitsState extends StatelessWidget {
-  final VoidCallback onCreate;
-
-  const _EmptyHabitsState({required this.onCreate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 90,
-              height: 90,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(colors: FocusPalette.examGradient),
-              ),
-              child: const Icon(Icons.auto_awesome_rounded,
-                  color: Colors.white, size: 42),
-            ),
-            const SizedBox(height: 18),
-            Text(
-              'Empieza pequeño, pero empieza hoy',
-              textAlign: TextAlign.center,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Inspirado en Hábitos Atómicos: construye sistemas fáciles de repetir y deja que la identidad haga el resto.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Crear mi primer hábito'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _HabitsHero extends StatelessWidget {
@@ -621,13 +562,11 @@ class _HabitLimitNotice extends StatelessWidget {
   final int currentHabits;
   final int maxHabits;
   final bool canCreateMore;
-  final VoidCallback onCreate;
 
   const _HabitLimitNotice({
     required this.currentHabits,
     required this.maxHabits,
     required this.canCreateMore,
-    required this.onCreate,
   });
 
   @override
@@ -664,14 +603,6 @@ class _HabitLimitNotice extends StatelessWidget {
                     fontWeight: canCreateMore ? null : FontWeight.w700,
                   ),
             ),
-          ),
-          const SizedBox(width: 10),
-          IconButton.filledTonal(
-            onPressed: onCreate,
-            icon: const Icon(Icons.add_rounded),
-            tooltip: canCreateMore
-                ? 'Crear hábito'
-                : 'Ver por qué no puedes crear más',
           ),
         ],
       ),
@@ -842,4 +773,3 @@ class _MiniStat extends StatelessWidget {
     );
   }
 }
-

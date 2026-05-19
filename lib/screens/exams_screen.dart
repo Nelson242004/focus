@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
@@ -376,7 +376,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24),
-                  child: FocusEmptyState(
+                  child: FocusProfileEmptyState(
                     icon: Icons.assignment_late_rounded,
                     accent: const Color(0xFFF97316),
                     title: 'Primero crea una materia',
@@ -713,17 +713,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                       if (exams.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(16),
-                          child: FocusEmptyState(
+                          child: FocusProfileEmptyState(
                             icon: Icons.event_busy_rounded,
                             accent: FocusPalette.coral,
-                            title: 'Sin exámenes aquí',
-                            message:
-                                'Agrega un parcial o final, o cambia el filtro para ver otros eventos.',
-                            action: FilledButton.icon(
-                              onPressed: () => _showExamDialog(),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Agregar examen'),
-                            ),
+                            title: provider.exams.isEmpty
+                                ? 'Carga tu primer examen'
+                                : 'Sin exámenes aquí',
+                            message: provider.exams.isEmpty
+                                ? 'Agrega un parcial o final desde el botón + para verlo en el calendario y en el dashboard.'
+                                : 'Cambia el filtro para ver otros eventos o usa el botón + para crear uno nuevo.',
                           ),
                         )
                       else
@@ -950,8 +948,7 @@ class _ExamCalendarChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        exam.isFinal ? FocusPalette.coral : FocusPalette.primary;
+    final accent = exam.isFinal ? FocusPalette.coral : FocusPalette.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -1012,4 +1009,3 @@ class _ExamCalendarChip extends StatelessWidget {
 extension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

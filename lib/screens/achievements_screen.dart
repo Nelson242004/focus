@@ -2,7 +2,6 @@
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
-import '../services/ranking_service.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
@@ -37,13 +36,35 @@ class AchievementsScreen extends StatelessWidget {
               FocusHelpAction(
                 title: 'Ayuda de logros',
                 message:
-                    'Esta pantalla resume tu progreso gamificado sin meter toda la explicacion en cada bloque.',
+                    'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aqui.',
                 sections: [
                   FocusHelpSection(
                     title: 'Puntos y niveles',
                     items: [
                       'Pomodoros, habitos y logros desbloqueados suman puntos.',
                       'Los niveles suben por tramos y muestran cuanto te falta para el siguiente.',
+                      'Cada pomodoro completado suma puntos por bloque de enfoque valido.',
+                      'Pomodoro sin distracciones y habitos completados pueden sumar puntos extra.',
+                      'Los logros suman puntos una sola vez al desbloquearse.',
+                      'El progreso maximo llega hasta el nivel 5.',
+                    ],
+                  ),
+                  FocusHelpSection(
+                    title: 'Ruta de niveles',
+                    items: [
+                      'Nivel 1: desde 0 puntos.',
+                      'Nivel 2: desde 200 puntos.',
+                      'Nivel 3: desde 400 puntos.',
+                      'Nivel 4: desde 600 puntos.',
+                      'Nivel 5: desde 800 puntos.',
+                    ],
+                  ),
+                  FocusHelpSection(
+                    title: 'Mision semanal',
+                    items: [
+                      'Completar la mision semanal desbloquea una insignia extra.',
+                      'La mision se basa en pomodoros completados durante la semana.',
+                      'La racha tambien ayuda a empujar tu progreso general.',
                     ],
                   ),
                   FocusHelpSection(
@@ -66,29 +87,6 @@ class AchievementsScreen extends StatelessWidget {
                 progress: provider.levelProgress,
                 remaining: remaining,
                 rewardTitle: provider.streakRewardTitle,
-              ),
-              const SizedBox(height: 16),
-              _MissionCard(provider: provider),
-              const SizedBox(height: 16),
-              const _GuideCard(
-                title: 'Equivalencias de puntos',
-                items: [
-                  'Cada pomodoro completado suma ${RankingService.pointsPerPomodoro} puntos por bloque de 25 min.',
-                  'Pomodoro sin distracciones suma +${RankingService.distractionFreeBonus} puntos.',
-                  'Cada hábito completado suma ${RankingService.pointsPerHabitCompletion} puntos.',
-                  'Los logros suman puntos una sola vez al desbloquearse.',
-                  'Los niveles suben cada 200 puntos.',
-                  'El progreso máximo llega hasta el nivel 5.',
-                ],
-              ),
-              const SizedBox(height: 16),
-              _GuideCard(
-                title: 'Ruta de niveles',
-                items: List.generate(
-                  AppProvider.maxLevel,
-                  (index) =>
-                      'Nivel ${index + 1}: desde ${index * AppProvider.pointsPerLevel} puntos.',
-                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -272,94 +270,6 @@ class _LevelMedallion extends StatelessWidget {
   }
 }
 
-class _MissionCard extends StatelessWidget {
-  final AppProvider provider;
-
-  const _MissionCard({required this.provider});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Misión semanal',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(
-                'Completa ${provider.weeklyMissionTarget} pomodoros esta semana para desbloquear una insignia extra.'),
-            const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: provider.weeklyMissionProgress,
-                minHeight: 10,
-                backgroundColor:
-                    Theme.of(context).colorScheme.surfaceContainerHighest,
-                valueColor: const AlwaysStoppedAnimation(FocusPalette.primary),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-                '${provider.weeklyMissionProgressCount} de ${provider.weeklyMissionTarget} completados'),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _GuideCard extends StatelessWidget {
-  final String title;
-  final List<String> items;
-
-  const _GuideCard({
-    required this.title,
-    required this.items,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 7),
-                      child: Icon(Icons.circle, size: 8),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(child: Text(item)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AchievementTile extends StatelessWidget {
   final _AchievementData data;
 
@@ -506,4 +416,3 @@ bool _isAchievementUnlocked(AppProvider provider, String id) {
     _ => false,
   };
 }
-

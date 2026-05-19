@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../services/ranking_service.dart';
+import '../utils/profile_icon_access.dart';
+
 class FocusEmptyState extends StatelessWidget {
   final String title;
   final String message;
   final Widget? action;
   final IconData icon;
   final Color? accent;
+  final String? profileIconAsset;
 
   const FocusEmptyState({
     super.key,
@@ -14,6 +18,7 @@ class FocusEmptyState extends StatelessWidget {
     this.action,
     this.icon = Icons.center_focus_strong_rounded,
     this.accent,
+    this.profileIconAsset,
   });
 
   @override
@@ -56,7 +61,7 @@ class FocusEmptyState extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 Image.asset(
-                  'assets/illustrations/focus_mascot.png',
+                  profileIconAsset ?? defaultProfileIconAsset,
                   fit: BoxFit.contain,
                 ),
                 Positioned(
@@ -91,6 +96,56 @@ class FocusEmptyState extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class FocusProfileEmptyState extends StatelessWidget {
+  final String title;
+  final String message;
+  final Widget? action;
+  final IconData icon;
+  final Color? accent;
+
+  const FocusProfileEmptyState({
+    super.key,
+    required this.title,
+    required this.message,
+    this.action,
+    this.icon = Icons.center_focus_strong_rounded,
+    this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (RankingService.currentUser == null) {
+      return FocusEmptyState(
+        title: title,
+        message: message,
+        action: action,
+        icon: icon,
+        accent: accent,
+        profileIconAsset: defaultProfileIconAsset,
+      );
+    }
+
+    return StreamBuilder(
+      stream: RankingService.profileStream(),
+      builder: (context, snapshot) {
+        final asset = profileIconAssetFromIndex(
+          snapshot.data?.stats['socialMascotIndex'],
+          email: RankingService.currentUser?.email,
+          enforceAccess: true,
+        );
+        return FocusEmptyState(
+          title: title,
+          message: message,
+          action: action,
+          icon: icon,
+          accent: accent,
+          profileIconAsset: asset,
+        );
+      },
     );
   }
 }

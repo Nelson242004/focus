@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
+import '../utils/profile_icon_access.dart';
 import '../widgets/focus_drawer.dart';
 import 'auth_gate_screen.dart';
 
@@ -847,7 +848,21 @@ class _PodiumPlace extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          _TopMedalBadge(position: entry.position, size: 58),
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              _RankingProfileIcon(
+                asset: profileIconAssetFromIndex(entry.socialMascotIndex),
+                size: 64,
+              ),
+              Positioned(
+                right: -4,
+                bottom: -4,
+                child: _TopMedalBadge(position: entry.position, size: 28),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           Flexible(
             child: Text(
@@ -912,16 +927,13 @@ class _MyRankCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundImage: profile.photoUrl.isEmpty
-                ? null
-                : NetworkImage(profile.photoUrl),
-            child: profile.photoUrl.isEmpty
-                ? Text(profile.name.trim().isEmpty
-                    ? 'F'
-                    : profile.name.trim()[0].toUpperCase())
-                : null,
+          _RankingProfileIcon(
+            asset: profileIconAssetFromIndex(
+              profile.stats['socialMascotIndex'],
+              email: RankingService.currentUser?.email,
+              enforceAccess: true,
+            ),
+            size: 58,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -1212,6 +1224,11 @@ class _RankingTile extends StatelessWidget {
             entry: entry,
             participantCount: participantCount,
           ),
+          const SizedBox(width: 8),
+          _RankingProfileIcon(
+            asset: profileIconAssetFromIndex(entry.socialMascotIndex),
+            size: 46,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1302,6 +1319,46 @@ class _StaggeredRankingTile extends StatelessWidget {
         );
       },
       child: child,
+    );
+  }
+}
+
+class _RankingProfileIcon extends StatelessWidget {
+  final String asset;
+  final double size;
+
+  const _RankingProfileIcon({
+    required this.asset,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.18),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: size * 0.24,
+            offset: Offset(0, size * 0.10),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(size * 0.08),
+        child: Image.asset(
+          asset,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+        ),
+      ),
     );
   }
 }

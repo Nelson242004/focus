@@ -794,11 +794,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                             letterSpacing: -0.8,
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        _HeaderTinyPill(
-                          icon: Icons.auto_awesome_rounded,
-                          text: '${profile.totalPoints} pts',
-                        ),
                       ],
                     ),
                   ),
@@ -875,11 +870,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                         ),
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  _HeaderTinyPill(
-                    icon: Icons.groups_rounded,
-                    text: '${widget.friendsCount}',
                   ),
                 ],
               ),
@@ -960,45 +950,6 @@ class _SoftHeaderCircle extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: alpha),
-      ),
-    );
-  }
-}
-
-class _HeaderTinyPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _HeaderTinyPill({
-    required this.icon,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.black.withValues(alpha: 0.14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white.withValues(alpha: 0.9), size: 14),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1650,6 +1601,7 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
                         key: ValueKey(selected.asset),
                         size: 196,
                         fallbackConfig: selectedConfig,
+                        profileIconAsset: selected.asset,
                         state: FocusMascotState.celebrating,
                         animate: true,
                       ),
@@ -2157,6 +2109,44 @@ const _profileIcons = [
     'Abogada',
     'assets/profile_icons/focus_lawyer_female.png',
   ),
+  _ProfileIconOption('Cool', 'assets/profile_icons/focus_pink_cool.png'),
+  _ProfileIconOption(
+    'Cool F',
+    'assets/profile_icons/focus_pink_cool_female.png',
+  ),
+  _ProfileIconOption(
+    'Creativa F',
+    'assets/profile_icons/focus_pink_skater.png',
+  ),
+  _ProfileIconOption(
+    'Skater F',
+    'assets/profile_icons/focus_pink_skater_female.png',
+  ),
+  _ProfileIconOption('DJ', 'assets/profile_icons/focus_pink_music.png'),
+  _ProfileIconOption(
+    'DJ F',
+    'assets/profile_icons/focus_pink_music_female.png',
+  ),
+  _ProfileIconOption(
+    'Social F',
+    'assets/profile_icons/focus_pink_artist.png',
+  ),
+  _ProfileIconOption(
+    'Artista F',
+    'assets/profile_icons/focus_pink_artist_female.png',
+  ),
+  _ProfileIconOption('Basket', 'assets/profile_icons/focus_red_basket.png'),
+  _ProfileIconOption(
+    'Cámara',
+    'assets/profile_icons/focus_purple_camera.png',
+  ),
+  _ProfileIconOption('Tech', 'assets/profile_icons/focus_green_tech.png'),
+  _ProfileIconOption('Gamer', 'assets/profile_icons/focus_black_gamer.png'),
+  _ProfileIconOption(
+    'Viaje',
+    'assets/profile_icons/focus_orange_travel.png',
+  ),
+  _ProfileIconOption('Gym', 'assets/profile_icons/focus_yellow_gym.png'),
 ];
 
 // ignore: unused_element
@@ -2203,6 +2193,13 @@ Color _profileIconAccent(String asset) {
   if (normalized.contains('flame')) return const Color(0xFFFF7A59);
   if (normalized.contains('calm')) return const Color(0xFF22C55E);
   if (normalized.contains('champion')) return const Color(0xFFF59E0B);
+  if (normalized.contains('pink')) return const Color(0xFFEC4899);
+  if (normalized.contains('red')) return const Color(0xFFEF4444);
+  if (normalized.contains('purple')) return const Color(0xFF8B5CF6);
+  if (normalized.contains('green')) return const Color(0xFF10B981);
+  if (normalized.contains('black')) return const Color(0xFF38BDF8);
+  if (normalized.contains('orange')) return const Color(0xFFF97316);
+  if (normalized.contains('yellow')) return const Color(0xFFEAB308);
   if (normalized.contains('programmer')) return const Color(0xFF6366F1);
   if (normalized.contains('doctor')) return const Color(0xFFEF4444);
   if (normalized.contains('teacher')) return const Color(0xFF14B8A6);

@@ -12,33 +12,6 @@ import '../utils/profile_icon_access.dart';
 class WidgetSyncService {
   static const MethodChannel _channel = MethodChannel('focus_home_widget');
   static const String _profileIconAssetKey = 'focus_widget_profile_icon_asset';
-  static const String _defaultProfileIconAsset =
-      'assets/profile_icons/focus_scholar.png';
-
-  static const List<String> _profileIconAssets = [
-    'assets/profile_icons/focus_scholar.png',
-    'assets/profile_icons/focus_flame.png',
-    'assets/profile_icons/focus_calm.png',
-    'assets/profile_icons/focus_champion.png',
-    'assets/profile_icons/focus_scholar_female.png',
-    'assets/profile_icons/focus_flame_female.png',
-    'assets/profile_icons/focus_calm_female.png',
-    'assets/profile_icons/focus_champion_female.png',
-    'assets/profile_icons/focus_dark.png',
-    'assets/profile_icons/focus_dark_female.png',
-    'assets/profile_icons/focus_programmer.png',
-    'assets/profile_icons/focus_doctor.png',
-    'assets/profile_icons/focus_teacher.png',
-    'assets/profile_icons/focus_engineer.png',
-    'assets/profile_icons/focus_architect.png',
-    'assets/profile_icons/focus_lawyer.png',
-    'assets/profile_icons/focus_programmer_female.png',
-    'assets/profile_icons/focus_doctor_female.png',
-    'assets/profile_icons/focus_teacher_female.png',
-    'assets/profile_icons/focus_engineer_female.png',
-    'assets/profile_icons/focus_architect_female.png',
-    'assets/profile_icons/focus_lawyer_female.png',
-  ];
 
   static Future<void> syncFromProvider(AppProvider provider) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -190,20 +163,20 @@ class WidgetSyncService {
   static String _assetFromProfile(RankingProfile profile) {
     final rawIndex = profile.stats['socialMascotIndex'];
     final index = rawIndex is int ? rawIndex : int.tryParse('$rawIndex') ?? 0;
-    if (index < 0 || index >= _profileIconAssets.length) {
-      return _defaultProfileIconAsset;
+    if (index < 0 || index >= profileIconAssets.length) {
+      return defaultProfileIconAsset;
     }
     return allowedProfileIconAssetOrDefault(
-      _profileIconAssets[index],
+      profileIconAssets[index],
       RankingService.currentUser?.email,
-      defaultAsset: _defaultProfileIconAsset,
+      defaultAsset: defaultProfileIconAsset,
     );
   }
 
   static Future<String> _storedProfileIconAsset() async {
     final prefs = await SharedPreferences.getInstance();
     return _normalizeProfileIconAsset(
-      prefs.getString(_profileIconAssetKey) ?? _defaultProfileIconAsset,
+      prefs.getString(_profileIconAssetKey) ?? defaultProfileIconAsset,
       RankingService.currentUser?.email,
     );
   }
@@ -217,11 +190,11 @@ class WidgetSyncService {
   }
 
   static String _normalizeProfileIconAsset(String asset, String? email) {
-    if (!_profileIconAssets.contains(asset)) return _defaultProfileIconAsset;
+    if (!profileIconAssets.contains(asset)) return defaultProfileIconAsset;
     return allowedProfileIconAssetOrDefault(
       asset,
       email,
-      defaultAsset: _defaultProfileIconAsset,
+      defaultAsset: defaultProfileIconAsset,
     );
   }
 }
