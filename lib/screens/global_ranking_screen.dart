@@ -1224,11 +1224,6 @@ class _RankingTile extends StatelessWidget {
             entry: entry,
             participantCount: participantCount,
           ),
-          const SizedBox(width: 8),
-          _RankingProfileIcon(
-            asset: profileIconAssetFromIndex(entry.socialMascotIndex),
-            size: 46,
-          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
