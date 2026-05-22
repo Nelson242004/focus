@@ -21,6 +21,26 @@ class FocusSpacing {
   static const double xl = 24;
 }
 
+class FocusInsets {
+  FocusInsets._();
+
+  static const EdgeInsets page = EdgeInsets.fromLTRB(16, 16, 16, 32);
+  static const EdgeInsets pageCompact = EdgeInsets.fromLTRB(16, 12, 16, 28);
+  static const EdgeInsets card = EdgeInsets.all(16);
+  static const EdgeInsets cardRelaxed = EdgeInsets.all(18);
+  static const EdgeInsets panel = EdgeInsets.all(20);
+}
+
+class FocusGap {
+  FocusGap._();
+
+  static const Widget xs = SizedBox(height: FocusSpacing.xs);
+  static const Widget sm = SizedBox(height: FocusSpacing.sm);
+  static const Widget md = SizedBox(height: FocusSpacing.md);
+  static const Widget lg = SizedBox(height: FocusSpacing.lg);
+  static const Widget section = SizedBox(height: 16);
+}
+
 class FocusSurfaceCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -263,6 +283,42 @@ class FocusStaggeredItem extends StatelessWidget {
   }
 }
 
+class FocusMicroPop extends StatelessWidget {
+  final Object trigger;
+  final Widget child;
+  final Duration duration;
+  final double fromScale;
+  final double toScale;
+  final bool fade;
+
+  const FocusMicroPop({
+    super.key,
+    required this.trigger,
+    required this.child,
+    this.duration = const Duration(milliseconds: 260),
+    this.fromScale = 0.94,
+    this.toScale = 1,
+    this.fade = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      key: ValueKey(trigger),
+      tween: Tween(begin: 0, end: 1),
+      duration: duration,
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        final scale = fromScale + ((toScale - fromScale) * value);
+        final transformed = Transform.scale(scale: scale, child: child);
+        if (!fade) return transformed;
+        return Opacity(opacity: value.clamp(0, 1), child: transformed);
+      },
+      child: child,
+    );
+  }
+}
+
 class FocusActionSnackContent extends StatelessWidget {
   final IconData icon;
   final String message;
@@ -323,6 +379,56 @@ class FocusSkeletonCard extends StatefulWidget {
 
   @override
   State<FocusSkeletonCard> createState() => _FocusSkeletonCardState();
+}
+
+class FocusSkeletonList extends StatelessWidget {
+  final List<double> heights;
+  final EdgeInsetsGeometry padding;
+  final double spacing;
+
+  const FocusSkeletonList({
+    super.key,
+    this.heights = const [210, 88, 88, 88],
+    this.padding = FocusInsets.pageCompact,
+    this.spacing = FocusSpacing.md,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: padding,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: heights.length,
+      separatorBuilder: (_, __) => SizedBox(height: spacing),
+      itemBuilder: (context, index) => FocusSkeletonCard(
+        height: heights[index],
+      ),
+    );
+  }
+}
+
+class FocusSkeletonScaffold extends StatelessWidget {
+  final PreferredSizeWidget? appBar;
+  final List<double> heights;
+  final EdgeInsetsGeometry padding;
+
+  const FocusSkeletonScaffold({
+    super.key,
+    this.appBar,
+    this.heights = const [210, 88, 88, 88],
+    this.padding = FocusInsets.pageCompact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: appBar,
+      body: FocusSkeletonList(
+        heights: heights,
+        padding: padding,
+      ),
+    );
+  }
 }
 
 class _FocusSkeletonCardState extends State<FocusSkeletonCard>

@@ -286,13 +286,13 @@ class _RankingBody extends StatelessWidget {
         final nearbyEntries = const <RankingEntry>[];
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          padding: FocusInsets.pageCompact,
           children: [
             const _SectionLabel(
               icon: Icons.emoji_events_rounded,
               title: 'Podio semanal',
             ),
-            const SizedBox(height: 12),
+            FocusGap.sm,
             if (topEntries.isNotEmpty) ...[
               _Podium(
                 entries: topEntries,
@@ -300,7 +300,7 @@ class _RankingBody extends StatelessWidget {
                 onOpenProfile: (entry) =>
                     onOpenProfile(entry, participantCount),
               ),
-              const SizedBox(height: 18),
+              FocusGap.section,
             ],
             _MyGlobalRankStrip(
               profile: profile,
@@ -308,12 +308,12 @@ class _RankingBody extends StatelessWidget {
               position: myPosition,
               participantCount: participantCount,
             ),
-            const SizedBox(height: 18),
+            FocusGap.section,
             const _SectionLabel(
               icon: Icons.format_list_numbered_rounded,
               title: 'Tabla',
             ),
-            const SizedBox(height: 10),
+            FocusGap.sm,
             if (snapshot.connectionState == ConnectionState.waiting)
               const Column(
                 children: [
@@ -860,17 +860,10 @@ class _Podium extends StatelessWidget {
       if (entries.length > 2) entries[2],
     ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
+      padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          colors: [
-            FocusPalette.primary.withValues(alpha: 0.08),
-            Theme.of(context).cardColor,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
+        color: Theme.of(context).cardColor,
         border: Border.all(
           color: FocusPalette.primary.withValues(alpha: 0.14),
         ),
@@ -879,10 +872,10 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: ordered.map((entry) {
           final position = entry.position;
-          final height = position == 1 ? 264.0 : 208.0;
+          final height = position == 1 ? 216.0 : 176.0;
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 3),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration: Duration(milliseconds: 520 + (position * 80)),
@@ -931,23 +924,16 @@ class _PodiumPlace extends StatelessWidget {
   Widget build(BuildContext context) {
     final accent = _podiumColor(entry.position);
     return InkWell(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(FocusRadii.card),
       onTap: () => onOpenProfile(entry),
       child: Container(
         height: height,
-        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            colors: [
-              accent.withValues(alpha: 0.24),
-              Theme.of(context).cardColor,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          borderRadius: BorderRadius.circular(FocusRadii.card),
+          color: accent.withValues(alpha: 0.08),
           border: Border.all(
-            color: accent.withValues(alpha: 0.34),
+            color: accent.withValues(alpha: 0.18),
           ),
         ),
         child: Column(
@@ -975,7 +961,7 @@ class _PodiumPlace extends StatelessWidget {
               children: [
                 _RankingProfileIcon(
                   asset: _entryProfileIconAsset(entry),
-                  size: entry.position == 1 ? 78 : 66,
+                  size: entry.position == 1 ? 86 : 74,
                 ),
                 Positioned(
                   right: -4,
@@ -999,17 +985,7 @@ class _PodiumPlace extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                '${entry.points} pts',
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.w900,
-                  fontSize: entry.position == 1 ? 18 : 16,
-                ),
-              ),
-            ),
+            _PointsPill(points: entry.points),
           ],
         ),
       ),
@@ -1231,20 +1207,15 @@ class _PointsPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(maxWidth: large ? 132 : 78),
+      constraints: BoxConstraints(maxWidth: large ? 132 : 92),
       padding: EdgeInsets.symmetric(
-        horizontal: large ? 14 : 8,
-        vertical: large ? 8 : 5,
+        horizontal: large ? 14 : 9,
+        vertical: large ? 8 : 6,
       ),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            FocusPalette.amber.withValues(alpha: 0.24),
-            FocusPalette.amber.withValues(alpha: 0.16),
-          ],
-        ),
+        color: FocusPalette.amber.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: FocusPalette.amber.withValues(alpha: 0.28)),
+        border: Border.all(color: FocusPalette.amber.withValues(alpha: 0.18)),
       ),
       child: FittedBox(
         fit: BoxFit.scaleDown,
@@ -1641,18 +1612,23 @@ class _RankingTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(FocusRadii.card),
       onTap: () => onOpenProfile(entry),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        margin: const EdgeInsets.only(bottom: FocusSpacing.sm),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(FocusRadii.card),
+          color: isMe
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.06)
+              : Theme.of(context).cardColor,
           border: Border.all(
             color: isMe
-                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.42)
-                : Theme.of(context).dividerColor,
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.34)
+                : Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.32),
           ),
           boxShadow: [
             if (isMe)
@@ -1661,8 +1637,8 @@ class _RankingTile extends StatelessWidget {
                     .colorScheme
                     .primary
                     .withValues(alpha: 0.10),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                blurRadius: 14,
+                offset: const Offset(0, 7),
               ),
           ],
         ),
@@ -1824,11 +1800,11 @@ class _RankBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final tier = _distributedRankTierForPosition(position, participantCount);
     if (position <= 3) {
-      return _TopMedalBadge(position: position, size: 46);
+      return _TopMedalBadge(position: position, size: 40);
     }
     return Container(
-      width: 48,
-      height: 48,
+      width: 42,
+      height: 42,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: tier.color.withValues(alpha: 0.10),
@@ -1838,8 +1814,8 @@ class _RankBadge extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: tier.color.withValues(alpha: 0.12),
-            blurRadius: 14,
-            offset: const Offset(0, 7),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
           ),
         ],
       ),

@@ -21,7 +21,6 @@ class BadgeVisualInfo {
   final String subtitle;
   final IconData icon;
   final Color color;
-  final String asset;
 
   const BadgeVisualInfo({
     required this.label,
@@ -29,7 +28,6 @@ class BadgeVisualInfo {
     required this.subtitle,
     required this.icon,
     required this.color,
-    required this.asset,
   });
 }
 
@@ -41,23 +39,20 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Completa tu primer pomodoro. +50 pts',
         icon: Icons.play_circle_fill_rounded,
         color: FocusPalette.primary,
-        asset: 'assets/badges/badge_first_pomodoro.png',
       ),
     'streak_7' => const BadgeVisualInfo(
         label: '7 días',
         title: 'Semana encendida',
         subtitle: 'Alcanza una racha de 7 días. +100 pts',
         icon: Icons.local_fire_department_rounded,
-        color: FocusPalette.coral,
-        asset: 'assets/badges/badge_streak_7.png',
+        color: FocusPalette.softAlert,
       ),
     'streak_14' => const BadgeVisualInfo(
         label: '14 días',
         title: 'Racha imparable',
         subtitle: 'Sostén una racha de 14 días. +180 pts',
         icon: Icons.whatshot_rounded,
-        color: FocusPalette.danger,
-        asset: 'assets/badges/badge_streak_14.png',
+        color: FocusPalette.achievement,
       ),
     'streak_30' => const BadgeVisualInfo(
         label: '30 días',
@@ -65,7 +60,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Llega a una racha de 30 días. +400 pts',
         icon: Icons.local_fire_department_outlined,
         color: FocusPalette.amber,
-        asset: 'assets/badges/badge_streak_30.png',
       ),
     'pomodoros_25' => const BadgeVisualInfo(
         label: '25 foco',
@@ -73,7 +67,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Suma 25 pomodoros en total. +150 pts',
         icon: Icons.bolt_rounded,
         color: FocusPalette.cyan,
-        asset: 'assets/badges/badge_pomodoros_25.png',
       ),
     'pomodoros_100' => const BadgeVisualInfo(
         label: '100 foco',
@@ -81,7 +74,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Alcanza 100 pomodoros acumulados. +600 pts',
         icon: Icons.flash_on_rounded,
         color: FocusPalette.primaryDeep,
-        asset: 'assets/badges/badge_pomodoros_100.png',
       ),
     'weekly_mission' => const BadgeVisualInfo(
         label: 'Misión',
@@ -89,7 +81,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Completa 10 pomodoros en la misma semana. +120 pts',
         icon: Icons.flag_circle_rounded,
         color: FocusPalette.mint,
-        asset: 'assets/badges/badge_weekly_mission.png',
       ),
     'habits_30' => const BadgeVisualInfo(
         label: 'Hábitos',
@@ -97,7 +88,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Marca 30 hábitos completados. +180 pts',
         icon: Icons.check_circle_rounded,
         color: FocusPalette.teal,
-        asset: 'assets/badges/badge_habits_30.png',
       ),
     'habits_75' => const BadgeVisualInfo(
         label: 'Sistema',
@@ -105,7 +95,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Llega a 75 hábitos completados. +420 pts',
         icon: Icons.inventory_2_rounded,
         color: FocusPalette.mint,
-        asset: 'assets/badges/badge_habits_75.png',
       ),
     'max_level' => const BadgeVisualInfo(
         label: 'Nivel max',
@@ -113,7 +102,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Llega al nivel 5. +500 pts',
         icon: Icons.diamond_rounded,
         color: FocusPalette.amber,
-        asset: 'assets/badges/badge_max_level.png',
       ),
     _ => const BadgeVisualInfo(
         label: 'Logro',
@@ -121,10 +109,6 @@ BadgeVisualInfo badgeVisualInfo(String id) {
         subtitle: 'Insignia desbloqueada en Focus.',
         icon: Icons.military_tech_rounded,
         color: FocusPalette.primary,
-        asset: 'assets/badges/badge_focus.png',
       ),
   };
 }
-
-String badgeAssetPath(String id) => badgeVisualInfo(id).asset;
-

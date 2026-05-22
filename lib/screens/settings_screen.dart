@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_settings.dart';
+import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/backup_service.dart';
 import '../services/focus_mode_service.dart';
@@ -14,6 +15,8 @@ import '../services/ranking_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../utils/profile_icon_access.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_metric_icon.dart';
 import 'auth_gate_screen.dart';
 
@@ -405,6 +408,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _showSettingsSheet({
+    required String title,
+    required IconData icon,
+    required List<Widget> Function(StateSetter setSheetState) childrenBuilder,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return _SettingsSheet(
+              title: title,
+              icon: icon,
+              children: childrenBuilder(setSheetState),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -423,12 +449,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         top: false,
         bottom: true,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: FocusInsets.page,
           children: [
             _SettingsHero(provider: provider),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
               title: 'Cuenta',
+              subtitle: RankingService.currentUser == null
+                  ? 'Sesión y perfil público'
+                  : RankingService.currentUser?.email ?? 'Cuenta activa',
               icon: Icons.person_rounded,
               children: [
                 _AccountSettingsContent(
@@ -438,9 +467,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
               title: 'Apariencia',
+              subtitle: 'Tema, idioma, texto y color',
               icon: Icons.palette_rounded,
               children: [
                 _ThemePreview(
@@ -452,8 +482,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Modo oscuro'),
-                  subtitle: const Text(
-                      'Usa una interfaz más cómoda para estudiar de noche.'),
                   value: provider.settings.themeMode == ThemeModeSetting.dark,
                   onChanged: (_) => provider.toggleTheme(),
                 ),
@@ -476,14 +504,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     () => _selectedLanguage = value ?? AppLanguage.system,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Cambia idioma de controles del sistema, fechas y formato. Los textos internos se traducirán por secciones.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: FocusPalette.muted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
                 const SizedBox(height: 12),
                 Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
                 Slider(
@@ -497,8 +517,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Animaciones'),
-                  subtitle:
-                      const Text('Activa o reduce transiciones visuales.'),
                   value: _animationsEnabled,
                   onChanged: (value) =>
                       setState(() => _animationsEnabled = value),
@@ -545,10 +563,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
-              title: 'Inicio y experiencia',
-              icon: Icons.dashboard_customize_rounded,
+              title: 'Pomodoro',
+              subtitle: 'Inicio, descanso y metas de enfoque',
+              icon: Icons.timer_rounded,
               children: [
                 _StartScreenSelector(
                   value: _selectedStartScreen,
@@ -582,74 +601,88 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.timer_rounded),
-                  title: const Text('Pomodoro y sonidos'),
-                  subtitle: const Text(
-                    'Los tiempos, sonido y Modo Enfoque Total se ajustan desde Pomodoro.',
+                  title: const Text('Tiempos y bloqueo'),
+                  subtitle:
+                      const Text('Se ajustan desde la pantalla Pomodoro.'),
+                ),
+                const SizedBox(height: 12),
+                _GoalControl(
+                  icon: Icons.flag_rounded,
+                  title: 'Pomodoros por semana',
+                  valueLabel: '$_weeklyGoal sesiones',
+                  value: _weeklyGoal,
+                  min: 1,
+                  max: 99,
+                  onChanged: _setWeeklyGoal,
+                ),
+                const SizedBox(height: 12),
+                _GoalControl(
+                  icon: Icons.schedule_rounded,
+                  title: 'Minutos semanales',
+                  valueLabel: '$_weeklyFocusMinutesGoal min',
+                  value: _weeklyFocusMinutesGoal,
+                  min: 25,
+                  max: 3000,
+                  step: 25,
+                  onChanged: _setWeeklyFocusMinutesGoal,
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _showSettingsSheet(
+                    title: 'Metas y progreso',
+                    icon: Icons.flag_rounded,
+                    childrenBuilder: (setSheetState) => [
+                      _GoalControl(
+                        icon: Icons.check_circle_rounded,
+                        title: 'Hábitos diarios esperados',
+                        valueLabel: '$_dailyHabitGoal hábitos',
+                        value: _dailyHabitGoal,
+                        min: 1,
+                        max: 20,
+                        onChanged: (value) {
+                          _setDailyHabitGoal(value);
+                          setSheetState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _GoalControl(
+                        icon: Icons.local_fire_department_rounded,
+                        title: 'Días de racha objetivo',
+                        valueLabel: '$_streakGoal días',
+                        value: _streakGoal,
+                        min: 1,
+                        max: 365,
+                        onChanged: (value) {
+                          _setStreakGoal(value);
+                          setSheetState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      _GoalsProgressPanel(
+                        provider: provider,
+                        weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal,
+                        dailyHabitGoal: _dailyHabitGoal,
+                        streakGoal: _streakGoal,
+                      ),
+                    ],
                   ),
+                  icon: const Icon(Icons.tune_rounded),
+                  label: const Text('Metas avanzadas'),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
               title: 'Notificaciones',
+              subtitle: _notificationSummary(),
               icon: Icons.notifications_active_rounded,
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Notificaciones'),
-                  subtitle: Text(_notificationSummary()),
                   value: _notificationsEnabled,
                   onChanged: (value) =>
                       setState(() => _notificationsEnabled = value),
-                ),
-                const _SettingsGroupLabel('Exámenes'),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Avisar 1 día antes'),
-                  value: _examReminderDayBefore,
-                  onChanged: _notificationsEnabled
-                      ? (value) =>
-                          setState(() => _examReminderDayBefore = value)
-                      : null,
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Avisar 2 horas antes'),
-                  subtitle: const Text('Solo para exámenes con hora.'),
-                  value: _examReminderTwoHoursBefore,
-                  onChanged: _notificationsEnabled
-                      ? (value) =>
-                          setState(() => _examReminderTwoHoursBefore = value)
-                      : null,
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Avisar 30 minutos antes'),
-                  subtitle: const Text('Solo para exámenes con hora.'),
-                  value: _examReminderThirtyMinutesBefore,
-                  onChanged: _notificationsEnabled
-                      ? (value) => setState(
-                            () => _examReminderThirtyMinutesBefore = value,
-                          )
-                      : null,
-                ),
-                const SizedBox(height: 6),
-                const _SettingsGroupLabel('Pomodoro y hábitos'),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.hourglass_bottom_rounded),
-                  title: const Text('Pomodoro'),
-                  subtitle: const Text(
-                    'Los avisos del temporizador se controlan desde Pomodoro.',
-                  ),
-                ),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.task_alt_rounded),
-                  title: const Text('Hábitos'),
-                  subtitle: const Text(
-                    'Los recordatorios de hábitos todavía no están activos.',
-                  ),
                 ),
                 FutureBuilder<int>(
                   future: NotificationService.pendingNotificationsCount(),
@@ -667,6 +700,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _showSettingsSheet(
+                    title: 'Avisos de exámenes',
+                    icon: Icons.assignment_rounded,
+                    childrenBuilder: (setSheetState) => [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Avisar 1 día antes'),
+                        value: _examReminderDayBefore,
+                        onChanged: _notificationsEnabled
+                            ? (value) {
+                                setState(() => _examReminderDayBefore = value);
+                                setSheetState(() {});
+                              }
+                            : null,
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Avisar 2 horas antes'),
+                        subtitle: const Text('Solo para exámenes con hora.'),
+                        value: _examReminderTwoHoursBefore,
+                        onChanged: _notificationsEnabled
+                            ? (value) {
+                                setState(
+                                  () => _examReminderTwoHoursBefore = value,
+                                );
+                                setSheetState(() {});
+                              }
+                            : null,
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Avisar 30 minutos antes'),
+                        subtitle: const Text('Solo para exámenes con hora.'),
+                        value: _examReminderThirtyMinutesBefore,
+                        onChanged: _notificationsEnabled
+                            ? (value) {
+                                setState(
+                                  () =>
+                                      _examReminderThirtyMinutesBefore = value,
+                                );
+                                setSheetState(() {});
+                              }
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.task_alt_rounded),
+                        title: Text('Hábitos'),
+                        subtitle: Text(
+                          'Los recordatorios de hábitos todavía no están activos.',
+                        ),
+                      ),
+                    ],
+                  ),
+                  icon: const Icon(Icons.tune_rounded),
+                  label: const Text('Configurar avisos'),
+                ),
+                const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: _testNotification,
                   icon: const Icon(Icons.notification_add_rounded),
@@ -674,69 +768,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
-              title: 'Metas',
-              icon: Icons.flag_rounded,
-              children: [
-                _GoalControl(
-                  icon: Icons.flag_rounded,
-                  title: 'Pomodoros por semana',
-                  valueLabel: '$_weeklyGoal sesiones',
-                  value: _weeklyGoal,
-                  min: 1,
-                  max: 99,
-                  onChanged: _setWeeklyGoal,
-                ),
-                const SizedBox(height: 12),
-                _GoalControl(
-                  icon: Icons.schedule_rounded,
-                  title: 'Minutos de enfoque semanales',
-                  valueLabel: '$_weeklyFocusMinutesGoal min',
-                  value: _weeklyFocusMinutesGoal,
-                  min: 25,
-                  max: 3000,
-                  step: 25,
-                  onChanged: _setWeeklyFocusMinutesGoal,
-                ),
-                const SizedBox(height: 12),
-                _GoalControl(
-                  icon: Icons.check_circle_rounded,
-                  title: 'Hábitos diarios esperados',
-                  valueLabel: '$_dailyHabitGoal hábitos',
-                  value: _dailyHabitGoal,
-                  min: 1,
-                  max: 20,
-                  onChanged: _setDailyHabitGoal,
-                ),
-                const SizedBox(height: 12),
-                _GoalControl(
-                  icon: Icons.local_fire_department_rounded,
-                  title: 'Días de racha objetivo',
-                  valueLabel: '$_streakGoal días',
-                  value: _streakGoal,
-                  min: 1,
-                  max: 365,
-                  onChanged: _setStreakGoal,
-                ),
-                const SizedBox(height: 12),
-                _GoalsProgressPanel(
-                  provider: provider,
-                  weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal,
-                  dailyHabitGoal: _dailyHabitGoal,
-                  streakGoal: _streakGoal,
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _SettingsSection(
-              title: 'Datos y backup',
+              title: 'Backup',
+              subtitle: '${provider.subjects.length} materias locales',
               icon: Icons.backup_rounded,
               children: [
-                const _PrivacyDataNotice(),
-                const SizedBox(height: 12),
-                _AcademicLocalNotice(provider: provider),
-                const SizedBox(height: 12),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -758,9 +795,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => _showSettingsSheet(
+                    title: 'Datos guardados',
+                    icon: Icons.storage_rounded,
+                    childrenBuilder: (_) => [
+                      const _PrivacyDataNotice(),
+                      const SizedBox(height: 12),
+                      _AcademicLocalNotice(provider: provider),
+                    ],
+                  ),
+                  icon: const Icon(Icons.info_outline_rounded),
+                  label: const Text('Ver detalle de datos'),
+                ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
               title: 'Sistema',
               icon: Icons.health_and_safety_rounded,
@@ -780,7 +831,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _SettingsSection(
               title: 'Zona peligrosa',
               icon: Icons.warning_amber_rounded,
@@ -1195,30 +1246,6 @@ class _StartScreenOption {
   const _StartScreenOption(this.value, this.label, this.icon);
 }
 
-class _SettingsGroupLabel extends StatelessWidget {
-  final String text;
-
-  const _SettingsGroupLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(
-          text.toUpperCase(),
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: FocusPalette.muted,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.8,
-              ),
-        ),
-      ),
-    );
-  }
-}
-
 class _UpdateCard extends StatelessWidget {
   final Future<void> Function() onCheck;
 
@@ -1244,31 +1271,28 @@ class _SettingsHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: FocusInsets.cardRelaxed,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: FocusPalette.studyGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.tune_rounded, color: Colors.white, size: 34),
+              const _SettingsProfileAvatar(),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Centro de control',
+                      'Configuración',
                       style: TextStyle(
-                        color: Colors.white,
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
                       ),
@@ -1276,14 +1300,17 @@ class _SettingsHero extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.activeStudyTasks.length} tareas activas.',
-                      style: const TextStyle(color: Colors.white70),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: FocusPalette.muted,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          FocusGap.md,
           FutureBuilder<List<Object?>>(
             future: Future.wait<Object?>([
               NotificationService.pendingNotificationsCount(),
@@ -1336,6 +1363,50 @@ class _SettingsHero extends StatelessWidget {
   }
 }
 
+class _SettingsProfileAvatar extends StatelessWidget {
+  const _SettingsProfileAvatar();
+
+  @override
+  Widget build(BuildContext context) {
+    if (RankingService.currentUser == null) {
+      return const _SettingsAvatarFrame(asset: defaultProfileIconAsset);
+    }
+    return StreamBuilder<RankingProfile?>(
+      stream: RankingService.profileStream(),
+      builder: (context, snapshot) {
+        final asset = profileIconAssetFromIndex(
+          snapshot.data?.stats['socialMascotIndex'],
+          email: RankingService.currentUser?.email,
+          enforceAccess: true,
+        );
+        return _SettingsAvatarFrame(asset: asset);
+      },
+    );
+  }
+}
+
+class _SettingsAvatarFrame extends StatelessWidget {
+  final String asset;
+
+  const _SettingsAvatarFrame({required this.asset});
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return Container(
+      width: 58,
+      height: 58,
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
+      ),
+      child: Image.asset(asset, fit: BoxFit.contain),
+    );
+  }
+}
+
 class _HeroStatusChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1344,27 +1415,68 @@ class _HeroStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: Colors.white.withValues(alpha: 0.16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        borderRadius: BorderRadius.circular(FocusRadii.chip),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 16),
+          Icon(icon, color: accent, size: 16),
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontWeight: FontWeight.w800,
               fontSize: 12,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SettingsSheet extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  const _SettingsSheet({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = Theme.of(context).colorScheme.primary;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          0,
+          18,
+          18 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FocusSectionHeader(
+              icon: icon,
+              title: title,
+              accent: accent,
+            ),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
       ),
     );
   }
@@ -1379,9 +1491,9 @@ class _AcademicLocalNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: FocusInsets.card,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
         color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
         border: Border.all(
           color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
@@ -1446,9 +1558,9 @@ class _PrivacyDataNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: FocusInsets.card,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
         color: FocusPalette.mint.withValues(alpha: 0.08),
         border: Border.all(color: FocusPalette.mint.withValues(alpha: 0.16)),
       ),
@@ -1558,9 +1670,9 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
         final data = snapshot.data;
         return Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(16),
+          padding: FocusInsets.card,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(FocusRadii.card),
             color: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest
@@ -1575,10 +1687,10 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(FocusRadii.control),
                       color: (data?.focusReady == true
                               ? FocusPalette.mint
-                              : FocusPalette.coral)
+                              : FocusPalette.softAlert)
                           .withValues(alpha: 0.12),
                     ),
                     child: Icon(
@@ -1587,7 +1699,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                           : Icons.tune_rounded,
                       color: data?.focusReady == true
                           ? FocusPalette.mint
-                          : FocusPalette.coral,
+                          : FocusPalette.softAlert,
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -1752,7 +1864,7 @@ class _DiagnosticRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ok ? FocusPalette.mint : FocusPalette.coral;
+    final color = ok ? FocusPalette.mint : FocusPalette.softAlert;
     return ListTile(
       dense: true,
       visualDensity: VisualDensity.compact,
@@ -1792,12 +1904,14 @@ class _DiagnosticChip extends StatelessWidget {
 
 class _SettingsSection extends StatelessWidget {
   final String title;
+  final String subtitle;
   final IconData icon;
   final List<Widget> children;
   final bool danger;
 
   const _SettingsSection({
     required this.title,
+    this.subtitle = '',
     required this.icon,
     required this.children,
     this.danger = false,
@@ -1808,6 +1922,9 @@ class _SettingsSection extends StatelessWidget {
     final accent = danger ? Colors.red : Theme.of(context).colorScheme.primary;
     return Card(
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+      ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -1820,7 +1937,7 @@ class _SettingsSection extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(FocusRadii.control),
               color: accent.withValues(alpha: 0.12),
             ),
             child: Icon(icon, color: accent),
@@ -1832,6 +1949,13 @@ class _SettingsSection extends StatelessWidget {
                 .titleLarge
                 ?.copyWith(fontWeight: FontWeight.w900),
           ),
+          subtitle: subtitle.trim().isEmpty
+              ? null
+              : Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
           children: children,
         ),
       ),

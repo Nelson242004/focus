@@ -859,9 +859,9 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
         );
       },
       child: Container(
-        height: 258,
+        height: 300,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(32),
+          borderRadius: BorderRadius.circular(FocusRadii.panel),
           gradient: LinearGradient(
             colors: theme.colors,
             begin: Alignment.topLeft,
@@ -904,7 +904,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
               child: _SoftHeaderCircle(size: 190, alpha: 0.06),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 18, 18, 18),
+              padding: const EdgeInsets.fromLTRB(20, 18, 18, 18),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -930,29 +930,45 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: Colors.white.withValues(alpha: 0.18),
-                      foregroundColor: Colors.white.withValues(alpha: 0.92),
-                      fixedSize: const Size(38, 38),
-                      minimumSize: const Size(38, 38),
-                      padding: EdgeInsets.zero,
-                      shape: const CircleBorder(),
-                    ),
+                  _HeaderIconButton(
                     onPressed: widget.onShare,
                     tooltip: 'Compartir código',
-                    icon: const Icon(Icons.ios_share_rounded, size: 18),
+                    icon: Icons.ios_share_rounded,
                   ),
                 ],
               ),
             ),
             Align(
-              alignment: const Alignment(0.08, 0.42),
-              child: _ProfileIconBadge(
-                option: _profileIcons[_profileIconIndex],
-                colors: theme.colors,
-                size: 214,
-                onTap: () => _showAvatarBuilder(context),
+              alignment: const Alignment(0, 0.32),
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  _ProfileIconBadge(
+                    option: _profileIcons[_profileIconIndex],
+                    colors: theme.colors,
+                    size: 226,
+                    onTap: () => _showAvatarBuilder(context),
+                  ),
+                  Positioned(
+                    right: 8,
+                    bottom: 24,
+                    child: _HeaderIconButton(
+                      onPressed: () => _showAvatarBuilder(context),
+                      tooltip: 'Cambiar personaje',
+                      icon: Icons.edit_rounded,
+                    ),
+                  ),
+                  Positioned(
+                    left: 8,
+                    bottom: 24,
+                    child: _ColorFanButton(
+                      selected: _themeIndex,
+                      size: 38,
+                      onSelected: _updateThemeIndex,
+                    ),
+                  ),
+                ],
               ),
             ),
             Positioned(
@@ -1013,6 +1029,20 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
     );
   }
 
+  Future<void> _updateThemeIndex(int index) async {
+    final previousThemeIndex = _themeIndex;
+    setState(() => _themeIndex = index);
+    try {
+      await RankingService.updateSocialStyle(themeIndex: index);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _themeIndex = previousThemeIndex);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      );
+    }
+  }
+
   void _showAvatarBuilder(BuildContext context) {
     showModalBottomSheet<void>(
       context: context,
@@ -1063,6 +1093,35 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
           }
         },
       ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final String tooltip;
+  final IconData icon;
+
+  const _HeaderIconButton({
+    required this.onPressed,
+    required this.tooltip,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      style: IconButton.styleFrom(
+        backgroundColor: Colors.white.withValues(alpha: 0.88),
+        foregroundColor: FocusPalette.ink,
+        fixedSize: const Size(38, 38),
+        minimumSize: const Size(38, 38),
+        padding: EdgeInsets.zero,
+        shape: const CircleBorder(),
+      ),
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon, size: 18),
     );
   }
 }
@@ -1520,23 +1579,19 @@ class _SocialSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : FocusPalette.ink;
-    final muted = textColor.withValues(alpha: isDark ? 0.58 : 0.56);
     return FocusSurfaceCard(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      padding: FocusInsets.cardRelaxed,
       accent: FocusPalette.teal,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'RESUMEN',
-            style: TextStyle(
-              color: muted,
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 2.4,
-            ),
+          FocusSectionHeader(
+            icon: Icons.insights_rounded,
+            title: 'Estadísticas',
+            subtitle: 'Tu progreso público en Focus',
+            accent: FocusPalette.teal,
           ),
-          const SizedBox(height: 14),
+          FocusGap.md,
           Row(
             children: [
               Expanded(
@@ -1561,7 +1616,7 @@ class _SocialSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          FocusGap.sm,
           Row(
             children: [
               Expanded(
@@ -1649,23 +1704,23 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
         color: iconColor.withValues(alpha: 0.07),
         border: Border.all(color: iconColor.withValues(alpha: 0.10)),
       ),
       child: Row(
         children: [
           if (metricIcon != null)
-            FocusMetricIcon(kind: metricIcon!, size: 32, color: iconColor)
+            FocusMetricIcon(kind: metricIcon!, size: 26, color: iconColor)
           else if (assetIcon == null)
-            Icon(icon, color: iconColor, size: 32)
+            Icon(icon, color: iconColor, size: 26)
           else
             Image.asset(
               assetIcon!,
-              width: 32,
-              height: 32,
+              width: 26,
+              height: 26,
               fit: BoxFit.contain,
             ),
           const SizedBox(width: 10),
@@ -1879,23 +1934,6 @@ class _ProfileIconBadge extends StatelessWidget {
                     animate: true,
                     celebrate: true,
                     selected: true,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 16,
-                bottom: 18,
-                child: Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
-                  child: Icon(
-                    Icons.edit_rounded,
-                    size: 14,
-                    color: colors.first,
                   ),
                 ),
               ),
@@ -2794,21 +2832,21 @@ String _profileIconAssetForDisplay(int index) {
 Color _profileIconAccent(String asset) {
   final normalized = asset.toLowerCase();
   if (normalized.contains('dark')) return const Color(0xFF38BDF8);
-  if (normalized.contains('flame')) return const Color(0xFFFF7A59);
+  if (normalized.contains('flame')) return FocusPalette.softAlert;
   if (normalized.contains('calm')) return FocusPalette.mint;
   if (normalized.contains('champion')) return const Color(0xFFF59E0B);
   if (normalized.contains('pink')) return const Color(0xFFEC4899);
-  if (normalized.contains('red')) return const Color(0xFFEF4444);
+  if (normalized.contains('red')) return FocusPalette.softAlert;
   if (normalized.contains('purple')) return const Color(0xFF8B5CF6);
   if (normalized.contains('green')) return const Color(0xFF10B981);
   if (normalized.contains('black')) return const Color(0xFF38BDF8);
-  if (normalized.contains('orange')) return const Color(0xFFF97316);
+  if (normalized.contains('orange')) return FocusPalette.softAlert;
   if (normalized.contains('yellow')) return const Color(0xFFEAB308);
   if (normalized.contains('programmer')) return const Color(0xFF6366F1);
-  if (normalized.contains('doctor')) return const Color(0xFFEF4444);
+  if (normalized.contains('doctor')) return FocusPalette.softAlert;
   if (normalized.contains('teacher')) return const Color(0xFF14B8A6);
   if (normalized.contains('engineer')) return const Color(0xFF0EA5E9);
-  if (normalized.contains('architect')) return const Color(0xFFF97316);
+  if (normalized.contains('architect')) return FocusPalette.softAlert;
   if (normalized.contains('lawyer')) return const Color(0xFF8B5CF6);
   return FocusPalette.primary;
 }
@@ -4064,6 +4102,7 @@ class _BadgeBubble extends StatelessWidget {
             height: 60,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
+              color: info.color.withValues(alpha: 0.12),
               boxShadow: [
                 BoxShadow(
                   color: info.color.withValues(alpha: 0.22),
@@ -4072,9 +4111,10 @@ class _BadgeBubble extends StatelessWidget {
                 ),
               ],
             ),
-            child: Image.asset(
-              badgeAssetPath(badgeId),
-              fit: BoxFit.contain,
+            child: Icon(
+              info.icon,
+              color: info.color,
+              size: 28,
             ),
           ),
           const SizedBox(height: 8),
@@ -5568,8 +5608,7 @@ class _FriendsList extends StatelessWidget {
         icon: Icons.person_add_alt_1_rounded,
         accent: FocusPalette.primary,
         title: 'Todavía no agregaste amigos',
-        message:
-            'Busca por código o nombre para crear tu círculo de estudio y activar rachas entre amigos.',
+        message: 'Busca por código o nombre.',
       );
     }
     return Column(

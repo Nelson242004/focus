@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import 'focus_design_system.dart';
 
 class ScheduleBoard extends StatefulWidget {
   final String title;
@@ -112,22 +113,14 @@ class _ScheduleBoardState extends State<ScheduleBoard> {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          gradient: selected
-                              ? LinearGradient(
-                                  colors: [
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .primary
-                                        .withValues(alpha: 0.18),
-                                    Theme.of(context)
-                                        .colorScheme
-                                        .secondary
-                                        .withValues(alpha: 0.12),
-                                  ],
-                                )
-                              : null,
-                          color: selected ? null : Colors.transparent,
+                          borderRadius:
+                              BorderRadius.circular(FocusRadii.control),
+                          color: selected
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.10)
+                              : Colors.transparent,
                           border: Border.all(
                             color: selected
                                 ? Theme.of(context).colorScheme.primary
@@ -292,21 +285,14 @@ class _ScheduleCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).cardColor,
-            color.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.035),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1215,4 +1201,3 @@ pw.Widget _pdfFooter(String text) {
     ),
   );
 }
-

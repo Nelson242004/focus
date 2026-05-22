@@ -378,10 +378,9 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   padding: const EdgeInsets.all(24),
                   child: FocusProfileEmptyState(
                     icon: Icons.assignment_late_rounded,
-                    accent: const Color(0xFFF97316),
+                    accent: FocusPalette.softAlert,
                     title: 'Primero crea una materia',
-                    message:
-                        'Así cada parcial o final queda conectado a su clase y aparece en el dashboard.',
+                    message: 'Los exámenes necesitan una materia.',
                     action: FilledButton.icon(
                       onPressed: () => Navigator.of(context).push(
                         MaterialPageRoute(
@@ -434,12 +433,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 height: 54,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(18),
-                                  color: FocusPalette.coral
+                                  color: FocusPalette.softAlert
                                       .withValues(alpha: 0.14),
                                 ),
                                 child: const Icon(
                                   Icons.assignment_late_rounded,
-                                  color: FocusPalette.coral,
+                                  color: FocusPalette.softAlert,
                                 ),
                               ),
                               const SizedBox(width: 14),
@@ -549,7 +548,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             final hasExam = dayExams.isNotEmpty;
                             final colorScheme = Theme.of(context).colorScheme;
                             final accent = hasFinal
-                                ? FocusPalette.coral
+                                ? FocusPalette.softAlert
                                 : FocusPalette.primary;
 
                             return GestureDetector(
@@ -715,13 +714,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           padding: const EdgeInsets.all(16),
                           child: FocusProfileEmptyState(
                             icon: Icons.event_busy_rounded,
-                            accent: FocusPalette.coral,
+                            accent: FocusPalette.softAlert,
                             title: provider.exams.isEmpty
                                 ? 'Carga tu primer examen'
                                 : 'Sin exámenes aquí',
                             message: provider.exams.isEmpty
-                                ? 'Agrega un parcial o final para verlo en el calendario, el dashboard y el widget.'
-                                : 'Cambia el filtro o crea un examen nuevo para esta vista.',
+                                ? 'Agrega un parcial o final.'
+                                : 'Cambia el filtro o crea uno nuevo.',
                             action: FilledButton.icon(
                               onPressed: () => _showExamDialog(),
                               icon: const Icon(Icons.add_rounded),
@@ -735,7 +734,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           final exam = entry.value;
                           final subjectName = provider.subjectNameForExam(exam);
                           final accent = exam.isFinal
-                              ? FocusPalette.coral
+                              ? FocusPalette.softAlert
                               : FocusPalette.primary;
                           final isUpcoming =
                               combineDateAndTime(exam.date, exam.startTime)
@@ -953,7 +952,7 @@ class _ExamCalendarChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = exam.isFinal ? FocusPalette.coral : FocusPalette.primary;
+    final accent = exam.isFinal ? FocusPalette.softAlert : FocusPalette.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),

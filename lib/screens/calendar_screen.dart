@@ -223,7 +223,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom}',
             ].join(' · '),
             type: CalendarItemType.exam,
-            color: exam.isFinal ? FocusPalette.coral : const Color(0xFF2563EB),
+            color: exam.isFinal ? FocusPalette.softAlert : FocusPalette.action,
             date: normalized,
           ),
         );
@@ -242,9 +242,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               task.statusLabel,
             ].join(' · '),
             type: CalendarItemType.task,
-            color: task.isOverdue
-                ? const Color(0xFFEF4444)
-                : const Color(0xFFF97316),
+            color: task.isOverdue ? FocusPalette.error : FocusPalette.softAlert,
             date: normalized,
           ),
         );
@@ -432,7 +430,7 @@ class _MonthSummary extends StatelessWidget {
           child: _SummaryCard(
             label: 'Exámenes',
             value: count(CalendarItemType.exam).toString(),
-            color: FocusPalette.coral,
+            color: FocusPalette.softAlert,
           ),
         ),
         const SizedBox(width: 10),
@@ -440,7 +438,7 @@ class _MonthSummary extends StatelessWidget {
           child: _SummaryCard(
             label: 'Clases',
             value: count(CalendarItemType.classBlock).toString(),
-            color: const Color(0xFF10B981),
+            color: FocusPalette.calm,
           ),
         ),
         const SizedBox(width: 10),
@@ -448,7 +446,7 @@ class _MonthSummary extends StatelessWidget {
           child: _SummaryCard(
             label: 'Tareas',
             value: count(CalendarItemType.task).toString(),
-            color: const Color(0xFFF97316),
+            color: FocusPalette.softAlert,
           ),
         ),
       ],
@@ -520,11 +518,11 @@ class _CalendarDayTile extends StatelessWidget {
         : isToday
             ? colorScheme.primary.withValues(alpha: 0.18)
             : hasExam
-                ? FocusPalette.coral.withValues(alpha: 0.14)
+                ? FocusPalette.softAlert.withValues(alpha: 0.14)
                 : hasTask
-                    ? const Color(0xFFF97316).withValues(alpha: 0.14)
+                    ? FocusPalette.softAlert.withValues(alpha: 0.12)
                     : hasClass
-                        ? const Color(0xFF10B981).withValues(alpha: 0.16)
+                        ? FocusPalette.calm.withValues(alpha: 0.14)
                         : colorScheme.surfaceContainerHighest.withValues(
                             alpha: isCurrentMonth ? 0.24 : 0.1,
                           );
@@ -551,12 +549,11 @@ class _CalendarDayTile extends StatelessWidget {
                 : isToday
                     ? colorScheme.primary
                     : hasExam
-                        ? FocusPalette.coral.withValues(alpha: 0.5)
+                        ? FocusPalette.softAlert.withValues(alpha: 0.5)
                         : hasTask
-                            ? const Color(0xFFF97316).withValues(alpha: 0.5)
+                            ? FocusPalette.softAlert.withValues(alpha: 0.44)
                             : hasClass
-                                ? const Color(0xFF10B981)
-                                    .withValues(alpha: 0.55)
+                                ? FocusPalette.calm.withValues(alpha: 0.48)
                                 : colorScheme.outlineVariant
                                     .withValues(alpha: 0.18),
           ),
@@ -601,10 +598,10 @@ class _CalendarLegend extends StatelessWidget {
       spacing: 12,
       runSpacing: 8,
       children: [
-        _LegendItem(label: 'Examen', color: FocusPalette.coral),
-        _LegendItem(label: 'Tarea', color: Color(0xFFF97316)),
-        _LegendItem(label: 'Clase', color: Color(0xFF10B981)),
-        _LegendItem(label: 'Hoy / seleccionado', color: Color(0xFF1D4ED8)),
+        _LegendItem(label: 'Examen', color: FocusPalette.softAlert),
+        _LegendItem(label: 'Tarea', color: FocusPalette.softAlert),
+        _LegendItem(label: 'Clase', color: FocusPalette.calm),
+        _LegendItem(label: 'Hoy / seleccionado', color: FocusPalette.primary),
       ],
     );
   }

@@ -294,8 +294,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   icon: Icons.auto_awesome_rounded,
                   accent: FocusPalette.primary,
                   title: 'Carga tu primer hábito',
-                  message:
-                      'Empieza con una acción pequeña y repetible. Focus se encarga de medir tu constancia.',
+                  message: 'Empieza con una acción pequeña.',
                   action: FilledButton.icon(
                     onPressed: _createHabit,
                     icon: const Icon(Icons.add_task_rounded),
@@ -396,20 +395,18 @@ class _HabitsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = totalHabits == 0 ? 0.0 : completedToday / totalHabits;
+    final accent = Theme.of(context).colorScheme.primary;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: FocusInsets.panel,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          colors: FocusPalette.studyGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
         boxShadow: [
           BoxShadow(
-            color: FocusPalette.primaryDeep.withValues(alpha: 0.18),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -424,21 +421,26 @@ class _HabitsHero extends StatelessWidget {
                   children: [
                     const Text(
                       'Identidad en construcción',
-                      style:
-                          TextStyle(color: Colors.white70, letterSpacing: 1.1),
+                      style: TextStyle(
+                        color: FocusPalette.muted,
+                        letterSpacing: 1.1,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Cada repetición refuerza quién eres.',
                       style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800),
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       '$completedToday de $totalHabits hábitos completados hoy',
-                      style: const TextStyle(color: Colors.white70),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: FocusPalette.muted,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ],
                 ),
@@ -452,17 +454,18 @@ class _HabitsHero extends StatelessWidget {
                     CircularProgressIndicator(
                       value: progress,
                       strokeWidth: 10,
-                      backgroundColor: Colors.white12,
+                      backgroundColor: accent.withValues(alpha: 0.10),
                       valueColor:
                           const AlwaysStoppedAnimation(Color(0xFFFBBF24)),
                     ),
                     Center(
                       child: Text(
                         '${(progress * 100).round()}%',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900),
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ],
@@ -720,60 +723,71 @@ class _HabitCard extends StatelessWidget {
               children: last7Days.map((date) {
                 final key = date.toIso8601String().split('T')[0];
                 final completed = habit.history.contains(key);
-                return Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: completed
-                        ? FocusPalette.primary
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      transitionBuilder: (child, animation) =>
-                          ScaleTransition(scale: animation, child: child),
-                      child: completed
-                          ? const Icon(
-                              Icons.check_rounded,
-                              key: ValueKey('done'),
-                              color: Colors.white,
-                              size: 18,
-                            )
-                          : Text(
-                              '${date.day}',
-                              key: ValueKey(date.day),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                return FocusMicroPop(
+                  trigger: '$key-$completed',
+                  fromScale: completed ? 0.82 : 0.96,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: completed
+                          ? FocusPalette.primary
+                          : Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(scale: animation, child: child),
+                        child: completed
+                            ? const Icon(
+                                Icons.check_rounded,
+                                key: ValueKey('done'),
+                                color: Colors.white,
+                                size: 18,
+                              )
+                            : Text(
+                                '${date.day}',
+                                key: ValueKey(date.day),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
+                      ),
                     ),
                   ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: onToggle,
-                icon: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  transitionBuilder: (child, animation) =>
-                      ScaleTransition(scale: animation, child: child),
-                  child: Icon(
-                    doneToday
-                        ? Icons.check_circle_rounded
-                        : Icons.radio_button_unchecked_rounded,
-                    key: ValueKey(doneToday),
+            FocusMicroPop(
+              trigger: 'habit-${habit.id}-$doneToday',
+              fromScale: doneToday ? 0.96 : 0.99,
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onToggle,
+                  icon: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    transitionBuilder: (child, animation) =>
+                        ScaleTransition(scale: animation, child: child),
+                    child: Icon(
+                      doneToday
+                          ? Icons.check_circle_rounded
+                          : Icons.radio_button_unchecked_rounded,
+                      key: ValueKey(doneToday),
+                    ),
                   ),
-                ),
-                label: Text(
-                    doneToday ? 'Hábito completado hoy' : 'Marcar como hecho'),
-                style: FilledButton.styleFrom(
-                  backgroundColor:
-                      doneToday ? FocusPalette.mint : FocusPalette.primary,
+                  label: Text(
+                    doneToday ? 'Hábito completado hoy' : 'Marcar como hecho',
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        doneToday ? FocusPalette.mint : FocusPalette.primary,
+                  ),
                 ),
               ),
             ),

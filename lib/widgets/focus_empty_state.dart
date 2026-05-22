@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/ranking_service.dart';
 import '../utils/profile_icon_access.dart';
+import 'focus_design_system.dart';
 
 class FocusEmptyState extends StatelessWidget {
   final String title;
@@ -24,38 +25,22 @@ class FocusEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accent ?? Theme.of(context).colorScheme.primary;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
-          colors: [
-            color.withValues(alpha: 0.12),
-            Theme.of(context).cardColor,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
-      ),
+    return FocusSurfaceCard(
+      padding: FocusInsets.panel,
+      radius: FocusRadii.panel,
+      accent: color,
+      elevated: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 92,
-            height: 92,
-            padding: const EdgeInsets.all(8),
+            width: 112,
+            height: 112,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.16),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
-                ),
-              ],
+              color: color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(FocusRadii.panel),
+              border: Border.all(color: color.withValues(alpha: 0.12)),
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -68,15 +53,15 @@ class FocusEmptyState extends StatelessWidget {
                   right: 0,
                   bottom: 0,
                   child: CircleAvatar(
-                    radius: 16,
+                    radius: 17,
                     backgroundColor: color,
-                    child: Icon(icon, color: Colors.white, size: 17),
+                    child: Icon(icon, color: Colors.white, size: 18),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          FocusGap.md,
           Text(
             title,
             textAlign: TextAlign.center,
@@ -84,15 +69,28 @@ class FocusEmptyState extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
           ),
-          const SizedBox(height: 8),
+          FocusGap.xs,
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  height: 1.25,
+                ),
           ),
           if (action != null) ...[
-            const SizedBox(height: 16),
-            action!,
+            FocusGap.md,
+            SizedBox(
+              width: double.infinity,
+              child: FilledButtonTheme(
+                data: FilledButtonThemeData(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
+                child: action!,
+              ),
+            ),
           ],
         ],
       ),

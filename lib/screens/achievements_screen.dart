@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import '../widgets/focus_metric_icon.dart';
@@ -289,43 +290,50 @@ class _AchievementTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final info = badgeVisualInfo(data.id);
     final accent = data.unlocked ? info.color : Colors.grey;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: accent.withValues(alpha: 0.14),
+    return FocusMicroPop(
+      trigger: '${data.id}-${data.unlocked}',
+      fromScale: data.unlocked ? 0.96 : 0.99,
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: accent.withValues(alpha: 0.14),
+                ),
+                child: _AchievementBadgeImage(
+                  icon: info.icon,
+                  color: info.color,
+                  unlocked: data.unlocked,
+                ),
               ),
-              child: _AchievementBadgeImage(
-                asset: info.asset,
-                unlocked: data.unlocked,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(info.title,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text(info.subtitle),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(info.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 4),
-                  Text(info.subtitle),
-                ],
+              const SizedBox(width: 10),
+              Text(
+                data.unlocked ? 'Desbloqueado' : 'Bloqueado',
+                style: TextStyle(color: accent, fontWeight: FontWeight.w700),
               ),
-            ),
-            const SizedBox(width: 10),
-            Text(data.unlocked ? 'Desbloqueado' : 'Bloqueado',
-                style: TextStyle(color: accent, fontWeight: FontWeight.w700)),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -333,52 +341,30 @@ class _AchievementTile extends StatelessWidget {
 }
 
 class _AchievementBadgeImage extends StatelessWidget {
-  final String asset;
+  final IconData icon;
+  final Color color;
   final bool unlocked;
 
   const _AchievementBadgeImage({
-    required this.asset,
+    required this.icon,
+    required this.color,
     required this.unlocked,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget image = Padding(
-      padding: const EdgeInsets.all(3),
-      child: Image.asset(asset, fit: BoxFit.contain),
-    );
-    if (!unlocked) {
-      image = ColorFiltered(
-        colorFilter: const ColorFilter.matrix([
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0.2126,
-          0.7152,
-          0.0722,
-          0,
-          0,
-          0,
-          0,
-          0,
-          1,
-          0,
-        ]),
-        child: Opacity(opacity: 0.5, child: image),
-      );
-    }
-
     return Stack(
       fit: StackFit.expand,
       children: [
-        image,
+        FocusMicroPop(
+          trigger: '$icon-$unlocked',
+          fromScale: unlocked ? 0.78 : 0.98,
+          child: Icon(
+            icon,
+            color: unlocked ? color : FocusPalette.muted,
+            size: 27,
+          ),
+        ),
         if (!unlocked)
           Align(
             alignment: Alignment.bottomRight,

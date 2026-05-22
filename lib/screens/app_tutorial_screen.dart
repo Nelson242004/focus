@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../utils/focus_palette.dart';
 
@@ -52,18 +52,14 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
       text:
           'Sigue parciales y finales con fecha, hora, aula y recordatorios automáticos antes del examen.',
       bullets: ['Parcial 1 y 2', 'Final 1 y 2', 'Ordenados por cercanía'],
-      colors: [Color(0xFFF97316), Color(0xFFFACC15)],
+      colors: [FocusPalette.softAlert, FocusPalette.amber],
     ),
     (
       icon: Icons.timer_rounded,
       title: 'Pomodoro',
       text:
           'Estudia por ciclos de enfoque y descanso, con modo horizontal y continuidad automática entre bloques.',
-      bullets: [
-        'Modo horizontal',
-        'Ciclos automáticos',
-        'Puntos de enfoque'
-      ],
+      bullets: ['Modo horizontal', 'Ciclos automáticos', 'Puntos de enfoque'],
       colors: [Color(0xFF2563EB), Color(0xFF60A5FA)],
     ),
     (
@@ -76,7 +72,7 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         'Racha de constancia',
         'Logros e insignias'
       ],
-      colors: [FocusPalette.coral, FocusPalette.amber],
+      colors: [FocusPalette.softAlert, FocusPalette.amber],
     ),
     (
       icon: Icons.link_rounded,
@@ -258,4 +254,3 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
     );
   }
 }
-

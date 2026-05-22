@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
@@ -93,7 +93,7 @@ class _ExamModeHero extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
-          colors: [FocusPalette.ink, FocusPalette.coral],
+          colors: [FocusPalette.ink, FocusPalette.softAlert],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -392,4 +392,3 @@ class _EmptyExamMode extends StatelessWidget {
     );
   }
 }
-

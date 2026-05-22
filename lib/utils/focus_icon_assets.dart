@@ -1,11 +1,6 @@
 class FocusIconAssets {
   FocusIconAssets._();
 
-  static const points = 'assets/metrics/focus_points.png';
-  static const streak =
-      'android/app/src/main/res/drawable-nodpi/focus_streak_fire.png';
-  static const achievement = 'assets/badges/badge_focus.png';
-
   static const goldLeague = 'assets/medals/gold.png';
   static const silverLeague = 'assets/medals/silver.png';
   static const bronzeLeague = 'assets/medals/bronze.png';

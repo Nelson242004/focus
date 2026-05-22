@@ -6,6 +6,7 @@ import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
@@ -29,6 +30,7 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   int _selectedDay = 0;
   String _startTime = '08:00';
   String _endTime = '09:00';
+  int _selectedView = 0;
 
   @override
   void dispose() {
@@ -393,255 +395,328 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           builder: (context, provider, _) {
             final subjects = provider.subjects;
             return ListView(
-              padding: const EdgeInsets.only(bottom: 36),
+              padding: const EdgeInsets.only(bottom: 108),
               children: [
-                const ScheduleBoard(
-                  title: 'Horario semanal',
-                  visibleDays: [0, 1, 2, 3, 4, 5],
-                ),
-                Card(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: ExpansionTile(
-                    initiallyExpanded: false,
-                    title: Text(
-                      'Tus materias y detalles',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text('${subjects.length} materias registradas'),
-                    childrenPadding: const EdgeInsets.only(bottom: 12),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: Text(
-                          'Gestiona tus materias',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment<int>(
+                        value: 0,
+                        icon: Icon(Icons.calendar_month_rounded),
+                        label: Text('Horario'),
                       ),
-                      if (subjects.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: FocusProfileEmptyState(
-                            icon: Icons.menu_book_rounded,
-                            accent: const Color(0xFF0EA5E9),
-                            title: 'Carga tu primera materia',
-                            message:
-                                'Empieza solo con el nombre desde el botón +. Después puedes sumar horarios, aula, profesor y sección.',
-                            action: FilledButton.icon(
-                              onPressed: () => _showSubjectDialog(),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Agregar materia'),
-                            ),
-                          ),
-                        )
-                      else
-                        ...subjects.map((subject) {
-                          final subjectSchedules = provider.schedules
-                              .where((schedule) =>
-                                  schedule.subjectId == subject.id)
-                              .toList()
-                            ..sort((a, b) {
-                              final byDay = a.dayOfWeek.compareTo(b.dayOfWeek);
-                              if (byDay != 0) return byDay;
-                              return a.startTime.compareTo(b.startTime);
-                            });
-                          final subjectExams = provider.exams
-                              .where((exam) => exam.subjectId == subject.id)
-                              .toList();
-                          final resourceCount = subject.id == null
-                              ? 0
-                              : provider
-                                  .resourcesForSubject(subject.id!)
-                                  .length;
-                          return Card(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 6,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      CircleAvatar(
-                                        radius: 28,
-                                        backgroundColor:
-                                            colorFromHex(subject.color),
-                                        child: const Icon(
-                                          Icons.book,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              subject.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .titleLarge
-                                                  ?.copyWith(
-                                                    fontWeight: FontWeight.w800,
-                                                  ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            const SizedBox(height: 4),
-                                            if (subject.defaultClassroom !=
-                                                    null &&
-                                                subject.defaultClassroom!
-                                                    .isNotEmpty)
-                                              Text(
-                                                'Aula base: ${subject.defaultClassroom}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            if (subject.sectionCode != null &&
-                                                subject.sectionCode!
-                                                    .trim()
-                                                    .isNotEmpty)
-                                              Text(
-                                                'Sección: ${subject.sectionCode}',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            if (subject.professorName != null &&
-                                                subject.professorName!
-                                                    .trim()
-                                                    .isNotEmpty)
-                                              Text(
-                                                'Profesor: ${subject.professorName}',
-                                                maxLines: 2,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 14),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      _SubjectInfoChip(
-                                        icon: Icons.schedule_rounded,
-                                        label:
-                                            '${subjectSchedules.length} bloques',
-                                      ),
-                                      _SubjectInfoChip(
-                                        icon: Icons.assignment_rounded,
-                                        label:
-                                            '${subjectExams.length} exámenes',
-                                      ),
-                                      _SubjectInfoChip(
-                                        icon: Icons.task_alt_rounded,
-                                        label:
-                                            '${provider.studyTasks.where((task) => task.subjectId == subject.id && !task.isDone).length} tareas',
-                                      ),
-                                      _SubjectInfoChip(
-                                        icon: Icons.link_rounded,
-                                        label: '$resourceCount recursos',
-                                      ),
-                                    ],
-                                  ),
-                                  if (subjectSchedules.isNotEmpty) ...[
-                                    const SizedBox(height: 14),
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(18),
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .surfaceContainerHighest
-                                            .withValues(alpha: 0.38),
-                                      ),
-                                      child: Text(
-                                        'Próximo bloque: ${weekdayLabel(subjectSchedules.first.dayOfWeek)} · ${subjectSchedules.first.startTime} a ${subjectSchedules.first.endTime}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      FilledButton.tonalIcon(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  SubjectScheduleScreen(
-                                                subject: subject,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        icon: const Icon(Icons.schedule),
-                                        label: const Text('Horarios'),
-                                      ),
-                                      const Spacer(),
-                                      PopupMenuButton<String>(
-                                        tooltip: 'Más acciones',
-                                        onSelected: (value) {
-                                          if (value == 'edit') {
-                                            _showSubjectDialog(
-                                                subject: subject);
-                                          } else if (value == 'delete') {
-                                            _deleteSubject(subject);
-                                          }
-                                        },
-                                        itemBuilder: (context) => const [
-                                          PopupMenuItem(
-                                            value: 'edit',
-                                            child: ListTile(
-                                              leading: Icon(Icons.edit),
-                                              title: Text('Editar'),
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            child: ListTile(
-                                              leading: Icon(Icons.delete),
-                                              title: Text('Eliminar'),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
+                      ButtonSegment<int>(
+                        value: 1,
+                        icon: Icon(Icons.menu_book_rounded),
+                        label: Text('Materias'),
+                      ),
                     ],
+                    selected: {_selectedView},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (value) {
+                      setState(() => _selectedView = value.first);
+                    },
                   ),
                 ),
+                if (_selectedView == 0) ...[
+                  const ScheduleBoard(
+                    title: 'Horario semanal',
+                    visibleDays: [0, 1, 2, 3, 4, 5],
+                  ),
+                  if (subjects.isEmpty)
+                    Padding(
+                      padding: FocusInsets.pageCompact,
+                      child: FocusProfileEmptyState(
+                        icon: Icons.menu_book_rounded,
+                        accent: const Color(0xFF0EA5E9),
+                        title: 'Carga tu primera materia',
+                        message: 'Empieza con el nombre y suma detalles luego.',
+                        action: FilledButton.icon(
+                          onPressed: () => _showSubjectDialog(),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Agregar materia'),
+                        ),
+                      ),
+                    ),
+                ] else
+                  _SubjectsPanel(
+                    provider: provider,
+                    subjects: subjects,
+                    onAdd: () => _showSubjectDialog(),
+                    onEdit: (subject) => _showSubjectDialog(subject: subject),
+                    onDelete: _deleteSubject,
+                  ),
               ],
             );
           },
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add-subject',
+        elevation: 8,
         onPressed: () => _showSubjectDialog(),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Materia'),
+        label: const Text('Agregar materia'),
+      ),
+    );
+  }
+}
+
+class _SubjectsPanel extends StatelessWidget {
+  final AppProvider provider;
+  final List<Subject> subjects;
+  final VoidCallback onAdd;
+  final ValueChanged<Subject> onEdit;
+  final ValueChanged<Subject> onDelete;
+
+  const _SubjectsPanel({
+    required this.provider,
+    required this.subjects,
+    required this.onAdd,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (subjects.isEmpty) {
+      return Padding(
+        padding: FocusInsets.pageCompact,
+        child: FocusProfileEmptyState(
+          icon: Icons.menu_book_rounded,
+          accent: const Color(0xFF0EA5E9),
+          title: 'Carga tu primera materia',
+          message: 'Empieza con el nombre y suma detalles luego.',
+          action: FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Agregar materia'),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: FocusInsets.pageCompact,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          FocusSectionHeader(
+            icon: Icons.menu_book_rounded,
+            title: 'Tus materias',
+            subtitle: '${subjects.length} registradas',
+            accent: const Color(0xFF0EA5E9),
+          ),
+          FocusGap.section,
+          ...subjects.map(
+            (subject) => Padding(
+              padding: const EdgeInsets.only(bottom: FocusSpacing.sm),
+              child: _SubjectCard(
+                provider: provider,
+                subject: subject,
+                onEdit: () => onEdit(subject),
+                onDelete: () => onDelete(subject),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubjectCard extends StatelessWidget {
+  final AppProvider provider;
+  final Subject subject;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _SubjectCard({
+    required this.provider,
+    required this.subject,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = colorFromHex(subject.color);
+    final subjectSchedules = provider.schedules
+        .where((schedule) => schedule.subjectId == subject.id)
+        .toList()
+      ..sort((a, b) {
+        final byDay = a.dayOfWeek.compareTo(b.dayOfWeek);
+        if (byDay != 0) return byDay;
+        return a.startTime.compareTo(b.startTime);
+      });
+    final subjectExams =
+        provider.exams.where((exam) => exam.subjectId == subject.id).toList();
+    final taskCount = provider.studyTasks
+        .where((task) => task.subjectId == subject.id && !task.isDone)
+        .length;
+    final resourceCount = subject.id == null
+        ? 0
+        : provider.resourcesForSubject(subject.id!).length;
+
+    return FocusSurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: FocusRadii.card,
+      accent: accent,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 7,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(FocusRadii.card),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: FocusInsets.cardRelaxed,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            subject.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                        ),
+                        const SizedBox(width: FocusSpacing.sm),
+                        PopupMenuButton<String>(
+                          tooltip: 'Más acciones',
+                          icon: const Icon(Icons.more_horiz_rounded),
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              onEdit();
+                            } else if (value == 'delete') {
+                              onDelete();
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: ListTile(
+                                leading: Icon(Icons.edit_rounded),
+                                title: Text('Editar'),
+                              ),
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: ListTile(
+                                leading: Icon(Icons.delete_rounded),
+                                title: Text('Eliminar'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    FocusGap.sm,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (subject.professorName?.trim().isNotEmpty == true)
+                          _SubjectInfoChip(
+                            icon: Icons.person_rounded,
+                            label: 'Prof. ${subject.professorName!.trim()}',
+                          ),
+                        if (subject.defaultClassroom?.trim().isNotEmpty == true)
+                          _SubjectInfoChip(
+                            icon: Icons.meeting_room_rounded,
+                            label: 'Aula ${subject.defaultClassroom!.trim()}',
+                          ),
+                        if (subject.sectionCode?.trim().isNotEmpty == true)
+                          _SubjectInfoChip(
+                            icon: Icons.groups_rounded,
+                            label: 'Sección ${subject.sectionCode!.trim()}',
+                          ),
+                      ],
+                    ),
+                    FocusGap.md,
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _SubjectInfoChip(
+                          icon: Icons.schedule_rounded,
+                          label: '${subjectSchedules.length} bloques',
+                        ),
+                        _SubjectInfoChip(
+                          icon: Icons.assignment_rounded,
+                          label: '${subjectExams.length} exámenes',
+                        ),
+                        _SubjectInfoChip(
+                          icon: Icons.task_alt_rounded,
+                          label: '$taskCount tareas',
+                        ),
+                        _SubjectInfoChip(
+                          icon: Icons.link_rounded,
+                          label: '$resourceCount recursos',
+                        ),
+                      ],
+                    ),
+                    if (subjectSchedules.isNotEmpty) ...[
+                      FocusGap.md,
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(FocusSpacing.md),
+                        decoration: BoxDecoration(
+                          borderRadius:
+                              BorderRadius.circular(FocusRadii.control),
+                          color: accent.withValues(alpha: 0.08),
+                          border: Border.all(
+                            color: accent.withValues(alpha: 0.14),
+                          ),
+                        ),
+                        child: Text(
+                          'Próximo bloque: ${weekdayLabel(subjectSchedules.first.dayOfWeek)} · ${subjectSchedules.first.startTime} a ${subjectSchedules.first.endTime}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ],
+                    FocusGap.md,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubjectScheduleScreen(
+                                subject: subject,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.calendar_month_rounded),
+                        label: const Text('Horarios'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -659,9 +734,9 @@ class _SubjectInfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(FocusRadii.chip),
         color: Theme.of(context)
             .colorScheme
             .surfaceContainerHighest
@@ -670,9 +745,15 @@ class _SubjectInfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+          Icon(icon, size: 15, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .labelMedium
+                ?.copyWith(fontWeight: FontWeight.w800),
+          ),
         ],
       ),
     );
@@ -688,13 +769,11 @@ class _ColorPickerDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     const colors = [
       FocusPalette.primary,
-      FocusPalette.cyan,
       FocusPalette.teal,
       FocusPalette.mint,
       FocusPalette.amber,
-      FocusPalette.coral,
+      FocusPalette.softAlert,
       FocusPalette.primaryDeep,
-      FocusPalette.danger,
     ];
 
     return AlertDialog(

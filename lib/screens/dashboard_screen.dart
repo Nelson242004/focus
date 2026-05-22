@@ -7,7 +7,6 @@ import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
-import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_metric_icon.dart';
@@ -20,22 +19,22 @@ class DashboardScreen extends StatelessWidget {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          padding: FocusInsets.pageCompact,
           children: [
             if (provider.lastLoadError != null) ...[
               const _LoadErrorBanner(),
-              const SizedBox(height: 14),
+              FocusGap.md,
             ],
             FocusStaggeredItem(
               index: 0,
               child: _FocusHero(provider: provider),
             ),
-            const SizedBox(height: 16),
+            FocusGap.section,
             FocusStaggeredItem(
               index: 1,
               child: _MetricGrid(provider: provider),
             ),
-            const SizedBox(height: 16),
+            FocusGap.section,
             FocusStaggeredItem(
               index: 2,
               child: _NextEventsCard(provider: provider),
@@ -53,10 +52,10 @@ class _LoadErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: FocusInsets.card,
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
       ),
       child: Row(
         children: [
@@ -98,9 +97,9 @@ class _FocusHero extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, value, _) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+          padding: FocusInsets.panel,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(34),
+            borderRadius: BorderRadius.circular(FocusRadii.panel),
             gradient: const LinearGradient(
               colors: FocusPalette.studyGradient,
               begin: Alignment.topLeft,
@@ -145,7 +144,7 @@ class _FocusHero extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    FocusGap.md,
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -377,10 +376,10 @@ class _EventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: FocusInsets.card,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
@@ -390,7 +389,7 @@ class _EventTile extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(17),
+              borderRadius: BorderRadius.circular(FocusRadii.control),
             ),
             child: Icon(icon, color: color),
           ),
@@ -459,7 +458,7 @@ class _MetricGrid extends StatelessWidget {
           color: FocusPalette.mint,
         ),
         _MetricCard(
-          assetIcon: FocusIconAssets.achievement,
+          icon: Icons.emoji_events_rounded,
           value: '${provider.unlockedAchievementCount}',
           label: 'Logros',
           color: FocusPalette.teal,
@@ -471,7 +470,6 @@ class _MetricGrid extends StatelessWidget {
 
 class _MetricCard extends StatelessWidget {
   final IconData? icon;
-  final String? assetIcon;
   final FocusMetricIconKind? metricIcon;
   final String value;
   final String label;
@@ -479,7 +477,6 @@ class _MetricCard extends StatelessWidget {
 
   const _MetricCard({
     this.icon,
-    this.assetIcon,
     this.metricIcon,
     required this.value,
     required this.label,
@@ -489,24 +486,19 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FocusSurfaceCard(
-      padding: const EdgeInsets.all(13),
-      radius: 24,
+      padding: FocusInsets.card,
+      radius: FocusRadii.card,
       accent: color,
       elevated: false,
       child: Container(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(FocusRadii.card),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (metricIcon != null)
               FocusMetricIcon(kind: metricIcon!, size: 24, color: color)
-            else if (assetIcon != null)
-              Image.asset(
-                assetIcon!,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-              )
             else
               Icon(icon, color: color, size: 22),
             const SizedBox(width: 9),

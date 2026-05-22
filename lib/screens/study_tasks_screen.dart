@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 
@@ -379,10 +380,10 @@ class _TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = task.priority == 'high'
-        ? const Color(0xFFEF4444)
+        ? FocusPalette.softAlert
         : task.priority == 'low'
-            ? const Color(0xFF10B981)
-            : const Color(0xFFF59E0B);
+            ? FocusPalette.calm
+            : FocusPalette.points;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -529,4 +530,3 @@ class _EmptyTasks extends StatelessWidget {
 extension<T> on List<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

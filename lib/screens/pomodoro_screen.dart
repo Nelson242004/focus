@@ -20,7 +20,6 @@ import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_metric_icon.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -1069,17 +1068,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final totalSeconds = _totalSecondsForMode(provider);
 
     if (_isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16),
-        child: Column(
-          children: [
-            FocusSkeletonCard(height: 360),
-            SizedBox(height: 14),
-            FocusSkeletonCard(height: 128),
-            SizedBox(height: 14),
-            FocusSkeletonCard(height: 150),
-          ],
-        ),
+      return const FocusSkeletonList(
+        heights: [420, 180],
       );
     }
 
@@ -1111,76 +1101,50 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         top: false,
         bottom: true,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          padding: FocusInsets.pageCompact,
           children: [
             _glassCard(
               context,
-              padding: const EdgeInsets.all(22),
+              padding: FocusInsets.panel,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(20),
-                          gradient: LinearGradient(
-                            colors: [
-                              themePalette.accent,
-                              themePalette.accentSecondary,
-                            ],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  themePalette.accent.withValues(alpha: 0.28),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
+                      Icon(
+                        _mode == 'focus'
+                            ? Icons.school_rounded
+                            : Icons.spa_rounded,
+                        color: themePalette.accent,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
                           _mode == 'focus'
-                              ? Icons.school_rounded
-                              : Icons.spa_rounded,
-                          color: Colors.white,
-                          size: 28,
+                              ? 'Concentrarse ahora'
+                              : _mode == 'shortBreak'
+                                  ? 'Descanso breve'
+                                  : 'Descanso largo',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _mode == 'focus'
-                                  ? 'Concentrarse ahora'
-                                  : _mode == 'shortBreak'
-                                      ? 'Descanso breve'
-                                      : 'Descanso largo',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _mode == 'focus'
-                                  ? 'Bloque corto, claro y sin distracciones.'
-                                  : 'Descansa antes del siguiente bloque.',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
+                      IconButton(
+                        tooltip: 'Ajustes de Pomodoro',
+                        onPressed: () => _showPomodoroSettingsSheet(provider),
+                        icon: const Icon(Icons.tune_rounded),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  FocusGap.md,
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
+                    alignment: WrapAlignment.center,
                     children: [
                       _ModePill(
                         label: 'Enfoque',
@@ -1202,194 +1166,168 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            _glassCard(
-              context,
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PomodoroMiniMetric(
-                          icon: Icons.stars_rounded,
-                          metricIcon: FocusMetricIconKind.points,
-                          label: 'Al completar',
-                          value: _mode == 'focus' ? '20+ pts' : 'descanso',
-                          color: themePalette.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _PomodoroMiniMetric(
-                          icon: Icons.shield_rounded,
-                          label: 'Bloqueo',
-                          value: _focusModeConfig.enabled
-                              ? '${_focusModeConfig.blockedApps.length} apps'
-                              : 'apagado',
-                          color: FocusPalette.teal,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: compact ? 238 : 278,
-                    height: compact ? 238 : 278,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        SizedBox.expand(
-                          child: DecoratedBox(
+                  FocusGap.lg,
+                  FocusMicroPop(
+                    trigger: 'pomodoro-timer-$_mode-$_isRunning',
+                    fromScale: _isRunning ? 0.97 : 0.99,
+                    child: SizedBox(
+                      width: compact ? 230 : 268,
+                      height: compact ? 230 : 268,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox.expand(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isDark
+                                    ? themePalette.accent
+                                        .withValues(alpha: 0.07)
+                                    : themePalette.accent
+                                        .withValues(alpha: 0.05),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: CircularProgressIndicator(
+                              value: progress,
+                              strokeWidth: 13,
+                              strokeCap: StrokeCap.round,
+                              backgroundColor:
+                                  themePalette.accent.withValues(alpha: 0.10),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isDark
+                                    ? themePalette.accent
+                                    : themePalette.accent
+                                        .withValues(alpha: 0.82),
+                              ),
+                            ),
+                          ),
+                          Container(
+                            width: compact ? 178 : 214,
+                            height: compact ? 178 : 214,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: SweepGradient(
-                                colors: [
-                                  themePalette.accent.withValues(alpha: 0.22),
-                                  themePalette.accent,
-                                  themePalette.accentSecondary,
-                                  themePalette.accent.withValues(alpha: 0.22),
-                                ],
-                                stops: const [0.0, 0.38, 0.78, 1.0],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(10),
-                          child: CircularProgressIndicator(
-                            value: progress,
-                            strokeWidth: 14,
-                            strokeCap: StrokeCap.round,
-                            backgroundColor:
-                                themePalette.accent.withValues(alpha: 0.12),
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              themePalette.accent,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          width: compact ? 186 : 220,
-                          height: compact ? 186 : 220,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              center: const Alignment(-0.35, -0.45),
-                              radius: 1.05,
-                              colors: isDark
-                                  ? [
-                                      themePalette.accent
-                                          .withValues(alpha: 0.22),
-                                      const Color(0xFF111827),
-                                      const Color(0xFF020617),
-                                    ]
-                                  : [
-                                      Theme.of(context).cardColor,
-                                      themePalette.surfaceTint,
-                                    ],
-                            ),
-                            border: Border.all(
                               color: isDark
-                                  ? Colors.white.withValues(alpha: 0.08)
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .outlineVariant
-                                      .withValues(alpha: 0.22),
+                                  ? const Color(0xFF020617)
+                                  : Theme.of(context).cardColor,
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.08)
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant
+                                        .withValues(alpha: 0.36),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: themePalette.accent.withValues(
+                                    alpha: isDark ? 0.18 : 0.08,
+                                  ),
+                                  blurRadius: isDark ? 30 : 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    themePalette.accent.withValues(alpha: 0.18),
-                                blurRadius: 32,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                '${(progress * 100).clamp(0, 100).round()}%',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${(progress * 100).clamp(0, 100).round()}%',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        color: themePalette.accent,
+                                      ),
+                                ),
+                                const SizedBox(height: 6),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 220),
+                                  child: Text(
+                                    _formatTime(_remainingSeconds),
+                                    key: ValueKey(_remainingSeconds),
+                                    style: TextStyle(
+                                      fontSize: compact ? 42 : 52,
                                       fontWeight: FontWeight.w900,
-                                      color: themePalette.accent,
+                                      height: 1,
+                                      color: isDark
+                                          ? Colors.white
+                                          : Theme.of(context)
+                                              .colorScheme
+                                              .onSurface,
                                     ),
-                              ),
-                              const SizedBox(height: 6),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
-                                child: Text(
-                                  _formatTime(_remainingSeconds),
-                                  key: ValueKey(_remainingSeconds),
-                                  style: TextStyle(
-                                    fontSize: compact ? 42 : 52,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
-                                    color: isDark ? Colors.white : null,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                _mode == 'focus'
-                                    ? 'Tiempo restante'
-                                    : 'Cuenta regresiva',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      color: isDark
-                                          ? Colors.white.withValues(alpha: 0.66)
-                                          : null,
-                                    ),
-                              ),
-                            ],
+                                const SizedBox(height: 8),
+                                Text(
+                                  _mode == 'focus'
+                                      ? 'Tiempo restante'
+                                      : 'Cuenta regresiva',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: isDark
+                                            ? Colors.white
+                                                .withValues(alpha: 0.66)
+                                            : Theme.of(context)
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  FocusGap.lg,
+                  if (_mode == 'focus' && subjects.isNotEmpty) ...[
+                    _subjectSelector(provider, subjects),
+                    FocusGap.md,
+                  ],
+                  FocusMicroPop(
+                    trigger: 'pomodoro-button-$_isRunning-$_mode',
+                    fromScale: 0.97,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: themePalette.accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 18,
+                            vertical: 16,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  if (_mode == 'focus') ...[
-                    if (subjects.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _subjectSelector(provider, subjects),
-                    ],
-                    const SizedBox(height: 16),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: themePalette.accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 16,
+                        onPressed:
+                            _isRunning ? _pauseTimer : () => _startTimer(),
+                        icon: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          transitionBuilder: (child, animation) =>
+                              ScaleTransition(scale: animation, child: child),
+                          child: Icon(
+                            _isRunning
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            key: ValueKey(_isRunning),
+                          ),
+                        ),
+                        label: Text(
+                          _isRunning
+                              ? 'Pausar sesión'
+                              : _mode == 'focus'
+                                  ? 'Iniciar sesión de enfoque'
+                                  : 'Empezar descanso',
                         ),
                       ),
-                      onPressed: _isRunning ? _pauseTimer : () => _startTimer(),
-                      icon: Icon(
-                        _isRunning
-                            ? Icons.pause_rounded
-                            : Icons.play_arrow_rounded,
-                      ),
-                      label: Text(
-                        _isRunning
-                            ? 'Pausar sesión'
-                            : _mode == 'focus'
-                                ? 'Iniciar sesión de enfoque'
-                                : 'Empezar descanso',
-                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  FocusGap.sm,
                   Wrap(
                     spacing: 12,
                     runSpacing: 12,
@@ -1415,134 +1353,33 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         ),
                         onPressed: _toggleHorizontalFocusMode,
                         icon: const Icon(Icons.stay_current_landscape_rounded),
-                        label: const Text('Modo horizontal'),
+                        label: const Text('Horizontal'),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            _expandableGlassCard(
-              context,
-              title: 'Configurar Pomodoro',
-              subtitle: 'Tiempos, descanso, sonido y bloqueo de apps.',
-              children: [
-                _TimerSlider(
-                  label: 'Enfoque',
-                  value: provider.settings.focusTime,
-                  min: 5,
-                  max: 90,
-                  color: FocusPalette.primary,
-                  onChanged: (value) =>
-                      _updatePomodoroSettings(focusTime: value),
-                ),
-                _TimerSlider(
-                  label: 'Descanso corto',
-                  value: provider.settings.shortBreakTime,
-                  min: 1,
-                  max: 30,
-                  color: FocusPalette.mint,
-                  onChanged: (value) =>
-                      _updatePomodoroSettings(shortBreakTime: value),
-                ),
-                _TimerSlider(
-                  label: 'Descanso largo',
-                  value: provider.settings.longBreakTime,
-                  min: 5,
-                  max: 60,
-                  color: FocusPalette.amber,
-                  onChanged: (value) =>
-                      _updatePomodoroSettings(longBreakTime: value),
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  initialValue: provider.settings.sound,
-                  decoration: const InputDecoration(
-                    labelText: 'Sonido al terminar',
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'chime', child: Text('Campana')),
-                    DropdownMenuItem(value: 'bell', child: Text('Timbre')),
-                    DropdownMenuItem(value: 'none', child: Text('Sin sonido')),
-                  ],
-                  onChanged: (value) =>
-                      _updatePomodoroSettings(sound: value ?? 'none'),
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: provider.settings.breakAfterFocus,
-                  decoration: const InputDecoration(
-                    labelText: 'Después del enfoque',
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'auto',
-                      child: Text('Automático cada 4 ciclos'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'shortBreak',
-                      child: Text('Siempre descanso corto'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'longBreak',
-                      child: Text('Siempre descanso largo'),
-                    ),
-                  ],
-                  onChanged: (value) => _updatePomodoroSettings(
-                    breakAfterFocus: value ?? 'auto',
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Divider(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .outlineVariant
-                      .withValues(alpha: 0.45),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.shield_moon_rounded,
-                      color: FocusPalette.teal,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Modo Enfoque Total',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                _buildFocusModeTotalCard(provider),
-              ],
-            ),
-            const SizedBox(height: 14),
+            FocusGap.md,
             _glassCard(
               context,
-              padding: const EdgeInsets.all(18),
+              padding: FocusInsets.cardRelaxed,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Sesiones de hoy',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w900),
+                  FocusSectionHeader(
+                    icon: Icons.today_rounded,
+                    title: 'Sesiones de hoy',
+                    subtitle:
+                        'Se guardan automáticamente al completar el enfoque.',
+                    accent: themePalette.accent,
+                    action: IconButton(
+                      tooltip: 'Ajustes',
+                      onPressed: () => _showPomodoroSettingsSheet(provider),
+                      icon: const Icon(Icons.tune_rounded),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Cada enfoque completado se guarda automáticamente para tus estadísticas.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 14),
+                  FocusGap.md,
                   SizedBox(height: 250, child: _buildTodaySessions(provider)),
                 ],
               ),
@@ -1553,76 +1390,147 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  Future<void> _showPomodoroSettingsSheet(AppProvider provider) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return Consumer<AppProvider>(
+          builder: (context, sheetProvider, _) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                18,
+                0,
+                18,
+                MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ajustes de Pomodoro',
+                      style: Theme.of(context)
+                          .textTheme
+                          .headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Tiempos, sonido, descanso automático y bloqueo de apps.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    FocusGap.lg,
+                    _TimerSlider(
+                      label: 'Enfoque',
+                      value: sheetProvider.settings.focusTime,
+                      min: 5,
+                      max: 90,
+                      color: FocusPalette.primary,
+                      onChanged: (value) =>
+                          _updatePomodoroSettings(focusTime: value),
+                    ),
+                    _TimerSlider(
+                      label: 'Descanso corto',
+                      value: sheetProvider.settings.shortBreakTime,
+                      min: 1,
+                      max: 30,
+                      color: FocusPalette.mint,
+                      onChanged: (value) =>
+                          _updatePomodoroSettings(shortBreakTime: value),
+                    ),
+                    _TimerSlider(
+                      label: 'Descanso largo',
+                      value: sheetProvider.settings.longBreakTime,
+                      min: 5,
+                      max: 60,
+                      color: FocusPalette.amber,
+                      onChanged: (value) =>
+                          _updatePomodoroSettings(longBreakTime: value),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: sheetProvider.settings.sound,
+                      decoration: const InputDecoration(
+                        labelText: 'Sonido al terminar',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'chime',
+                          child: Text('Campana'),
+                        ),
+                        DropdownMenuItem(value: 'bell', child: Text('Timbre')),
+                        DropdownMenuItem(
+                          value: 'none',
+                          child: Text('Sin sonido'),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          _updatePomodoroSettings(sound: value ?? 'none'),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      initialValue: sheetProvider.settings.breakAfterFocus,
+                      decoration: const InputDecoration(
+                        labelText: 'Después del enfoque',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'auto',
+                          child: Text('Automático cada 4 ciclos'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'shortBreak',
+                          child: Text('Siempre descanso corto'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'longBreak',
+                          child: Text('Siempre descanso largo'),
+                        ),
+                      ],
+                      onChanged: (value) => _updatePomodoroSettings(
+                        breakAfterFocus: value ?? 'auto',
+                      ),
+                    ),
+                    FocusGap.lg,
+                    _buildFocusModeTotalCard(sheetProvider),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _glassCard(
     BuildContext context, {
     required Widget child,
-    EdgeInsetsGeometry padding = const EdgeInsets.all(16),
+    EdgeInsetsGeometry padding = FocusInsets.card,
   }) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).cardColor.withValues(alpha: 0.94),
-            Theme.of(context).cardColor.withValues(alpha: 0.86),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
         border: Border.all(
-          color: Theme.of(context)
-              .colorScheme
-              .outlineVariant
-              .withValues(alpha: 0.24),
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.24),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
         padding: padding,
         child: child,
-      ),
-    );
-  }
-
-  Widget _expandableGlassCard(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required List<Widget> children,
-  }) {
-    return _glassCard(
-      context,
-      padding: EdgeInsets.zero,
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          key: PageStorageKey('pomodoro-$title'),
-          initiallyExpanded: false,
-          maintainState: false,
-          tilePadding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          title: Text(
-            title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
-          children: children,
-        ),
       ),
     );
   }
@@ -1676,18 +1584,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: FocusInsets.cardRelaxed,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [
-            accent.withValues(alpha: 0.16),
-            accent.withValues(alpha: 0.06),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: accent.withValues(alpha: 0.22)),
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1698,7 +1599,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(FocusRadii.control),
                   color: accent.withValues(alpha: 0.14),
                 ),
                 child: const Icon(
@@ -1722,7 +1623,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          FocusGap.sm,
           Text(
             appsLabel,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -1730,7 +1631,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   fontWeight: FontWeight.w700,
                 ),
           ),
-          const SizedBox(height: 12),
+          FocusGap.sm,
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -1789,9 +1690,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (todaySessions.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(18),
+        padding: FocusInsets.cardRelaxed,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(FocusRadii.card),
           color: Theme.of(context)
               .colorScheme
               .surfaceContainerHighest
@@ -1804,14 +1705,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     return ListView.separated(
       itemCount: todaySessions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, __) => FocusGap.sm,
       itemBuilder: (context, index) {
         final session = todaySessions[index];
         final date = DateTime.parse(session.date);
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: FocusInsets.card,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(FocusRadii.card),
             color: Theme.of(context)
                 .colorScheme
                 .surfaceContainerHighest
@@ -1823,7 +1724,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(FocusRadii.control),
                   color: FocusPalette.mint.withValues(alpha: 0.14),
                 ),
                 child: const Icon(
@@ -1897,61 +1798,6 @@ class _ModePill extends StatelessWidget {
             color: selected ? color : null,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PomodoroMiniMetric extends StatelessWidget {
-  final IconData icon;
-  final FocusMetricIconKind? metricIcon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _PomodoroMiniMetric({
-    required this.icon,
-    this.metricIcon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: color.withValues(alpha: 0.10),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
-      child: Row(
-        children: [
-          metricIcon == null
-              ? Icon(icon, color: color, size: 20)
-              : FocusMetricIcon(kind: metricIcon!, color: color, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

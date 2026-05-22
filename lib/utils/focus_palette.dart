@@ -10,8 +10,16 @@ class FocusPalette {
   static const teal = Color(0xFF0F766E);
   static const mint = Color(0xFF10B981);
   static const amber = Color(0xFFF59E0B);
-  static const coral = Color(0xFFF97316);
+  static const coral = Color(0xFFFF7A59);
   static const danger = Color(0xFFEF4444);
+
+  static const action = primary;
+  static const progress = teal;
+  static const calm = mint;
+  static const points = amber;
+  static const achievement = amber;
+  static const softAlert = coral;
+  static const error = danger;
 
   static const success = mint;
   static const warning = amber;
@@ -30,10 +38,10 @@ class FocusPalette {
   static const darkCard = Color(0xFF09111F);
   static const darkBorder = Color(0xFF1E293B);
 
-  static const focusGradient = [primaryDeep, cyan, teal];
-  static const studyGradient = [ink, primaryDeep, teal];
+  static const focusGradient = [primaryDeep, primary, cyan];
+  static const studyGradient = [ink, primaryDeep, primary];
   static const successGradient = [teal, mint];
-  static const examGradient = [amber, primary];
+  static const examGradient = [coral, primary];
   static const calmGradient = [primary, teal];
   static const warmGradient = [amber, mint];
 

@@ -30,25 +30,7 @@ class FocusDrawer extends StatelessWidget {
     return Drawer(
       child: Container(
         decoration: BoxDecoration(
-          gradient: isDark
-              ? const LinearGradient(
-                  colors: [
-                    Color(0xFF020617),
-                    Color(0xFF0F172A),
-                    Color(0xFF111827),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                )
-              : const LinearGradient(
-                  colors: [
-                    Color(0xFFF8FAFC),
-                    Color(0xFFE0F2FE),
-                    Color(0xFFDBEAFE),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
+          color: isDark ? const Color(0xFF020617) : const Color(0xFFF8FAFC),
         ),
         child: Column(
           children: [

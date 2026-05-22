@@ -353,8 +353,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                     icon: Icons.library_books_rounded,
                     accent: FocusPalette.teal,
                     title: 'Tu biblioteca está vacía',
-                    message:
-                        'Guarda playlists, cursos o enlaces útiles para tenerlos a mano mientras estudias.',
+                    message: 'Guarda enlaces útiles para estudiar.',
                     action: FilledButton.icon(
                       onPressed: _showAddDialog,
                       icon: const Icon(Icons.add_link_rounded),
@@ -433,8 +432,8 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     return switch (filter) {
       'playlist' => FocusPalette.primary,
       'course' => FocusPalette.teal,
-      'tool' => FocusPalette.coral,
-      'social' => FocusPalette.cyan,
+      'tool' => FocusPalette.mint,
+      'social' => FocusPalette.primary,
       _ => FocusPalette.primary,
     };
   }
