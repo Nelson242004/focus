@@ -1,7 +1,15 @@
 enum ThemeModeSetting { light, dark }
 
+enum AppLanguage {
+  system,
+  spanish,
+  english,
+  portuguese,
+}
+
 class AppSettings {
   ThemeModeSetting themeMode;
+  AppLanguage language;
   int focusTime;
   int shortBreakTime;
   int longBreakTime;
@@ -25,6 +33,7 @@ class AppSettings {
 
   AppSettings({
     this.themeMode = ThemeModeSetting.light,
+    this.language = AppLanguage.system,
     this.focusTime = 25,
     this.shortBreakTime = 5,
     this.longBreakTime = 15,
@@ -51,6 +60,7 @@ class AppSettings {
   Map<String, dynamic> toMap() {
     return {
       'themeMode': themeMode.index,
+      'language': language.name,
       'focusTime': focusTime,
       'shortBreakTime': shortBreakTime,
       'longBreakTime': longBreakTime,
@@ -78,8 +88,10 @@ class AppSettings {
     final themeIndex = int.tryParse('${map['themeMode'] ?? 0}') ?? 0;
     final safeThemeIndex =
         themeIndex.clamp(0, ThemeModeSetting.values.length - 1);
+    final language = _languageFromMap(map['language']);
     return AppSettings(
       themeMode: ThemeModeSetting.values[safeThemeIndex],
+      language: language,
       focusTime: int.tryParse('${map['focusTime'] ?? 25}') ?? 25,
       shortBreakTime: int.tryParse('${map['shortBreakTime'] ?? 5}') ?? 5,
       longBreakTime: int.tryParse('${map['longBreakTime'] ?? 15}') ?? 15,
@@ -108,6 +120,17 @@ class AppSettings {
       breakAfterFocus: '${map['breakAfterFocus'] ?? 'auto'}',
       userName: '${map['userName'] ?? ''}',
     );
+  }
+
+  static AppLanguage _languageFromMap(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) return AppLanguage.system;
+    for (final language in AppLanguage.values) {
+      if (language.name == text) return language;
+    }
+    final index = int.tryParse(text);
+    if (index == null) return AppLanguage.system;
+    return AppLanguage.values[index.clamp(0, AppLanguage.values.length - 1)];
   }
 
   static bool _boolFromMap(dynamic value, {required bool fallback}) {

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,6 +6,7 @@ import '../models/resource_link.dart';
 import '../providers/app_provider.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
 class ResourcesScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   String _category = 'playlist';
   String _selectedFilter = 'all';
   int? _selectedSubjectId;
+  bool _toolsExpanded = false;
 
   @override
   void dispose() {
@@ -333,98 +335,30 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
               children: [
                 _ResourceIntroCard(totalResources: filteredResources.length),
                 const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Buscar',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _searchController,
-                          onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(
-                            labelText: 'Buscar recurso',
-                            hintText: 'Curso, playlist, herramienta...',
-                            prefixIcon: Icon(Icons.search_rounded),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          initialValue: _selectedFilter,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Filtrar',
-                            prefixIcon: Icon(Icons.tune_rounded),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'all', child: Text('Todos')),
-                            DropdownMenuItem(
-                              value: 'subject',
-                              child: Text('Por materia'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'playlist',
-                              child: Text('Playlists'),
-                            ),
-                            DropdownMenuItem(
-                                value: 'course', child: Text('Cursos')),
-                            DropdownMenuItem(
-                              value: 'tool',
-                              child: Text('Herramientas'),
-                            ),
-                            DropdownMenuItem(
-                                value: 'social', child: Text('Redes')),
-                          ],
-                          onChanged: (value) => setState(
-                            () => _selectedFilter = value ?? 'all',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _suggestResource,
-                            icon: const Icon(Icons.lightbulb_outline_rounded),
-                            label: const Text('Sugerir recurso'),
-                          ),
-                        ),
-                      ],
-                    ),
+                _ResourceToolsCard(
+                  expanded: _toolsExpanded,
+                  searchController: _searchController,
+                  selectedFilter: _selectedFilter,
+                  onExpansionChanged: (value) =>
+                      setState(() => _toolsExpanded = value),
+                  onSearchChanged: (_) => setState(() {}),
+                  onFilterChanged: (value) => setState(
+                    () => _selectedFilter = value ?? 'all',
                   ),
+                  onSuggestResource: _suggestResource,
                 ),
                 const SizedBox(height: 16),
                 if (filteredResources.isEmpty)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          const Icon(Icons.library_books_rounded, size: 48),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No hay recursos para este filtro',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Prueba otro filtro o agrega tu primer recurso para empezar a construir tu biblioteca.',
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
+                  FocusProfileEmptyState(
+                    icon: Icons.library_books_rounded,
+                    accent: FocusPalette.teal,
+                    title: 'Tu biblioteca está vacía',
+                    message:
+                        'Guarda playlists, cursos o enlaces útiles para tenerlos a mano mientras estudias.',
+                    action: FilledButton.icon(
+                      onPressed: _showAddDialog,
+                      icon: const Icon(Icons.add_link_rounded),
+                      label: const Text('Agregar recurso'),
                     ),
                   )
                 else ...[
@@ -552,6 +486,107 @@ class _ResourceIntroCard extends StatelessWidget {
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResourceToolsCard extends StatelessWidget {
+  final bool expanded;
+  final TextEditingController searchController;
+  final String selectedFilter;
+  final ValueChanged<bool> onExpansionChanged;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String?> onFilterChanged;
+  final VoidCallback onSuggestResource;
+
+  const _ResourceToolsCard({
+    required this.expanded,
+    required this.searchController,
+    required this.selectedFilter,
+    required this.onExpansionChanged,
+    required this.onSearchChanged,
+    required this.onFilterChanged,
+    required this.onSuggestResource,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final query = searchController.text.trim();
+    final filterLabel = switch (selectedFilter) {
+      'subject' => 'Materia',
+      'playlist' => 'Playlists',
+      'course' => 'Cursos',
+      'tool' => 'Herramientas',
+      'social' => 'Redes',
+      _ => 'Todos',
+    };
+    final summary =
+        query.isEmpty ? 'Filtro: $filterLabel' : '$filterLabel · $query';
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        initiallyExpanded: expanded,
+        onExpansionChanged: onExpansionChanged,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: FocusPalette.primary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(15),
+          ),
+          child: const Icon(Icons.tune_rounded, color: FocusPalette.primary),
+        ),
+        title: const Text(
+          'Buscar y filtrar',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        subtitle: Text(
+          summary,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        children: [
+          TextField(
+            controller: searchController,
+            onChanged: onSearchChanged,
+            decoration: const InputDecoration(
+              labelText: 'Buscar recurso',
+              hintText: 'Curso, playlist, herramienta...',
+              prefixIcon: Icon(Icons.search_rounded),
+            ),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: selectedFilter,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Filtrar',
+              prefixIcon: Icon(Icons.tune_rounded),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'all', child: Text('Todos')),
+              DropdownMenuItem(value: 'subject', child: Text('Por materia')),
+              DropdownMenuItem(value: 'playlist', child: Text('Playlists')),
+              DropdownMenuItem(value: 'course', child: Text('Cursos')),
+              DropdownMenuItem(value: 'tool', child: Text('Herramientas')),
+              DropdownMenuItem(value: 'social', child: Text('Redes')),
+            ],
+            onChanged: onFilterChanged,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onSuggestResource,
+              icon: const Icon(Icons.lightbulb_outline_rounded),
+              label: const Text('Sugerir recurso'),
             ),
           ),
         ],

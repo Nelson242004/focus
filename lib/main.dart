@@ -1,7 +1,8 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'database/database_helper.dart';
@@ -9,8 +10,10 @@ import 'models/app_settings.dart';
 import 'providers/app_provider.dart';
 import 'screens/app_tutorial_screen.dart';
 import 'screens/auth_gate_screen.dart';
+import 'screens/friends_screen.dart';
 import 'screens/required_permissions_screen.dart';
 import 'screens/web_focus_screen.dart';
+import 'services/deep_link_service.dart';
 import 'services/notification_service.dart';
 import 'services/ranking_service.dart';
 import 'utils/app_utils.dart';
@@ -39,8 +42,20 @@ ThemeMode _convertThemeMode(ThemeModeSetting setting) {
   }
 }
 
+Locale? _localeForLanguage(AppLanguage language) {
+  return switch (language) {
+    AppLanguage.system => null,
+    AppLanguage.spanish => const Locale('es'),
+    AppLanguage.english => const Locale('en'),
+    AppLanguage.portuguese => const Locale('pt'),
+  };
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +77,7 @@ class MyApp extends StatelessWidget {
               brightness: Brightness.light,
               primary: accent,
               secondary: FocusPalette.teal,
-              tertiary: FocusPalette.coral,
+              tertiary: FocusPalette.amber,
               surface: FocusPalette.surface,
             ),
             scaffoldBackgroundColor: FocusPalette.surface,
@@ -88,13 +103,13 @@ class MyApp extends StatelessWidget {
               color: Colors.white,
               margin: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28)),
+                  borderRadius: BorderRadius.circular(24)),
             ),
             dialogTheme: DialogThemeData(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28)),
+                  borderRadius: BorderRadius.circular(24)),
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
@@ -154,14 +169,14 @@ class MyApp extends StatelessWidget {
               ),
             ),
             chipTheme: ChipThemeData(
-              backgroundColor: FocusPalette.primarySoft,
+              backgroundColor: accent.withValues(alpha: 0.09),
               selectedColor: accent.withValues(alpha: 0.16),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              side: BorderSide.none,
-              labelStyle: const TextStyle(
+                  borderRadius: BorderRadius.circular(999)),
+              side: BorderSide(color: accent.withValues(alpha: 0.12)),
+              labelStyle: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: FocusPalette.ink,
+                color: accent,
               ),
             ),
             snackBarTheme: SnackBarThemeData(
@@ -238,6 +253,15 @@ class MyApp extends StatelessWidget {
                   bodyColor: FocusPalette.ink,
                   displayColor: FocusPalette.ink,
                 ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _FocusPageTransitionsBuilder(),
+                TargetPlatform.iOS: _FocusPageTransitionsBuilder(),
+                TargetPlatform.macOS: _FocusPageTransitionsBuilder(),
+                TargetPlatform.windows: _FocusPageTransitionsBuilder(),
+                TargetPlatform.linux: _FocusPageTransitionsBuilder(),
+              },
+            ),
           );
 
           final darkTheme = ThemeData.dark(useMaterial3: true).copyWith(
@@ -272,13 +296,13 @@ class MyApp extends StatelessWidget {
               shadowColor: Colors.transparent,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28)),
+                  borderRadius: BorderRadius.circular(24)),
             ),
             dialogTheme: DialogThemeData(
               backgroundColor: FocusPalette.darkCard,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(28)),
+                  borderRadius: BorderRadius.circular(24)),
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
@@ -338,13 +362,12 @@ class MyApp extends StatelessWidget {
               ),
             ),
             chipTheme: ChipThemeData(
-              backgroundColor: FocusPalette.darkCard,
+              backgroundColor: accent.withValues(alpha: 0.10),
               selectedColor: accent.withValues(alpha: 0.18),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              side: BorderSide(color: FocusPalette.darkBorder),
-              labelStyle: const TextStyle(
-                  fontWeight: FontWeight.w600, color: Colors.white),
+                  borderRadius: BorderRadius.circular(999)),
+              side: BorderSide(color: accent.withValues(alpha: 0.18)),
+              labelStyle: const TextStyle(fontWeight: FontWeight.w600),
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
@@ -419,20 +442,44 @@ class MyApp extends StatelessWidget {
                   bodyColor: Colors.white,
                   displayColor: Colors.white,
                 ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: _FocusPageTransitionsBuilder(),
+                TargetPlatform.iOS: _FocusPageTransitionsBuilder(),
+                TargetPlatform.macOS: _FocusPageTransitionsBuilder(),
+                TargetPlatform.windows: _FocusPageTransitionsBuilder(),
+                TargetPlatform.linux: _FocusPageTransitionsBuilder(),
+              },
+            ),
           );
 
           return MaterialApp(
+            navigatorKey: MyApp.navigatorKey,
             title: 'Focus',
             debugShowCheckedModeBanner: false,
             themeMode: resolvedThemeMode,
+            locale: _localeForLanguage(provider.settings.language),
+            supportedLocales: const [
+              Locale('es'),
+              Locale('en'),
+              Locale('pt'),
+            ],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: lightTheme,
             darkTheme: darkTheme,
             builder: (context, child) {
-              return MediaQuery(
-                data: MediaQuery.of(context).copyWith(
-                  textScaler: TextScaler.linear(provider.settings.textScale),
+              return _DeepLinkListener(
+                navigatorKey: MyApp.navigatorKey,
+                child: MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(provider.settings.textScale),
+                  ),
+                  child: child ?? const SizedBox.shrink(),
                 ),
-                child: child ?? const SizedBox.shrink(),
               );
             },
             home: !provider.isLoaded
@@ -449,6 +496,99 @@ class MyApp extends StatelessWidget {
                       ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _DeepLinkListener extends StatefulWidget {
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget child;
+
+  const _DeepLinkListener({
+    required this.navigatorKey,
+    required this.child,
+  });
+
+  @override
+  State<_DeepLinkListener> createState() => _DeepLinkListenerState();
+}
+
+class _DeepLinkListenerState extends State<_DeepLinkListener>
+    with WidgetsBindingObserver {
+  String? _lastHandledCode;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _handleInitialLink());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _handleLatestLink();
+    }
+  }
+
+  Future<void> _handleInitialLink() async {
+    final link = await DeepLinkService.initialLink();
+    _openLink(link);
+  }
+
+  Future<void> _handleLatestLink() async {
+    final link = await DeepLinkService.consumeLatestLink();
+    _openLink(link);
+  }
+
+  void _openLink(FocusDeepLink? link) {
+    if (!mounted || link == null) return;
+    if (_lastHandledCode == link.friendCode) return;
+    _lastHandledCode = link.friendCode;
+    final navigator = widget.navigatorKey.currentState;
+    if (navigator == null) return;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => FriendsScreen(initialFriendCode: link.friendCode),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+class _FocusPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _FocusPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curved = CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0.035, 0.018),
+          end: Offset.zero,
+        ).animate(curved),
+        child: child,
       ),
     );
   }

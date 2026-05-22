@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/ranking_profile.dart';
+import '../utils/profile_icon_access.dart';
 
 enum HabitRankingStatus {
   awarded,
@@ -143,6 +144,13 @@ class RankingService {
     return data == null ? null : RankingProfile.fromMap(uid, data);
   }
 
+  static Future<RankingProfile?> fetchProfileByUid(String uid) async {
+    if (uid.trim().isEmpty) return null;
+    final snapshot = await _firestore.collection('users').doc(uid).get();
+    final data = snapshot.data();
+    return data == null ? null : RankingProfile.fromMap(uid, data);
+  }
+
   static Future<RankingProfile?> ensureProfile() async {
     final user = currentUser;
     if (user == null) return null;
@@ -176,13 +184,22 @@ class RankingService {
     final rank = rankForPoints(currentPoints);
     final userRef = _firestore.collection('users').doc(user.uid);
     final exists = (await userRef.get()).exists;
+    final friendCode = friendCodeForUid(user.uid);
     await _firestore.collection('users').doc(user.uid).set({
       'name': cleanedName,
+      'nameLower': cleanedName.toLowerCase(),
       'career': cleanedCareer,
+      'careerLower': cleanedCareer.toLowerCase(),
       'rank': rank,
       'photoUrl': user.photoURL ?? '',
       'email': user.email ?? '',
-      'friendCode': friendCodeForUid(user.uid),
+      'emailLower': (user.email ?? '').toLowerCase(),
+      'friendCode': friendCode,
+      'friendCodeNormalized': friendCode.replaceAll('-', '').toLowerCase(),
+      'friendCodeSearchKey': friendCode
+          .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
+          .replaceFirst(RegExp('^FOC', caseSensitive: false), '')
+          .toLowerCase(),
       'university': university,
       'updatedAt': FieldValue.serverTimestamp(),
       if (!exists) 'createdAt': FieldValue.serverTimestamp(),
@@ -197,6 +214,7 @@ class RankingService {
   static Future<void> updateSocialStyle({
     int? themeIndex,
     int? mascotIndex,
+    String? profileIconAsset,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -208,6 +226,9 @@ class RankingService {
     }
     if (mascotIndex != null) {
       payload['stats.socialMascotIndex'] = mascotIndex;
+      final asset = profileIconAsset ?? profileIconAssetFromIndex(mascotIndex);
+      payload['profileIconAsset'] = asset;
+      payload['stats.profileIconAsset'] = asset;
     }
     await _firestore.collection('users').doc(user.uid).update(payload);
     if (mascotIndex != null) {
@@ -226,6 +247,84 @@ class RankingService {
       'stats.socialAvatar': avatar,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    try {
+      await ensureCurrentWeekScore();
+    } catch (error) {
+      debugPrint('[FocusRanking] Sync de avatar en ranking omitido: $error');
+    }
+  }
+
+  static Future<void> updateFavoriteBadge(String badgeId) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).update({
+      'favoriteBadge': badgeId,
+      'stats.favoriteBadge': badgeId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await ensureCurrentWeekScore();
+  }
+
+  static Future<void> updateFeaturedBadges(List<String> badgeIds) async {
+    final user = currentUser;
+    if (user == null) return;
+    final cleaned = badgeIds
+        .where((id) => id.trim().isNotEmpty)
+        .map((id) => id.trim())
+        .toSet()
+        .take(3)
+        .toList();
+    await _firestore.collection('users').doc(user.uid).update({
+      'featuredBadges': cleaned,
+      'favoriteBadge': cleaned.isEmpty ? '' : cleaned.first,
+      'stats.featuredBadges': cleaned,
+      'stats.favoriteBadge': cleaned.isEmpty ? '' : cleaned.first,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await ensureCurrentWeekScore();
+  }
+
+  static Future<void> syncSocialStats({
+    required int currentStreak,
+    required int totalPomodoros,
+    required int totalHabitCompletions,
+    required bool weeklyMissionCompleted,
+    required int level,
+    int? bestStreak,
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+    final userRef = _firestore.collection('users').doc(user.uid);
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(userRef);
+      final data = snapshot.data() ?? const <String, dynamic>{};
+      final stats = Map<String, dynamic>.from(data['stats'] ?? const {});
+      final previousBest =
+          int.tryParse('${stats['bestStreak'] ?? data['bestStreak'] ?? 0}') ??
+              0;
+      final nextBest = [
+        previousBest,
+        bestStreak ?? 0,
+        currentStreak,
+      ].reduce((a, b) => a > b ? a : b);
+
+      transaction.set(
+        userRef,
+        {
+          'stats.currentStreak': currentStreak,
+          'stats.bestStreak': nextBest,
+          'stats.totalPomodoros': totalPomodoros,
+          'stats.totalHabitCompletions': totalHabitCompletions,
+          'stats.weeklyMissionCompleted': weeklyMissionCompleted,
+          'stats.level': level,
+          'currentStreak': currentStreak,
+          'bestStreak': nextBest,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    });
+    await ensureCurrentWeekScore();
   }
 
   static Future<void> ensureCurrentWeekScore() async {
@@ -235,20 +334,43 @@ class RankingService {
     final profile = profileDoc.data();
     if (profile == null) return;
     final currentPoints = pointsFromUserMap(profile);
+    final currentRank = rankForPoints(currentPoints);
     await _currentScoresCollection().doc(user.uid).set({
       'uid': user.uid,
       'weekId': currentWeekId(),
       'name': profile['name'] ?? user.displayName ?? 'Estudiante Focus',
       'career': profile['career'] ?? 'Sin carrera',
       'university': profile['university'],
-      'rank': rankForPoints(currentPoints),
+      'rank': currentRank,
       'photoUrl': profile['photoUrl'] ?? user.photoURL ?? '',
+      'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
+      'profileIconAsset': _profileIconAssetFromProfile(profile),
+      'stats': {
+        'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
+        'profileIconAsset': _profileIconAssetFromProfile(profile),
+        'socialAvatar': profile['stats']?['socialAvatar'],
+      },
       'points': currentPoints,
       'pomodoros': int.tryParse('${profile['weeklyPomodoros'] ?? 0}') ?? 0,
       'focusMinutes':
           int.tryParse('${profile['weeklyFocusMinutes'] ?? 0}') ?? 0,
+      'badges': List<String>.from(profile['badges'] ?? []),
+      'favoriteBadge':
+          profile['favoriteBadge'] ?? profile['stats']?['favoriteBadge'] ?? '',
+      'featuredBadges': List<String>.from(
+        profile['featuredBadges'] ??
+            profile['stats']?['featuredBadges'] ??
+            const [],
+      ),
+      'lastPointEvent': profile['lastPointEvent'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    if ('${profile['rank'] ?? ''}' != currentRank) {
+      await _firestore.collection('users').doc(user.uid).set({
+        'rank': currentRank,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
   }
 
   static String friendCodeForUid(String uid) {
@@ -311,6 +433,7 @@ class RankingService {
           focusMinutes: normalized.focusMinutes + durationMinutes,
           habitCompletions: normalized.habitCompletions,
           lastHourBucket: hourBucket,
+          lastPointEvent: 'pomodoro',
         ),
         SetOptions(merge: true),
       );
@@ -395,6 +518,7 @@ class RankingService {
           focusMinutes: normalized.focusMinutes,
           habitCompletions: normalized.habitCompletions + 1,
           lastHourBucket: hourBucket,
+          lastPointEvent: 'habit',
         ),
         SetOptions(merge: true),
       );
@@ -481,6 +605,7 @@ class RankingService {
           points: nextPoints,
           rank: rankForPoints(nextPoints),
           badges: badges,
+          lastPointEvent: 'achievement',
         ),
         SetOptions(merge: true),
       );
@@ -521,7 +646,7 @@ class RankingService {
       final snapshot =
           limit > 0 ? await query.limit(limit).get() : await query.get();
       int position = 0;
-      return snapshot.docs.map((doc) {
+      final entries = snapshot.docs.map((doc) {
         position++;
         return RankingEntry.fromMap(
           '${doc.data()['uid'] ?? doc.id}',
@@ -529,6 +654,7 @@ class RankingService {
           position: position,
         );
       }).toList();
+      return _hydrateEntriesWithCurrentProfileIcons(entries);
     } catch (error) {
       debugPrint('[FocusRanking] Fallback ranking desde users: $error');
     }
@@ -559,12 +685,16 @@ class RankingService {
         pomodoros: entry.pomodoros,
         focusMinutes: entry.focusMinutes,
         socialMascotIndex: entry.socialMascotIndex,
+        profileIconAsset: entry.profileIconAsset,
         position: position,
         trend: entry.trend,
         photoUrl: entry.photoUrl,
         university: entry.university,
         badges: entry.badges,
+        favoriteBadge: entry.favoriteBadge,
+        featuredBadges: entry.featuredBadges,
         lastActive: entry.lastActive,
+        lastPointEvent: entry.lastPointEvent,
       );
     }).toList();
   }
@@ -724,12 +854,17 @@ class RankingService {
         points: entry.points,
         pomodoros: entry.pomodoros,
         focusMinutes: entry.focusMinutes,
+        socialMascotIndex: entry.socialMascotIndex,
+        profileIconAsset: entry.profileIconAsset,
         position: position,
         trend: entry.trend,
         photoUrl: entry.photoUrl,
         university: entry.university,
         badges: entry.badges,
+        favoriteBadge: entry.favoriteBadge,
+        featuredBadges: entry.featuredBadges,
         lastActive: entry.lastActive,
+        lastPointEvent: entry.lastPointEvent,
       );
     }).toList();
   }
@@ -820,8 +955,6 @@ class RankingService {
   }
 
   static String rankForPoints(int points) {
-    if (points >= 700) return 'Diamante';
-    if (points >= 450) return 'Platino';
     if (points >= 250) return 'Oro';
     if (points >= 100) return 'Plata';
     return 'Bronce';
@@ -874,11 +1007,23 @@ class RankingService {
       'rank': rankForPoints(normalized.points),
       'photoUrl': map['photoUrl'] ?? '',
       'socialMascotIndex': map['stats']?['socialMascotIndex'] ?? 0,
+      'profileIconAsset': _profileIconAssetFromProfile(map),
+      'stats': {
+        'socialMascotIndex': map['stats']?['socialMascotIndex'] ?? 0,
+        'profileIconAsset': _profileIconAssetFromProfile(map),
+        'socialAvatar': map['stats']?['socialAvatar'],
+      },
       'points': normalized.points,
       'pomodoros': normalized.pomodoros,
       'focusMinutes': normalized.focusMinutes,
       'badges': List<String>.from(map['badges'] ?? []),
+      'favoriteBadge':
+          map['favoriteBadge'] ?? map['stats']?['favoriteBadge'] ?? '',
+      'featuredBadges': List<String>.from(
+        map['featuredBadges'] ?? map['stats']?['featuredBadges'] ?? const [],
+      ),
       'lastActive': map['updatedAt'],
+      'lastPointEvent': map['lastPointEvent'] ?? '',
     };
   }
 
@@ -892,6 +1037,7 @@ class RankingService {
     int? habitCompletions,
     List<String>? badges,
     String? lastHourBucket,
+    String? lastPointEvent,
   }) {
     return {
       'uid': uid,
@@ -902,15 +1048,87 @@ class RankingService {
       'rank': rank,
       'photoUrl': profile['photoUrl'] ?? '',
       'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
+      'profileIconAsset': _profileIconAssetFromProfile(profile),
+      'stats': {
+        'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
+        'profileIconAsset': _profileIconAssetFromProfile(profile),
+        'socialAvatar': profile['stats']?['socialAvatar'],
+      },
       'points': points,
       if (pomodoros != null) 'pomodoros': pomodoros,
       if (focusMinutes != null) 'focusMinutes': focusMinutes,
       if (habitCompletions != null) 'habitCompletions': habitCompletions,
       if (badges != null) 'badges': badges,
+      'favoriteBadge':
+          profile['favoriteBadge'] ?? profile['stats']?['favoriteBadge'] ?? '',
+      'featuredBadges': List<String>.from(
+        profile['featuredBadges'] ??
+            profile['stats']?['featuredBadges'] ??
+            const [],
+      ),
       if (lastHourBucket != null) 'lastHourBucket': lastHourBucket,
       'lastActive': FieldValue.serverTimestamp(),
+      'lastPointEvent': lastPointEvent ?? profile['lastPointEvent'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+
+  static Future<List<RankingEntry>> _hydrateEntriesWithCurrentProfileIcons(
+    List<RankingEntry> entries,
+  ) async {
+    if (entries.isEmpty) return entries;
+    try {
+      final hydrated = await Future.wait(entries.map((entry) async {
+        final profile =
+            await _firestore.collection('users').doc(entry.uid).get();
+        final data = profile.data();
+        if (data == null) return entry;
+        final stats = data['stats'];
+        final rawIndex = stats is Map
+            ? data['socialMascotIndex'] ?? stats['socialMascotIndex']
+            : data['socialMascotIndex'];
+        return RankingEntry(
+          uid: entry.uid,
+          name: entry.name,
+          career: entry.career,
+          rank: entry.rank,
+          points: entry.points,
+          pomodoros: entry.pomodoros,
+          focusMinutes: entry.focusMinutes,
+          socialMascotIndex:
+              int.tryParse('${rawIndex ?? entry.socialMascotIndex}') ??
+                  entry.socialMascotIndex,
+          profileIconAsset: _profileIconAssetFromProfile(data),
+          position: entry.position,
+          trend: entry.trend,
+          photoUrl: entry.photoUrl,
+          university: entry.university,
+          badges: entry.badges,
+          favoriteBadge: entry.favoriteBadge,
+          featuredBadges: entry.featuredBadges,
+          lastActive: entry.lastActive,
+          lastPointEvent: entry.lastPointEvent,
+        );
+      }));
+      return hydrated;
+    } catch (error) {
+      debugPrint('[FocusRanking] No se pudieron refrescar iconos: $error');
+      return entries;
+    }
+  }
+
+  static String _profileIconAssetFromProfile(Map<String, dynamic> profile) {
+    final stats = profile['stats'];
+    final rawAsset = stats is Map
+        ? '${profile['profileIconAsset'] ?? stats['profileIconAsset'] ?? ''}'
+        : '${profile['profileIconAsset'] ?? ''}';
+    if (rawAsset.trim().isNotEmpty) {
+      return normalizeProfileIconAsset(rawAsset);
+    }
+    final rawIndex = stats is Map
+        ? profile['socialMascotIndex'] ?? stats['socialMascotIndex']
+        : profile['socialMascotIndex'];
+    return profileIconAssetFromIndex(rawIndex);
   }
 
   static String friendlyRankingError(Object? error) {

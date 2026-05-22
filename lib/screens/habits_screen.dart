@@ -1,11 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/habit.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
+import '../widgets/focus_metric_icon.dart';
 
 class HabitsScreen extends StatefulWidget {
   const HabitsScreen({super.key});
@@ -64,7 +66,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
+          content: FocusActionSnackContent(
+            icon: Icons.check_circle_rounded,
+            message: message,
+            color: FocusPalette.mint,
+          ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
         ),
@@ -202,8 +208,11 @@ class _HabitsScreenState extends State<HabitsScreen> {
               Navigator.pop(dialogContext);
               messenger.showSnackBar(
                 SnackBar(
-                  content: Text(
-                    habit == null
+                  content: FocusActionSnackContent(
+                    icon: habit == null
+                        ? Icons.add_task_rounded
+                        : Icons.check_circle_rounded,
+                    message: habit == null
                         ? 'Hábito creado. Empieza con una repetición pequeña.'
                         : 'Hábito actualizado.',
                   ),
@@ -253,6 +262,13 @@ class _HabitsScreenState extends State<HabitsScreen> {
         level: provider.level,
         maxLevel: AppProvider.maxLevel,
       );
+      await RankingService.syncSocialStats(
+        currentStreak: provider.currentStreak,
+        totalPomodoros: provider.pomodoros.length,
+        totalHabitCompletions: provider.totalHabitCompletions,
+        weeklyMissionCompleted: provider.weeklyMissionCompleted,
+        level: provider.level,
+      );
     } catch (error) {
       debugPrint('Focus ranking habit sync skipped: $error');
       feedbackMessage =
@@ -271,15 +287,20 @@ class _HabitsScreenState extends State<HabitsScreen> {
         builder: (context, provider, _) {
           final habits = provider.habits;
           if (habits.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: FocusProfileEmptyState(
                   icon: Icons.auto_awesome_rounded,
                   accent: FocusPalette.primary,
                   title: 'Carga tu primer hábito',
                   message:
-                      'Empieza con una acción pequeña y repetible desde el botón +.',
+                      'Empieza con una acción pequeña y repetible. Focus se encarga de medir tu constancia.',
+                  action: FilledButton.icon(
+                    onPressed: _createHabit,
+                    icon: const Icon(Icons.add_task_rounded),
+                    label: const Text('Crear hábito'),
+                  ),
                 ),
               ),
             );
@@ -328,15 +349,22 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 canCreateMore: canCreateMore,
               ),
               const SizedBox(height: 12),
-              ...orderedHabits.map((habit) => _HabitCard(
-                    habit: habit,
-                    onToggle: () => _toggleHabit(habit),
-                    onEdit: () => _showHabitDialog(habit: habit),
-                    onDelete: () async {
-                      await Provider.of<AppProvider>(context, listen: false)
-                          .deleteHabit(habit.id!);
-                    },
-                  )),
+              ...orderedHabits.asMap().entries.map(
+                    (entry) => FocusStaggeredItem(
+                      index: entry.key,
+                      child: _HabitCard(
+                        habit: entry.value,
+                        onToggle: () => _toggleHabit(entry.value),
+                        onEdit: () => _showHabitDialog(habit: entry.value),
+                        onDelete: () async {
+                          await Provider.of<AppProvider>(
+                            context,
+                            listen: false,
+                          ).deleteHabit(entry.value.id!);
+                        },
+                      ),
+                    ),
+                  ),
             ],
           );
         },
@@ -671,6 +699,7 @@ class _HabitCard extends StatelessWidget {
               children: [
                 _MiniStat(
                     icon: Icons.local_fire_department_rounded,
+                    metricIcon: FocusMetricIconKind.streak,
                     label: 'Racha actual',
                     value: '${habit.currentStreak}'),
                 const SizedBox(width: 10),
@@ -701,11 +730,24 @@ class _HabitCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
-                    child: Text(
-                      '${date.day}',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: completed ? Colors.white : null),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      transitionBuilder: (child, animation) =>
+                          ScaleTransition(scale: animation, child: child),
+                      child: completed
+                          ? const Icon(
+                              Icons.check_rounded,
+                              key: ValueKey('done'),
+                              color: Colors.white,
+                              size: 18,
+                            )
+                          : Text(
+                              '${date.day}',
+                              key: ValueKey(date.day),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                     ),
                   ),
                 );
@@ -716,9 +758,17 @@ class _HabitCard extends StatelessWidget {
               width: double.infinity,
               child: FilledButton.icon(
                 onPressed: onToggle,
-                icon: Icon(doneToday
-                    ? Icons.check_circle_rounded
-                    : Icons.radio_button_unchecked_rounded),
+                icon: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  transitionBuilder: (child, animation) =>
+                      ScaleTransition(scale: animation, child: child),
+                  child: Icon(
+                    doneToday
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    key: ValueKey(doneToday),
+                  ),
+                ),
                 label: Text(
                     doneToday ? 'Hábito completado hoy' : 'Marcar como hecho'),
                 style: FilledButton.styleFrom(
@@ -736,11 +786,13 @@ class _HabitCard extends StatelessWidget {
 
 class _MiniStat extends StatelessWidget {
   final IconData icon;
+  final FocusMetricIconKind? metricIcon;
   final String label;
   final String value;
 
   const _MiniStat({
     required this.icon,
+    this.metricIcon,
     required this.label,
     required this.value,
   });
@@ -760,7 +812,18 @@ class _MiniStat extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+            if (metricIcon != null)
+              FocusMetricIcon(
+                kind: metricIcon!,
+                size: 20,
+                color: Theme.of(context).colorScheme.primary,
+              )
+            else
+              Icon(
+                icon,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             const SizedBox(height: 8),
             Text(value,
                 style:

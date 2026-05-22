@@ -9,11 +9,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   sqflite: ^2.3.0
   path: ^1.8.3
   provider: ^6.1.1
   fl_chart: ^0.66.0
-  intl: ^0.18.1
+  intl: ^0.20.2
   just_audio: ^0.9.36
   path_provider: ^2.1.1
   shared_preferences: ^2.2.2
@@ -37,6 +39,7 @@ dependencies:
   firebase_auth: ^6.4.0
   cloud_firestore: ^6.3.0
   google_sign_in: ^7.2.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +54,7 @@ flutter:
     - assets/medals/gold.png
     - assets/medals/silver.png
     - assets/medals/bronze.png
+    - assets/metrics/focus_points.png
     - android/app/src/main/res/drawable-nodpi/focus_streak_fire.png
     - assets/profile_icons/
     - assets/badges/

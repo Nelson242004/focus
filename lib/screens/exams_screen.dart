@@ -720,8 +720,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                 ? 'Carga tu primer examen'
                                 : 'Sin exámenes aquí',
                             message: provider.exams.isEmpty
-                                ? 'Agrega un parcial o final desde el botón + para verlo en el calendario y en el dashboard.'
-                                : 'Cambia el filtro para ver otros eventos o usa el botón + para crear uno nuevo.',
+                                ? 'Agrega un parcial o final para verlo en el calendario, el dashboard y el widget.'
+                                : 'Cambia el filtro o crea un examen nuevo para esta vista.',
+                            action: FilledButton.icon(
+                              onPressed: () => _showExamDialog(),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Agregar examen'),
+                            ),
                           ),
                         )
                       else

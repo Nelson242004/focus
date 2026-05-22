@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/schedule.dart';
@@ -432,6 +432,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                             title: 'Carga tu primera materia',
                             message:
                                 'Empieza solo con el nombre desde el botón +. Después puedes sumar horarios, aula, profesor y sección.',
+                            action: FilledButton.icon(
+                              onPressed: () => _showSubjectDialog(),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Agregar materia'),
+                            ),
                           ),
                         )
                       else

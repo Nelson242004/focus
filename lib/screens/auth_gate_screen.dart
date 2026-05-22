@@ -151,7 +151,7 @@ class _DuoLoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _loginCanvas,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _FocusLoginBackdrop(
         child: SafeArea(
           child: AnimatedSwitcher(
@@ -193,12 +193,33 @@ class _DuoLoginScreenState extends State<LoginScreen> {
   }
 }
 
-const _loginCanvas = Color(0xFF07111F);
-const _loginPanel = Color(0xFF0D1B2E);
 const _loginStroke = Color(0xFF28435F);
 const _loginPrimary = FocusPalette.primary;
 const _loginMint = FocusPalette.mint;
 const _loginTextMuted = Color(0xFF9FB4CC);
+
+bool _loginIsDark(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark;
+
+Color _loginBackground(BuildContext context) =>
+    _loginIsDark(context) ? FocusPalette.darkSurface : FocusPalette.surface;
+
+Color _loginCard(BuildContext context) =>
+    _loginIsDark(context) ? FocusPalette.darkCard : Theme.of(context).cardColor;
+
+Color _loginBorder(BuildContext context) => _loginIsDark(context)
+    ? FocusPalette.darkBorder
+    : FocusPalette.border.withValues(alpha: 0.95);
+
+Color _loginText(BuildContext context) =>
+    _loginIsDark(context) ? Colors.white : FocusPalette.ink;
+
+Color _loginMuted(BuildContext context) =>
+    _loginIsDark(context) ? _loginTextMuted : FocusPalette.muted;
+
+Color _loginSoftFill(BuildContext context) => _loginIsDark(context)
+    ? Colors.white.withValues(alpha: 0.06)
+    : FocusPalette.primarySoft.withValues(alpha: 0.74);
 
 class _FocusLoginBackdrop extends StatelessWidget {
   final Widget child;
@@ -207,8 +228,26 @@ class _FocusLoginBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = _loginIsDark(context);
     return DecoratedBox(
-      decoration: const BoxDecoration(color: _loginCanvas),
+      decoration: BoxDecoration(
+        color: _loginBackground(context),
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [
+                  FocusPalette.darkSurface,
+                  FocusPalette.darkCard,
+                  Color(0xFF0B2433),
+                ]
+              : const [
+                  FocusPalette.surface,
+                  Color(0xFFEFF6FF),
+                  Color(0xFFE6FFFA),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: child,
     );
   }
@@ -226,11 +265,12 @@ class _LoginSurfaceCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: _loginPanel,
-        border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
+        color: _loginCard(context),
+        border: Border.all(color: _loginBorder(context)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: Colors.black
+                .withValues(alpha: _loginIsDark(context) ? 0.18 : 0.07),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -267,11 +307,11 @@ class _LoginChoiceStep extends StatelessWidget {
             children: [
               const _FocusWelcomeMark(),
               const SizedBox(height: 18),
-              const Text(
+              Text(
                 'Bienvenido a Focus',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _loginText(context),
                   fontSize: 28,
                   height: 1.05,
                   fontWeight: FontWeight.w900,
@@ -283,7 +323,7 @@ class _LoginChoiceStep extends StatelessWidget {
                 'Inicia sesión para usar perfil, ranking y progreso social.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _loginTextMuted,
+                  color: _loginMuted(context),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   height: 1.35,
@@ -343,9 +383,9 @@ class _FocusMiniBenefit extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.045),
+        color: _loginSoftFill(context),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: _loginBorder(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -356,8 +396,8 @@ class _FocusMiniBenefit extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: _loginText(context),
               fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
@@ -485,7 +525,7 @@ class _EmailLoginStep extends StatelessWidget {
                     : 'Focus sincroniza tu progreso sin tocar tus materias.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: _loginTextMuted.withValues(alpha: 0.72),
+                  color: _loginMuted(context).withValues(alpha: 0.72),
                   fontWeight: FontWeight.w700,
                   height: 1.35,
                 ),
@@ -520,16 +560,18 @@ class _LoginTopBar extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.07),
+                color: _loginSoftFill(context),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
+                  color: _loginBorder(context),
                 ),
               ),
               child: IconButton(
                 onPressed: enabled ? onBack : null,
                 icon: const Icon(Icons.arrow_back_rounded, size: 27),
-                color: Colors.white.withValues(alpha: enabled ? 0.86 : 0.32),
+                color: _loginText(context).withValues(
+                  alpha: enabled ? 0.86 : 0.32,
+                ),
                 tooltip: 'Volver',
               ),
             ),
@@ -538,8 +580,8 @@ class _LoginTopBar extends StatelessWidget {
             Text(
               title!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: _loginText(context),
                 fontSize: 23,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.3,
@@ -617,7 +659,16 @@ class _FocusWelcomeMark extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(22),
           color: Colors.white,
-          border: Border.all(color: _loginStroke.withValues(alpha: 0.42)),
+          border: Border.all(color: _loginBorder(context)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(
+                alpha: _loginIsDark(context) ? 0.16 : 0.06,
+              ),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Image.asset(
           'assets/icon.png',
@@ -719,8 +770,8 @@ class _FocusLoginHeroCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: _loginPanel,
-        border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
+        color: _loginCard(context),
+        border: Border.all(color: _loginBorder(context)),
       ),
       child: Row(
         children: [
@@ -741,8 +792,8 @@ class _FocusLoginHeroCard extends StatelessWidget {
               children: [
                 Text(
                   creatingAccount ? 'Crear cuenta' : 'Iniciar sesión',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: _loginText(context),
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     height: 1.05,
@@ -754,7 +805,7 @@ class _FocusLoginHeroCard extends StatelessWidget {
                       ? 'Guarda tu perfil, puntos y ranking.'
                       : 'Entra para recuperar tu perfil y ranking.',
                   style: TextStyle(
-                    color: _loginTextMuted,
+                    color: _loginMuted(context),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     height: 1.28,
@@ -797,8 +848,8 @@ class _FocusAuthDataCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: _loginPanel,
-          border: Border.all(color: _loginStroke.withValues(alpha: 0.72)),
+          color: _loginCard(context),
+          border: Border.all(color: _loginBorder(context)),
         ),
         child: Column(
           children: [
@@ -820,7 +871,7 @@ class _FocusAuthDataCard extends StatelessWidget {
             Divider(
               height: 1,
               thickness: 1,
-              color: Colors.white.withValues(alpha: 0.08),
+              color: _loginBorder(context),
             ),
             _FocusTextField(
               controller: passwordController,
@@ -894,15 +945,15 @@ class _FocusTextField extends StatelessWidget {
       autofillHints: autofillHints,
       validator: validator,
       onFieldSubmitted: onSubmitted,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: _loginText(context),
         fontSize: 16,
         fontWeight: FontWeight.w800,
       ),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
-          color: _loginTextMuted.withValues(alpha: 0.72),
+          color: _loginMuted(context).withValues(alpha: 0.72),
           fontSize: 16,
           fontWeight: FontWeight.w800,
         ),
@@ -1093,7 +1144,7 @@ class _DuoPrimaryButton extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            color: enabled ? _loginPrimary : _loginStroke,
+            color: enabled ? _loginPrimary : _loginBorder(context),
             boxShadow: enabled
                 ? [
                     BoxShadow(
@@ -1179,13 +1230,13 @@ class _DuoSocialButton extends StatelessWidget {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         minimumSize: const Size.fromHeight(58),
-        backgroundColor: Colors.white.withValues(alpha: 0.035),
+        backgroundColor: _loginSoftFill(context),
         side: BorderSide(
-          color: _loginStroke.withValues(alpha: 0.82),
+          color: _loginBorder(context),
           width: 1.4,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        foregroundColor: Colors.white,
+        foregroundColor: _loginText(context),
       ),
       icon: Icon(icon, color: color, size: 24),
       label: Text(

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -19,6 +19,8 @@ import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
+import '../widgets/focus_metric_icon.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -73,6 +75,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final previousTotal = _totalSecondsForMode(provider);
     final newSettings = AppSettings(
       themeMode: provider.settings.themeMode,
+      language: provider.settings.language,
       focusTime: focusTime ?? provider.settings.focusTime,
       shortBreakTime: shortBreakTime ?? provider.settings.shortBreakTime,
       longBreakTime: longBreakTime ?? provider.settings.longBreakTime,
@@ -286,6 +289,24 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     unawaited(_syncFocusModeShield(provider));
     if (!restored) {
       _persistState();
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: FocusActionSnackContent(
+                icon: _mode == 'focus'
+                    ? Icons.center_focus_strong_rounded
+                    : Icons.self_improvement_rounded,
+                message: _mode == 'focus'
+                    ? 'Sesión de enfoque iniciada.'
+                    : 'Descanso iniciado.',
+                color: _themePalette().accent,
+              ),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+      }
     }
     unawaited(_showPomodoroNotification(provider));
     unawaited(_syncPomodoroWidget(provider, force: true));
@@ -495,6 +516,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         durationMinutes: provider.settings.focusTime,
         distractionFree: true,
       ));
+      unawaited(
+        RankingService.syncSocialStats(
+          currentStreak: provider.currentStreak,
+          totalPomodoros: provider.pomodoros.length,
+          totalHabitCompletions: provider.totalHabitCompletions,
+          weeklyMissionCompleted: provider.weeklyMissionCompleted,
+          level: provider.level,
+        ),
+      );
       _completedFocusSessions++;
       _mode = _nextBreakMode(provider);
     } else {
@@ -622,6 +652,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         distractionFree: distractionFree,
       ).catchError((Object error) {
         debugPrint('[FocusRanking] No se pudo enviar el Pomodoro: $error');
+      }),
+    );
+    unawaited(
+      RankingService.syncSocialStats(
+        currentStreak: provider.currentStreak,
+        totalPomodoros: provider.pomodoros.length,
+        totalHabitCompletions: provider.totalHabitCompletions,
+        weeklyMissionCompleted: provider.weeklyMissionCompleted,
+        level: provider.level,
+      ).catchError((Object error) {
+        debugPrint('[FocusRanking] No se pudo sincronizar stats: $error');
       }),
     );
     unawaited(
@@ -1028,7 +1069,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final totalSeconds = _totalSecondsForMode(provider);
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          children: [
+            FocusSkeletonCard(height: 360),
+            SizedBox(height: 14),
+            FocusSkeletonCard(height: 128),
+            SizedBox(height: 14),
+            FocusSkeletonCard(height: 150),
+          ],
+        ),
+      );
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1164,6 +1216,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       Expanded(
                         child: _PomodoroMiniMetric(
                           icon: Icons.stars_rounded,
+                          metricIcon: FocusMetricIconKind.points,
                           label: 'Al completar',
                           value: _mode == 'focus' ? '20+ pts' : 'descanso',
                           color: themePalette.accent,
@@ -1702,7 +1755,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       case 'shortBreak':
         return const _PomodoroPalette(
           accent: FocusPalette.mint,
-          accentSecondary: Color(0xFF34D399),
+          accentSecondary: FocusPalette.mint,
           backgroundStart: Color(0xFFF3FBF7),
           backgroundMiddle: Color(0xFFE7F8EF),
           backgroundEnd: Color(0xFFD9F3E6),
@@ -1711,7 +1764,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       case 'longBreak':
         return const _PomodoroPalette(
           accent: FocusPalette.amber,
-          accentSecondary: Color(0xFFFB923C),
+          accentSecondary: FocusPalette.amber,
           backgroundStart: Color(0xFFFFF8EE),
           backgroundMiddle: Color(0xFFFFF1D6),
           backgroundEnd: Color(0xFFFFE5BF),
@@ -1771,11 +1824,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 height: 44,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: const Color(0xFF10B981).withValues(alpha: 0.14),
+                  color: FocusPalette.mint.withValues(alpha: 0.14),
                 ),
                 child: const Icon(
                   Icons.check_circle_rounded,
-                  color: Color(0xFF10B981),
+                  color: FocusPalette.mint,
                 ),
               ),
               const SizedBox(width: 12),
@@ -1851,12 +1904,14 @@ class _ModePill extends StatelessWidget {
 
 class _PomodoroMiniMetric extends StatelessWidget {
   final IconData icon;
+  final FocusMetricIconKind? metricIcon;
   final String label;
   final String value;
   final Color color;
 
   const _PomodoroMiniMetric({
     required this.icon,
+    this.metricIcon,
     required this.label,
     required this.value,
     required this.color,
@@ -1873,7 +1928,9 @@ class _PomodoroMiniMetric extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 20),
+          metricIcon == null
+              ? Icon(icon, color: color, size: 20)
+              : FocusMetricIcon(kind: metricIcon!, color: color, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

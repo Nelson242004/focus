@@ -1,12 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/ranking_profile.dart';
+import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
+import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_metric_icon.dart';
 import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
@@ -50,6 +55,55 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
       _nextUpdate = RankingService.nextHourlyUpdate();
       _leaderboardFuture = RankingService.fetchGlobalLeaderboard();
     });
+  }
+
+  Future<void> _openRankingProfile(
+    RankingEntry entry,
+    int participantCount,
+  ) async {
+    final currentUid = RankingService.currentUser?.uid;
+    final isMe = entry.uid == currentUid;
+    try {
+      final profile = await RankingService.fetchProfileByUid(entry.uid);
+      if (!mounted) return;
+      if (profile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo cargar ese perfil.')),
+        );
+        return;
+      }
+      final isFriend =
+          isMe ? false : await FriendsService.areFriends(entry.uid);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) => _RankingProfileSheet(
+          profile: profile,
+          entry: entry,
+          participantCount: participantCount,
+          isMe: isMe,
+          isFriend: isFriend,
+          onSendRequest: () async {
+            await FriendsService.sendRequest(profile);
+            if (!mounted) return false;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Solicitud enviada a ${profile.name}.'),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return true;
+          },
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      );
+    }
   }
 
   Future<void> _openLogin() async {
@@ -191,6 +245,8 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
             child: _RankingBody(
               profile: profile,
               leaderboardFuture: _leaderboardFuture,
+              onRefresh: _refresh,
+              onOpenProfile: _openRankingProfile,
             ),
           );
         },
@@ -202,10 +258,15 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
 class _RankingBody extends StatelessWidget {
   final RankingProfile profile;
   final Future<List<RankingEntry>> leaderboardFuture;
+  final VoidCallback onRefresh;
+  final Future<void> Function(RankingEntry entry, int participantCount)
+      onOpenProfile;
 
   const _RankingBody({
     required this.profile,
     required this.leaderboardFuture,
+    required this.onRefresh,
+    required this.onOpenProfile,
   });
 
   @override
@@ -221,23 +282,12 @@ class _RankingBody extends StatelessWidget {
         final topEntries = entries.take(3).toList();
         final leaderboardEntries =
             entries.length >= 3 ? entries.skip(3).toList() : entries;
-        final featuredEntries = leaderboardEntries.take(7).toList();
-        final nearbyEntries = _entriesAroundPosition(
-          entries,
-          myPosition,
-          radius: 2,
-        ).where((entry) => entry.position > 10).toList();
+        final featuredEntries = leaderboardEntries;
+        final nearbyEntries = const <RankingEntry>[];
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           children: [
-            _MyGlobalRankStrip(
-              profile: profile,
-              entry: myEntry,
-              position: myPosition,
-              participantCount: participantCount,
-            ),
-            const SizedBox(height: 18),
             const _SectionLabel(
               icon: Icons.emoji_events_rounded,
               title: 'Podio semanal',
@@ -247,35 +297,67 @@ class _RankingBody extends StatelessWidget {
               _Podium(
                 entries: topEntries,
                 participantCount: participantCount,
+                onOpenProfile: (entry) =>
+                    onOpenProfile(entry, participantCount),
               ),
               const SizedBox(height: 18),
             ],
+            _MyGlobalRankStrip(
+              profile: profile,
+              entry: myEntry,
+              position: myPosition,
+              participantCount: participantCount,
+            ),
+            const SizedBox(height: 18),
             const _SectionLabel(
               icon: Icons.format_list_numbered_rounded,
-              title: 'Clasificación',
+              title: 'Tabla',
             ),
             const SizedBox(height: 10),
             if (snapshot.connectionState == ConnectionState.waiting)
-              const Center(child: CircularProgressIndicator())
+              const Column(
+                children: [
+                  FocusSkeletonCard(height: 88),
+                  SizedBox(height: 10),
+                  FocusSkeletonCard(height: 72),
+                  SizedBox(height: 10),
+                  FocusSkeletonCard(height: 72),
+                ],
+              )
             else if (snapshot.hasError)
               _MessagePanel(
                 icon: Icons.cloud_off_rounded,
                 title: 'El ranking está calentando motores',
                 message:
                     'No pudimos traer la clasificación ahora. Revisa Firebase o inténtalo de nuevo en unos segundos.',
+                action: FilledButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Reintentar'),
+                ),
               )
             else if (entries.isEmpty)
-              const _MessagePanel(
+              _MessagePanel(
                 icon: Icons.local_fire_department_rounded,
                 title: 'El ranking está calentando motores',
                 message:
                     'Cuando los primeros usuarios sumen puntos, la liga global aparecerá aquí.',
+                action: FilledButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Actualizar'),
+                ),
               )
             else if (leaderboardEntries.isEmpty)
-              const _MessagePanel(
+              _MessagePanel(
                 icon: Icons.auto_awesome_rounded,
                 title: 'Solo hay podio por ahora',
                 message: 'Cuando entren más usuarios aparecerá la tabla.',
+                action: FilledButton.icon(
+                  onPressed: onRefresh,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Actualizar'),
+                ),
               )
             else ...[
               ...featuredEntries.asMap().entries.map(
@@ -286,6 +368,8 @@ class _RankingBody extends StatelessWidget {
                         entry: item.value,
                         isMe: item.value.uid == profile.uid,
                         participantCount: participantCount,
+                        onOpenProfile: (entry) =>
+                            onOpenProfile(entry, participantCount),
                       ),
                     ),
                   ),
@@ -304,6 +388,8 @@ class _RankingBody extends StatelessWidget {
                           entry: item.value,
                           isMe: item.value.uid == profile.uid,
                           participantCount: participantCount,
+                          onOpenProfile: (entry) =>
+                              onOpenProfile(entry, participantCount),
                         ),
                       ),
                     ),
@@ -592,6 +678,8 @@ class _MyGlobalRankStrip extends StatelessWidget {
     final tier = _distributedRankTierForPosition(position, participantCount);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final positionLabel = position <= 0 ? 'Sin puesto' : '#$position';
+    final progress = _tierProgressValue(position, participantCount);
+    final progressLabel = _tierProgressLabel(position, participantCount);
 
     return TweenAnimationBuilder<double>(
       key: ValueKey('my-global-rank-$position-$points'),
@@ -652,8 +740,33 @@ class _MyGlobalRankStrip extends StatelessWidget {
                     runSpacing: 8,
                     children: [
                       _GlassRankChip(label: positionLabel),
+                      _GlassRankChip(label: tier.name),
                       _GlassRankChip(label: '${points.clamp(0, 999999)} pts'),
                     ],
+                  ),
+                  const SizedBox(height: 14),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 7,
+                      backgroundColor: Colors.white.withValues(alpha: 0.16),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        Colors.white.withValues(alpha: 0.92),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    progressLabel,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.74),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      height: 1.15,
+                    ),
                   ),
                 ],
               ),
@@ -731,10 +844,12 @@ class _GlassRankChip extends StatelessWidget {
 class _Podium extends StatelessWidget {
   final List<RankingEntry> entries;
   final int participantCount;
+  final Future<void> Function(RankingEntry entry) onOpenProfile;
 
   const _Podium({
     required this.entries,
     required this.participantCount,
+    required this.onOpenProfile,
   });
 
   @override
@@ -745,7 +860,7 @@ class _Podium extends StatelessWidget {
       if (entries.length > 2) entries[2],
     ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(30),
         gradient: LinearGradient(
@@ -764,7 +879,7 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: ordered.map((entry) {
           final position = entry.position;
-          final height = position == 1 ? 236.0 : 192.0;
+          final height = position == 1 ? 264.0 : 208.0;
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -788,6 +903,7 @@ class _Podium extends StatelessWidget {
                   entry: entry,
                   height: height,
                   participantCount: participantCount,
+                  onOpenProfile: onOpenProfile,
                 ),
               ),
             ),
@@ -802,94 +918,100 @@ class _PodiumPlace extends StatelessWidget {
   final RankingEntry entry;
   final double height;
   final int participantCount;
+  final Future<void> Function(RankingEntry entry) onOpenProfile;
 
   const _PodiumPlace({
     required this.entry,
     required this.height,
     required this.participantCount,
+    required this.onOpenProfile,
   });
 
   @override
   Widget build(BuildContext context) {
     final accent = _podiumColor(entry.position);
-    return Container(
-      height: height,
-      padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [
-            accent.withValues(alpha: 0.24),
-            Theme.of(context).cardColor,
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        border: Border.all(
-          color: accent.withValues(alpha: 0.34),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '#${entry.position}',
-              style: TextStyle(
-                color: accent,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-          const Spacer(),
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              _RankingProfileIcon(
-                asset: profileIconAssetFromIndex(entry.socialMascotIndex),
-                size: 64,
-              ),
-              Positioned(
-                right: -4,
-                bottom: -4,
-                child: _TopMedalBadge(position: entry.position, size: 28),
-              ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: () => onOpenProfile(entry),
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: LinearGradient(
+            colors: [
+              accent.withValues(alpha: 0.24),
+              Theme.of(context).cardColor,
             ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          const SizedBox(height: 10),
-          Flexible(
-            child: Text(
-              entry.name,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-                height: 1.05,
+          border: Border.all(
+            color: accent.withValues(alpha: 0.34),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '#${entry.position}',
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 6),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              '${entry.points} pts',
-              style: TextStyle(
-                color: accent,
-                fontWeight: FontWeight.w900,
-                fontSize: entry.position == 1 ? 18 : 16,
+            const Spacer(),
+            Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                _RankingProfileIcon(
+                  asset: _entryProfileIconAsset(entry),
+                  size: entry.position == 1 ? 78 : 66,
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: _TopMedalBadge(position: entry.position, size: 28),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Flexible(
+              child: Text(
+                entry.name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  height: 1.05,
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '${entry.points} pts',
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                  fontSize: entry.position == 1 ? 18 : 16,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -928,11 +1050,7 @@ class _MyRankCard extends StatelessWidget {
       child: Row(
         children: [
           _RankingProfileIcon(
-            asset: profileIconAssetFromIndex(
-              profile.stats['socialMascotIndex'],
-              email: RankingService.currentUser?.email,
-              enforceAccess: true,
-            ),
+            asset: _profileIconAsset(profile),
             size: 58,
           ),
           const SizedBox(width: 12),
@@ -1054,13 +1172,11 @@ class _RankingInfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = Theme.of(context).colorScheme.primary;
-    return Container(
+    return FocusSurfaceCard(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Theme.of(context).cardColor,
-        border: Border.all(color: accent.withValues(alpha: 0.12)),
-      ),
+      radius: 20,
+      accent: accent,
+      elevated: false,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1124,7 +1240,7 @@ class _PointsPill extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             FocusPalette.amber.withValues(alpha: 0.24),
-            FocusPalette.coral.withValues(alpha: 0.16),
+            FocusPalette.amber.withValues(alpha: 0.16),
           ],
         ),
         borderRadius: BorderRadius.circular(999),
@@ -1135,13 +1251,340 @@ class _PointsPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.stars_rounded,
+            FocusMetricIcon.points(
               size: large ? 18 : 13,
               color: FocusPalette.amber,
             ),
             SizedBox(width: large ? 5 : 3),
             _AnimatedPointsText(points: points, large: large),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RankingProfileSheet extends StatefulWidget {
+  final RankingProfile profile;
+  final RankingEntry entry;
+  final int participantCount;
+  final bool isMe;
+  final bool isFriend;
+  final Future<bool> Function() onSendRequest;
+
+  const _RankingProfileSheet({
+    required this.profile,
+    required this.entry,
+    required this.participantCount,
+    required this.isMe,
+    required this.isFriend,
+    required this.onSendRequest,
+  });
+
+  @override
+  State<_RankingProfileSheet> createState() => _RankingProfileSheetState();
+}
+
+class _RankingProfileSheetState extends State<_RankingProfileSheet> {
+  bool _sending = false;
+  bool _sent = false;
+
+  Future<void> _sendRequest() async {
+    if (_sending || _sent) return;
+    setState(() => _sending = true);
+    try {
+      final sent = await widget.onSendRequest();
+      if (!mounted || !sent) return;
+      HapticFeedback.mediumImpact();
+      setState(() => _sent = true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(RankingService.friendlyRankingError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profile = widget.profile;
+    final entry = widget.entry;
+    final isMe = widget.isMe;
+    final isFriend = widget.isFriend;
+    final tier = _distributedRankTierForPosition(
+      entry.position,
+      widget.participantCount,
+    );
+    final accent =
+        entry.position <= 3 ? _podiumColor(entry.position) : tier.color;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                gradient: LinearGradient(
+                  colors: [
+                    accent.withValues(alpha: 0.28),
+                    Theme.of(context).cardColor,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                border: Border.all(color: accent.withValues(alpha: 0.24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.11),
+                    blurRadius: 22,
+                    offset: const Offset(0, 11),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      _RankingProfileIcon(
+                        asset: _profileIconAsset(profile),
+                        size: 112,
+                      ),
+                      Positioned(
+                        right: -4,
+                        bottom: -4,
+                        child: _RankBadge(
+                          position: entry.position,
+                          entry: entry,
+                          participantCount: widget.participantCount,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            height: 1.03,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.45,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          _careerLabel(profile.career),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                        ),
+                        const SizedBox(height: 10),
+                        _InlineRankPill(
+                          label: isMe
+                              ? 'Tu perfil'
+                              : isFriend
+                                  ? 'Amigo'
+                                  : _sent
+                                      ? 'Solicitud enviada'
+                                      : 'Perfil público',
+                          color: accent,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                _ProfileMetricCard(
+                  icon: FocusMetricIcon.points(size: 22),
+                  label: 'Puntos',
+                  value: '${entry.points} pts',
+                  color: FocusPalette.amber,
+                ),
+                const SizedBox(width: 10),
+                _ProfileMetricCard(
+                  icon: FocusMetricIcon.streak(size: 22),
+                  label: 'Racha',
+                  value: '${_rankingProfileStreak(profile)} días',
+                  color: FocusPalette.amber,
+                ),
+                const SizedBox(width: 10),
+                _ProfileMetricCard(
+                  icon: Image.asset(
+                    _tierMedalAsset(tier.name),
+                    width: 24,
+                    height: 24,
+                    fit: BoxFit.contain,
+                  ),
+                  label: 'Liga',
+                  value: tier.name,
+                  color: tier.color,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: isMe
+                  ? OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.person_rounded),
+                      label: const Text('Este eres tú'),
+                    )
+                  : isFriend
+                      ? OutlinedButton.icon(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.check_circle_rounded),
+                          label: const Text('Ya está en tus amigos'),
+                        )
+                      : FilledButton.icon(
+                          onPressed: (_sending || _sent) ? null : _sendRequest,
+                          icon: _sent
+                              ? const Icon(Icons.check_circle_rounded)
+                              : _sending
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.person_add_alt_1_rounded),
+                          label: Text(
+                            _sent
+                                ? 'Solicitud enviada'
+                                : _sending
+                                    ? 'Enviando solicitud...'
+                                    : 'Enviar solicitud',
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _sent
+                                ? FocusPalette.mint
+                                : Theme.of(context).colorScheme.primary,
+                            disabledBackgroundColor: _sent
+                                ? FocusPalette.mint
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withValues(alpha: 0.56),
+                            disabledForegroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineRankPill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _InlineRankPill({
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: color.withValues(alpha: 0.12),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileMetricCard extends StatelessWidget {
+  final Widget icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ProfileMetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Theme.of(context).cardColor,
+          border: Border.all(color: color.withValues(alpha: 0.16)),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 7),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            icon,
+            const SizedBox(height: 8),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: FocusPalette.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
           ],
         ),
       ),
@@ -1185,104 +1628,112 @@ class _RankingTile extends StatelessWidget {
   final RankingEntry entry;
   final bool isMe;
   final int participantCount;
+  final Future<void> Function(RankingEntry entry) onOpenProfile;
 
   const _RankingTile({
     required this.position,
     required this.entry,
     required this.isMe,
     required this.participantCount,
+    required this.onOpenProfile,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        color: Theme.of(context).cardColor,
-        border: Border.all(
-          color: isMe
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.42)
-              : Theme.of(context).dividerColor,
-        ),
-        boxShadow: [
-          if (isMe)
-            BoxShadow(
-              color:
-                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
-              blurRadius: 16,
-              offset: const Offset(0, 8),
-            ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          _RankBadge(
-            position: position,
-            entry: entry,
-            participantCount: participantCount,
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: () => onOpenProfile(entry),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: Theme.of(context).cardColor,
+          border: Border.all(
+            color: isMe
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.42)
+                : Theme.of(context).dividerColor,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        entry.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    if (isMe)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
+          boxShadow: [
+            if (isMe)
+              BoxShadow(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primary
+                    .withValues(alpha: 0.10),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            _RankBadge(
+              position: position,
+              entry: entry,
+              participantCount: participantCount,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
                         child: Text(
-                          'Tú',
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontSize: 12,
+                          entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
                             fontWeight: FontWeight.w900,
+                            fontSize: 16,
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  _careerLabel(entry.career),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        height: 1.15,
-                      ),
-                ),
-              ],
+                      if (isMe)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'Tú',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _careerLabel(entry.career),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          _PointsPill(points: entry.points),
-        ],
+            const SizedBox(width: 8),
+            _PointsPill(points: entry.points),
+          ],
+        ),
       ),
     );
   }
@@ -1459,20 +1910,11 @@ Color _podiumColor(int position) {
 }
 
 String _medalAsset(int position) {
-  return switch (position) {
-    1 => 'assets/medals/gold.png',
-    2 => 'assets/medals/silver.png',
-    3 => 'assets/medals/bronze.png',
-    _ => 'assets/medals/bronze.png',
-  };
+  return FocusIconAssets.leagueByPosition(position);
 }
 
 String _tierMedalAsset(String tierName) {
-  return switch (tierName) {
-    'Oro' => 'assets/medals/gold.png',
-    'Plata' => 'assets/medals/silver.png',
-    _ => 'assets/medals/bronze.png',
-  };
+  return FocusIconAssets.league(tierName);
 }
 
 _RankTier _distributedRankTierForPosition(int position, int participantCount) {
@@ -1509,72 +1951,80 @@ _RankTier _distributedRankTierForPosition(int position, int participantCount) {
   );
 }
 
-List<RankingEntry> _entriesAroundPosition(
-  List<RankingEntry> entries,
-  int position, {
-  int radius = 2,
-}) {
-  if (position <= 0 || entries.isEmpty) return const <RankingEntry>[];
-  final start = (position - radius - 1).clamp(0, entries.length);
-  final end = (position + radius).clamp(0, entries.length);
-  return entries.sublist(start, end);
+double _tierProgressValue(int position, int participantCount) {
+  if (participantCount <= 0 || position <= 0) return 0;
+  final goldLimit = (participantCount * 0.10).ceil().clamp(1, participantCount);
+  final silverLimit =
+      (participantCount * 0.35).ceil().clamp(goldLimit, participantCount);
+  if (position <= goldLimit) return 1;
+  if (position <= silverLimit) {
+    final span = (silverLimit - goldLimit).clamp(1, participantCount);
+    final distance = (position - goldLimit - 1).clamp(0, span);
+    return (1 - (distance / span)).clamp(0.12, 1);
+  }
+  final span = (participantCount - silverLimit).clamp(1, participantCount);
+  final distance = (position - silverLimit - 1).clamp(0, span);
+  return (1 - (distance / span)).clamp(0.08, 1);
 }
 
-// ignore: unused_element
-_RankTier _rankTierForPosition(int position, int participantCount) {
+String _tierProgressLabel(int position, int participantCount) {
   if (participantCount <= 0 || position <= 0) {
-    return const _RankTier(
-      name: 'Sin rango',
-      color: FocusPalette.muted,
-      icon: Icons.remove_rounded,
-    );
+    return 'Suma puntos para entrar a la liga semanal.';
   }
-  if (position == 1) {
-    return const _RankTier(
-      name: 'Campeón',
-      color: FocusPalette.amber,
-      icon: Icons.emoji_events_rounded,
-    );
+  final goldLimit = (participantCount * 0.10).ceil().clamp(1, participantCount);
+  final silverLimit =
+      (participantCount * 0.35).ceil().clamp(goldLimit, participantCount);
+  if (position <= goldLimit) return 'Estás dentro del top 10% de Focus.';
+  if (position <= silverLimit) {
+    final needed = position - goldLimit;
+    return needed == 1
+        ? 'Te falta 1 puesto para Oro.'
+        : 'Te faltan $needed puestos para Oro.';
   }
-  final percentile = position / participantCount;
-  if (percentile <= 0.10) {
-    return const _RankTier(
-      name: 'Diamante',
-      color: Color(0xFF0891B2),
-      icon: Icons.diamond_rounded,
-    );
-  }
-  if (percentile <= 0.25) {
-    return const _RankTier(
-      name: 'Oro',
-      color: FocusPalette.amber,
-      icon: Icons.stars_rounded,
-    );
-  }
-  if (percentile <= 0.50) {
-    return const _RankTier(
-      name: 'Plata',
-      color: Color(0xFF64748B),
-      icon: Icons.workspace_premium_rounded,
-    );
-  }
-  if (percentile <= 0.75) {
-    return const _RankTier(
-      name: 'Bronce',
-      color: Color(0xFFB45309),
-      icon: Icons.shield_rounded,
-    );
-  }
-  return const _RankTier(
-    name: 'Inicial',
-    color: FocusPalette.primary,
-    icon: Icons.flag_rounded,
-  );
+  final needed = position - silverLimit;
+  return needed == 1
+      ? 'Te falta 1 puesto para Plata.'
+      : 'Te faltan $needed puestos para Plata.';
+}
+
+int _rankingProfileStreak(RankingProfile profile) {
+  return int.tryParse('${profile.stats['currentStreak'] ?? 0}') ?? 0;
 }
 
 String _careerLabel(String career) {
   final cleaned = career.trim();
   return cleaned.isEmpty ? 'Sin carrera' : cleaned;
+}
+
+String _entryProfileIconAsset(RankingEntry entry) {
+  if (entry.profileIconAsset.trim().isNotEmpty) {
+    return normalizeProfileIconAsset(
+      entry.profileIconAsset,
+      email: RankingService.currentUser?.email,
+      enforceAccess: true,
+    );
+  }
+  return profileIconAssetFromIndex(
+    entry.socialMascotIndex,
+    email: RankingService.currentUser?.email,
+    enforceAccess: true,
+  );
+}
+
+String _profileIconAsset(RankingProfile profile) {
+  final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
+  if (rawAsset.trim().isNotEmpty) {
+    return normalizeProfileIconAsset(
+      rawAsset,
+      email: RankingService.currentUser?.email,
+      enforceAccess: true,
+    );
+  }
+  return profileIconAssetFromIndex(
+    profile.stats['socialMascotIndex'],
+    email: RankingService.currentUser?.email,
+    enforceAccess: true,
+  );
 }
 
 class _MessagePanel extends StatelessWidget {
@@ -1596,22 +2046,10 @@ class _MessagePanel extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(22),
-        child: Container(
-          width: double.infinity,
+        child: FocusSurfaceCard(
           padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: Theme.of(context).cardColor,
-            border:
-                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
+          radius: 24,
+          accent: accent,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../database/database_helper.dart';
@@ -673,6 +673,7 @@ class AppProvider extends ChangeNotifier {
 
   AppSettings _settingsCopy({
     ThemeModeSetting? themeMode,
+    AppLanguage? language,
     int? focusTime,
     int? shortBreakTime,
     int? longBreakTime,
@@ -696,6 +697,7 @@ class AppProvider extends ChangeNotifier {
   }) {
     return AppSettings(
       themeMode: themeMode ?? settings.themeMode,
+      language: language ?? settings.language,
       focusTime: focusTime ?? settings.focusTime,
       shortBreakTime: shortBreakTime ?? settings.shortBreakTime,
       longBreakTime: longBreakTime ?? settings.longBreakTime,
@@ -743,6 +745,10 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> updateUserName(String userName) async {
     await updateSettings(_settingsCopy(userName: userName.trim()));
+  }
+
+  Future<void> updateLanguage(AppLanguage language) async {
+    await updateSettings(_settingsCopy(language: language));
   }
 
   Future<void> updateStartScreen(String startScreen) async {

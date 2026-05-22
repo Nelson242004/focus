@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -279,6 +279,7 @@ class DatabaseHelper {
           themeIndex.clamp(0, ThemeModeSetting.values.length - 1);
       return AppSettings(
         themeMode: ThemeModeSetting.values[safeThemeIndex],
+        language: AppLanguage.system,
         focusTime: int.tryParse(parts.elementAtOrNull(1) ?? '') ?? 25,
         shortBreakTime: int.tryParse(parts.elementAtOrNull(2) ?? '') ?? 5,
         longBreakTime: int.tryParse(parts.elementAtOrNull(3) ?? '') ?? 15,

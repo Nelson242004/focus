@@ -12,8 +12,12 @@ class RankingProfile {
   final int pomodoros;
   final int focusMinutes;
   final List<String> badges;
+  final String favoriteBadge;
+  final List<String> featuredBadges;
   final String? university;
   final DateTime joinedAt;
+  final DateTime? lastActive;
+  final String lastPointEvent;
   final Map<String, dynamic> stats;
 
   const RankingProfile({
@@ -27,12 +31,20 @@ class RankingProfile {
     this.pomodoros = 0,
     this.focusMinutes = 0,
     this.badges = const [],
+    this.favoriteBadge = '',
+    this.featuredBadges = const [],
     this.university,
     required this.joinedAt,
+    this.lastActive,
+    this.lastPointEvent = '',
     this.stats = const {},
   });
 
   factory RankingProfile.fromMap(String uid, Map<String, dynamic> map) {
+    final stats = Map<String, dynamic>.from(map['stats'] ?? {});
+    final favoriteBadge =
+        '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
+    final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);
     return RankingProfile(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',
@@ -44,9 +56,13 @@ class RankingProfile {
       pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
       focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,
       badges: List<String>.from(map['badges'] ?? []),
+      favoriteBadge: favoriteBadge,
+      featuredBadges: featuredBadges,
       university: map['university'],
       joinedAt: (map['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      stats: Map<String, dynamic>.from(map['stats'] ?? {}),
+      lastActive: (map['updatedAt'] as Timestamp?)?.toDate(),
+      lastPointEvent: '${map['lastPointEvent'] ?? ''}',
+      stats: stats,
     );
   }
 
@@ -61,33 +77,29 @@ class RankingProfile {
       'pomodoros': pomodoros,
       'focusMinutes': focusMinutes,
       'badges': badges,
+      'favoriteBadge': favoriteBadge,
+      'featuredBadges': featuredBadges,
       'university': university,
       'joinedAt': Timestamp.fromDate(joinedAt),
+      'updatedAt': lastActive != null ? Timestamp.fromDate(lastActive!) : null,
+      'lastPointEvent': lastPointEvent,
       'stats': stats,
     };
   }
 
   int get leaguePosition {
     switch (rank) {
-      case 'Diamante':
-        return 1;
-      case 'Platino':
-        return 2;
       case 'Oro':
-        return 3;
+        return 1;
       case 'Plata':
-        return 4;
+        return 2;
       default:
-        return 5;
+        return 3;
     }
   }
 
   String get leagueColor {
     switch (rank) {
-      case 'Diamante':
-        return '#B9F2FF';
-      case 'Platino':
-        return '#E5E4E2';
       case 'Oro':
         return '#FFD700';
       case 'Plata':
@@ -98,12 +110,26 @@ class RankingProfile {
   }
 }
 
+List<String> _featuredBadgesFromMap(
+  Map<String, dynamic> map,
+  Map<String, dynamic> stats,
+  String favoriteBadge,
+) {
+  final raw = map['featuredBadges'] ?? stats['featuredBadges'];
+  final badges = raw is List ? List<String>.from(raw) : <String>[];
+  if (badges.isEmpty && favoriteBadge.trim().isNotEmpty) {
+    badges.add(favoriteBadge.trim());
+  }
+  return badges.where((id) => id.trim().isNotEmpty).toSet().take(3).toList();
+}
+
 class RankingEntry {
   final String uid;
   final String name;
   final String career;
   final String rank;
   final String photoUrl;
+  final String profileIconAsset;
   final int socialMascotIndex;
   final int points;
   final int pomodoros;
@@ -112,7 +138,10 @@ class RankingEntry {
   final int trend;
   final String? university;
   final List<String> badges;
+  final String favoriteBadge;
+  final List<String> featuredBadges;
   final DateTime? lastActive;
+  final String lastPointEvent;
 
   const RankingEntry({
     required this.uid,
@@ -123,12 +152,16 @@ class RankingEntry {
     required this.pomodoros,
     required this.focusMinutes,
     this.socialMascotIndex = 0,
+    this.profileIconAsset = '',
     this.position = 0,
     this.trend = 0,
     this.photoUrl = '',
     this.university,
     this.badges = const [],
+    this.favoriteBadge = '',
+    this.featuredBadges = const [],
     this.lastActive,
+    this.lastPointEvent = '',
   });
 
   factory RankingEntry.fromMap(String uid, Map<String, dynamic> map,
@@ -136,12 +169,18 @@ class RankingEntry {
     final stats = Map<String, dynamic>.from(map['stats'] ?? const {});
     final rawMascotIndex =
         map['socialMascotIndex'] ?? stats['socialMascotIndex'];
+    final profileIconAsset =
+        '${map['profileIconAsset'] ?? stats['profileIconAsset'] ?? ''}';
+    final favoriteBadge =
+        '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
+    final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);
     return RankingEntry(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',
       career: '${map['career'] ?? 'Sin carrera'}',
       rank: '${map['rank'] ?? 'Bronce'}',
       photoUrl: '${map['photoUrl'] ?? ''}',
+      profileIconAsset: profileIconAsset,
       points: int.tryParse('${map['points'] ?? 0}') ?? 0,
       pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
       focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,
@@ -152,7 +191,10 @@ class RankingEntry {
       trend: int.tryParse('${map['trend'] ?? 0}') ?? 0,
       university: map['university'],
       badges: List<String>.from(map['badges'] ?? []),
+      favoriteBadge: favoriteBadge,
+      featuredBadges: featuredBadges,
       lastActive: (map['lastActive'] as Timestamp?)?.toDate(),
+      lastPointEvent: '${map['lastPointEvent'] ?? ''}',
     );
   }
 
@@ -163,6 +205,7 @@ class RankingEntry {
       'career': career,
       'rank': rank,
       'photoUrl': photoUrl,
+      'profileIconAsset': profileIconAsset,
       'socialMascotIndex': socialMascotIndex,
       'points': points,
       'pomodoros': pomodoros,
@@ -170,7 +213,10 @@ class RankingEntry {
       'trend': trend,
       'university': university,
       'badges': badges,
+      'favoriteBadge': favoriteBadge,
+      'featuredBadges': featuredBadges,
       'lastActive': lastActive != null ? Timestamp.fromDate(lastActive!) : null,
+      'lastPointEvent': lastPointEvent,
     };
   }
 
@@ -207,28 +253,12 @@ class LeagueInfo {
 
   static List<LeagueInfo> get allLeagues => [
         const LeagueInfo(
-          name: 'Diamante',
-          minPoints: 700,
-          maxPoints: 99999,
-          color: Color(0xFFB9F2FF),
-          icon: Icons.diamond,
-          description: 'Élite de Focus. Los mejores estudiantes.',
-        ),
-        const LeagueInfo(
-          name: 'Platino',
-          minPoints: 450,
-          maxPoints: 699,
-          color: Color(0xFFE5E4E2),
-          icon: Icons.workspace_premium,
-          description: 'Excelencia académica constante.',
-        ),
-        const LeagueInfo(
           name: 'Oro',
           minPoints: 250,
-          maxPoints: 449,
+          maxPoints: 99999,
           color: Color(0xFFFFD700),
           icon: Icons.stars,
-          description: 'Rendimiento destacado en estudios.',
+          description: 'Top 10% semanal del ranking global.',
         ),
         const LeagueInfo(
           name: 'Plata',
@@ -236,7 +266,7 @@ class LeagueInfo {
           maxPoints: 249,
           color: Color(0xFFC0C0C0),
           icon: Icons.auto_awesome,
-          description: 'Progreso sólido y comprometido.',
+          description: 'Top 35% semanal del ranking global.',
         ),
         const LeagueInfo(
           name: 'Bronce',
@@ -244,7 +274,7 @@ class LeagueInfo {
           maxPoints: 99,
           color: Color(0xFFCD7F32),
           icon: Icons.local_fire_department,
-          description: 'Comienzo del viaje académico.',
+          description: 'Base activa de la liga Focus.',
         ),
       ];
 
@@ -258,8 +288,13 @@ class LeagueInfo {
   }
 
   static LeagueInfo fromName(String name) {
+    final normalized = switch (name.trim().toLowerCase()) {
+      'oro' || 'diamante' || 'platino' => 'Oro',
+      'plata' => 'Plata',
+      _ => 'Bronce',
+    };
     return allLeagues.firstWhere(
-      (league) => league.name == name,
+      (league) => league.name == normalized,
       orElse: () => allLeagues.last,
     );
   }

@@ -13,6 +13,11 @@ class FocusPalette {
   static const coral = Color(0xFFF97316);
   static const danger = Color(0xFFEF4444);
 
+  static const success = mint;
+  static const warning = amber;
+  static const focusBlue = primary;
+  static const studyTeal = teal;
+
   static const ink = Color(0xFF0F172A);
   static const ink2 = Color(0xFF1E293B);
   static const muted = Color(0xFF64748B);
@@ -28,8 +33,16 @@ class FocusPalette {
   static const focusGradient = [primaryDeep, cyan, teal];
   static const studyGradient = [ink, primaryDeep, teal];
   static const successGradient = [teal, mint];
-  static const examGradient = [coral, amber];
+  static const examGradient = [amber, primary];
   static const calmGradient = [primary, teal];
+  static const warmGradient = [amber, mint];
+
+  static const coreAccents = [
+    primary,
+    teal,
+    mint,
+    amber,
+  ];
 
   static const accentOptions = [
     primaryDeep,

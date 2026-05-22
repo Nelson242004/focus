@@ -71,7 +71,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       body: SafeArea(
         top: false,
         bottom: true,
-        child: _screens[_selectedIndex],
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: (child, animation) {
+            final offset = Tween<Offset>(
+              begin: const Offset(0.035, 0),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(position: offset, child: child),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(_selectedIndex),
+            child: _screens[_selectedIndex],
+          ),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,

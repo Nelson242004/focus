@@ -14,6 +14,7 @@ import '../services/ranking_service.dart';
 import '../services/update_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_metric_icon.dart';
 import 'auth_gate_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _weeklyFocusMinutesGoal = 300;
   int _dailyHabitGoal = 3;
   int _streakGoal = 7;
+  AppLanguage _selectedLanguage = AppLanguage.system;
   String _selectedSound = 'chime';
   String _selectedStartScreen = 'dashboard';
   String _breakAfterFocus = 'auto';
@@ -50,6 +52,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         provider.settings.weeklyFocusMinutesGoal.clamp(25, 3000);
     _dailyHabitGoal = provider.settings.dailyHabitGoal.clamp(1, 20);
     _streakGoal = provider.settings.streakGoal.clamp(1, 365);
+    _selectedLanguage = provider.settings.language;
     _selectedSound = provider.settings.sound;
     _selectedStartScreen = provider.settings.startScreen == 'statistics'
         ? 'dashboard'
@@ -82,6 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await provider.updateSettings(
       AppSettings(
         themeMode: provider.settings.themeMode,
+        language: _selectedLanguage,
         focusTime: provider.settings.focusTime,
         shortBreakTime: provider.settings.shortBreakTime,
         longBreakTime: provider.settings.longBreakTime,
@@ -158,6 +162,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _weeklyFocusMinutesGoal = defaults.weeklyFocusMinutesGoal;
       _dailyHabitGoal = defaults.dailyHabitGoal;
       _streakGoal = defaults.streakGoal;
+      _selectedLanguage = defaults.language;
       _selectedSound = defaults.sound;
       _selectedStartScreen = defaults.startScreen;
       _breakAfterFocus = defaults.breakAfterFocus;
@@ -237,6 +242,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ];
     if (enabled.isEmpty) return 'Sin avisos de examen activos.';
     return 'Avisos: ${enabled.join(', ')}.';
+  }
+
+  String _languageLabel(AppLanguage language) {
+    return switch (language) {
+      AppLanguage.system => 'Usar idioma del dispositivo',
+      AppLanguage.spanish => 'Español',
+      AppLanguage.english => 'English',
+      AppLanguage.portuguese => 'Português',
+    };
   }
 
   Future<void> _chooseBackupFile() async {
@@ -443,6 +457,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: provider.settings.themeMode == ThemeModeSetting.dark,
                   onChanged: (_) => provider.toggleTheme(),
                 ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<AppLanguage>(
+                  initialValue: _selectedLanguage,
+                  decoration: const InputDecoration(
+                    labelText: 'Idioma',
+                    prefixIcon: Icon(Icons.language_rounded),
+                  ),
+                  items: AppLanguage.values
+                      .map(
+                        (language) => DropdownMenuItem(
+                          value: language,
+                          child: Text(_languageLabel(language)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(
+                    () => _selectedLanguage = value ?? AppLanguage.system,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Cambia idioma de controles del sistema, fechas y formato. Los textos internos se traducirán por secciones.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: FocusPalette.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 12),
                 Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
                 Slider(
                   value: _textScale,
@@ -955,6 +997,7 @@ class _GoalsProgressPanel extends StatelessWidget {
           ),
           _GoalProgressRow(
             icon: Icons.local_fire_department_rounded,
+            metricIcon: FocusMetricIconKind.streak,
             label: 'Racha',
             current: provider.currentStreak,
             goal: streakGoal,
@@ -968,6 +1011,7 @@ class _GoalsProgressPanel extends StatelessWidget {
 
 class _GoalProgressRow extends StatelessWidget {
   final IconData icon;
+  final FocusMetricIconKind? metricIcon;
   final String label;
   final int current;
   final int goal;
@@ -975,6 +1019,7 @@ class _GoalProgressRow extends StatelessWidget {
 
   const _GoalProgressRow({
     required this.icon,
+    this.metricIcon,
     required this.label,
     required this.current,
     required this.goal,
@@ -990,7 +1035,14 @@ class _GoalProgressRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+          if (metricIcon != null)
+            FocusMetricIcon(
+              kind: metricIcon!,
+              size: 22,
+              color: Theme.of(context).colorScheme.primary,
+            )
+          else
+            Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

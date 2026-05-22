@@ -7,7 +7,10 @@ import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
+import '../widgets/focus_metric_icon.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -23,11 +26,20 @@ class DashboardScreen extends StatelessWidget {
               const _LoadErrorBanner(),
               const SizedBox(height: 14),
             ],
-            _FocusHero(provider: provider),
+            FocusStaggeredItem(
+              index: 0,
+              child: _FocusHero(provider: provider),
+            ),
             const SizedBox(height: 16),
-            _MetricGrid(provider: provider),
+            FocusStaggeredItem(
+              index: 1,
+              child: _MetricGrid(provider: provider),
+            ),
             const SizedBox(height: 16),
-            _NextEventsCard(provider: provider),
+            FocusStaggeredItem(
+              index: 2,
+              child: _NextEventsCard(provider: provider),
+            ),
           ],
         );
       },
@@ -86,7 +98,7 @@ class _FocusHero extends StatelessWidget {
       curve: Curves.easeOutCubic,
       builder: (context, value, _) {
         return Container(
-          padding: const EdgeInsets.fromLTRB(22, 22, 20, 22),
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(34),
             gradient: const LinearGradient(
@@ -104,6 +116,11 @@ class _FocusHero extends StatelessWidget {
           ),
           child: Row(
             children: [
+              _LevelRing(
+                level: provider.level,
+                progress: value.clamp(0, 1),
+              ),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +132,7 @@ class _FocusHero extends StatelessWidget {
                       'Nivel ${provider.level}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 34,
+                        fontSize: 31,
                         fontWeight: FontWeight.w900,
                         height: 1.02,
                       ),
@@ -134,22 +151,17 @@ class _FocusHero extends StatelessWidget {
                       runSpacing: 8,
                       children: [
                         _HeroChip(
-                          icon: Icons.stars_rounded,
+                          metricIcon: FocusMetricIconKind.points,
                           label: '${provider.gamifiedPoints} pts',
                         ),
                         _HeroChip(
-                          icon: Icons.local_fire_department_rounded,
+                          metricIcon: FocusMetricIconKind.streak,
                           label: '${provider.currentStreak} días',
                         ),
                       ],
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 18),
-              _LevelRing(
-                level: provider.level,
-                progress: value.clamp(0, 1),
               ),
             ],
           ),
@@ -203,11 +215,11 @@ class _GreetingText extends StatelessWidget {
 }
 
 class _HeroChip extends StatelessWidget {
-  final IconData icon;
+  final FocusMetricIconKind metricIcon;
   final String label;
 
   const _HeroChip({
-    required this.icon,
+    required this.metricIcon,
     required this.label,
   });
 
@@ -223,7 +235,7 @@ class _HeroChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 15, color: Colors.white),
+          FocusMetricIcon(kind: metricIcon, size: 16, color: Colors.white),
           const SizedBox(width: 6),
           Text(
             label,
@@ -250,8 +262,8 @@ class _LevelRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 132,
-      height: 132,
+      width: 152,
+      height: 152,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -259,12 +271,12 @@ class _LevelRing extends StatelessWidget {
             value: progress,
             strokeWidth: 12,
             backgroundColor: Colors.white.withValues(alpha: 0.14),
-            valueColor: const AlwaysStoppedAnimation(Color(0xFFFBBF24)),
+            valueColor: const AlwaysStoppedAnimation(FocusPalette.amber),
           ),
           Center(
             child: Container(
-              width: 92,
-              height: 92,
+              width: 108,
+              height: 108,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white.withValues(alpha: 0.13),
@@ -274,15 +286,15 @@ class _LevelRing extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.workspace_premium_rounded,
-                    color: Color(0xFFFBBF24),
-                    size: 28,
+                    Icons.auto_awesome_rounded,
+                    color: FocusPalette.amber,
+                    size: 26,
                   ),
                   Text(
                     'N$level',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 20,
+                      fontSize: 23,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -326,7 +338,7 @@ class _NextEventsCard extends StatelessWidget {
           const SizedBox(height: 12),
           _EventTile(
             icon: Icons.assignment_late_rounded,
-            color: FocusPalette.coral,
+            color: FocusPalette.amber,
             title: nextExam == null
                 ? 'Sin examen'
                 : provider.subjectNameForExam(nextExam),
@@ -426,28 +438,28 @@ class _MetricGrid extends StatelessWidget {
       crossAxisCount: compact ? 2 : 4,
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
-      childAspectRatio: compact ? 1.22 : 1.05,
+      childAspectRatio: compact ? 1.55 : 1.35,
       children: [
         _MetricCard(
-          icon: Icons.stars_rounded,
+          metricIcon: FocusMetricIconKind.points,
           value: '${provider.gamifiedPoints}',
           label: 'Puntos',
           color: FocusPalette.primary,
         ),
         _MetricCard(
-          icon: Icons.local_fire_department_rounded,
+          metricIcon: FocusMetricIconKind.streak,
           value: '${provider.currentStreak}',
           label: 'Racha',
-          color: const Color(0xFFEA580C),
+          color: FocusPalette.amber,
         ),
         _MetricCard(
           icon: Icons.schedule_rounded,
           value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
           label: 'Semana',
-          color: const Color(0xFF059669),
+          color: FocusPalette.mint,
         ),
         _MetricCard(
-          icon: Icons.workspace_premium_rounded,
+          assetIcon: FocusIconAssets.achievement,
           value: '${provider.unlockedAchievementCount}',
           label: 'Logros',
           color: FocusPalette.teal,
@@ -458,13 +470,17 @@ class _MetricGrid extends StatelessWidget {
 }
 
 class _MetricCard extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final String? assetIcon;
+  final FocusMetricIconKind? metricIcon;
   final String value;
   final String label;
   final Color color;
 
   const _MetricCard({
-    required this.icon,
+    this.icon,
+    this.assetIcon,
+    this.metricIcon,
     required this.value,
     required this.label,
     required this.color,
@@ -472,32 +488,52 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.all(13),
+      radius: 24,
+      accent: color,
+      elevated: false,
       child: Container(
-        padding: const EdgeInsets.all(13),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24)),
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color),
-            const SizedBox(height: 10),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
+            if (metricIcon != null)
+              FocusMetricIcon(kind: metricIcon!, size: 24, color: color)
+            else if (assetIcon != null)
+              Image.asset(
+                assetIcon!,
+                width: 24,
+                height: 24,
+                fit: BoxFit.contain,
+              )
+            else
+              Icon(icon, color: color, size: 22),
+            const SizedBox(width: 9),
+            Flexible(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -513,14 +549,7 @@ class _SurfaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: child,
-      ),
-    );
+    return FocusSurfaceCard(child: child);
   }
 }
 
@@ -537,43 +566,11 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color:
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              if (subtitle.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
+    return FocusSectionHeader(
+      icon: icon,
+      title: title,
+      subtitle: subtitle,
+      iconSize: 42,
     );
   }
 }

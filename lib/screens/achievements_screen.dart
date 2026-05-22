@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/app_provider.dart';
@@ -6,6 +6,7 @@ import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
+import '../widgets/focus_metric_icon.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -160,9 +161,18 @@ class _AchievementsHero extends StatelessWidget {
                           fontWeight: FontWeight.w900),
                     ),
                     const SizedBox(height: 8),
-                    Text('$points puntos acumulados',
-                        style: const TextStyle(
-                            color: Colors.white70, fontSize: 16)),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const FocusMetricIcon.points(size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$points puntos acumulados',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 16),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       level >= AppProvider.maxLevel
@@ -204,7 +214,7 @@ class _AchievementsHero extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.card_giftcard_rounded, color: Colors.white),
+                const FocusMetricIcon.streak(size: 24),
                 const SizedBox(width: 10),
                 Expanded(
                     child: Text('Recompensa por racha: $rewardTitle',

@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/ranking_profile.dart';
@@ -138,6 +138,21 @@ class FriendsService {
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
   }
 
+  static Stream<List<FriendRequest>> outgoingRequestsStream() {
+    final uid = RankingService.currentUser?.uid;
+    if (uid == null) return Stream.value(const []);
+    return _firestore
+        .collection('friendRequests')
+        .where('fromUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .where((doc) => '${doc.data()['type'] ?? 'friend'}' != 'streak')
+            .map((doc) => FriendRequest.fromMap(doc.id, doc.data()))
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+  }
+
   static Stream<List<FriendStreakRequest>> incomingStreakRequestsStream() {
     final uid = RankingService.currentUser?.uid;
     if (uid == null) return Stream.value(const []);
@@ -199,18 +214,54 @@ class FriendsService {
         .replaceAll('foc', '')
         .replaceAll('-', '')
         .replaceAll(' ', '');
+
+    if (codeQuery.length >= 3) {
+      final byNormalizedCode = await _firestore
+          .collection('users')
+          .where('friendCodeNormalized', isEqualTo: codeQuery)
+          .limit(8)
+          .get();
+      var exactMatches = byNormalizedCode.docs
+          .where((doc) => doc.id != currentUid)
+          .map((doc) => RankingProfile.fromMap(doc.id, doc.data()))
+          .toList();
+      if (exactMatches.isEmpty) {
+        final bySearchKey = await _firestore
+            .collection('users')
+            .where('friendCodeSearchKey', isEqualTo: codeQuery)
+            .limit(8)
+            .get();
+        exactMatches = bySearchKey.docs
+            .where((doc) => doc.id != currentUid)
+            .map((doc) => RankingProfile.fromMap(doc.id, doc.data()))
+            .toList();
+      }
+      if (exactMatches.isNotEmpty) return exactMatches;
+    }
+
     final snapshot = await _firestore.collection('users').limit(50).get();
     return snapshot.docs
         .where((doc) {
           final data = doc.data();
           final friendCode = '${data['friendCode'] ?? ''}'.toLowerCase();
+          final friendCodeNormalized =
+              '${data['friendCodeNormalized'] ?? friendCode.replaceAll('-', '')}'
+                  .toLowerCase();
+          final friendCodeSearchKey =
+              '${data['friendCodeSearchKey'] ?? ''}'.toLowerCase();
           return doc.id != currentUid &&
-              ('${data['name'] ?? ''}'.toLowerCase().contains(normalized) ||
-                  '${data['career'] ?? ''}'
+              ('${data['nameLower'] ?? data['name'] ?? ''}'
                       .toLowerCase()
                       .contains(normalized) ||
-                  '${data['email'] ?? ''}'.toLowerCase().contains(normalized) ||
+                  '${data['careerLower'] ?? data['career'] ?? ''}'
+                      .toLowerCase()
+                      .contains(normalized) ||
+                  '${data['emailLower'] ?? data['email'] ?? ''}'
+                      .toLowerCase()
+                      .contains(normalized) ||
                   friendCode.contains(normalized) ||
+                  friendCodeNormalized.contains(codeQuery) ||
+                  friendCodeSearchKey.contains(codeQuery) ||
                   (codeQuery.length >= 3 &&
                       friendCode.replaceAll('-', '').contains(codeQuery)) ||
                   (codeQuery.length >= 3 &&
@@ -227,6 +278,15 @@ class FriendsService {
     final compact = uid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
     final suffix = compact.length <= 8 ? compact : compact.substring(0, 8);
     return 'FOC-$suffix';
+  }
+
+  static Future<bool> areFriends(String targetUid) async {
+    final uid = RankingService.currentUser?.uid;
+    if (uid == null || targetUid.isEmpty || targetUid == uid) return false;
+    final friendshipId = _friendshipId(uid, targetUid);
+    final friendship =
+        await _safeGet(_firestore.collection('friendships').doc(friendshipId));
+    return friendship?.exists == true;
   }
 
   static Future<void> sendRequest(RankingProfile target) async {
@@ -270,6 +330,7 @@ class FriendsService {
     await requestRef.set({
       'fromUid': user.uid,
       'toUid': target.uid,
+      'participants': [user.uid, target.uid]..sort(),
       'fromName': me.name,
       'toName': target.name,
       'type': 'friend',
@@ -311,6 +372,7 @@ class FriendsService {
     await _firestore.collection('friendRequests').doc('streak_$id').set({
       'fromUid': user.uid,
       'toUid': target.uid,
+      'participants': [user.uid, target.uid]..sort(),
       'fromName': me.name,
       'toName': target.name,
       'type': 'streak',
@@ -415,4 +477,3 @@ class FriendsService {
     return '${members[0]}_${members[1]}';
   }
 }
-

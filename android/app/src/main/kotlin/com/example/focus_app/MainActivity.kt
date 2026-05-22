@@ -27,6 +27,14 @@ import kotlin.concurrent.thread
 class MainActivity : FlutterActivity() {
     private val channelName = "focus_mode_total"
     private val widgetChannelName = "focus_home_widget"
+    private val deepLinkChannelName = "focus_deep_link"
+    private var latestDeepLink: String? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        latestDeepLink = intent.dataString
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -136,6 +144,19 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    else -> result.notImplemented()
+                }
+            }
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deepLinkChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getInitialLink" -> result.success(intent?.dataString)
+                    "consumeLatestLink" -> {
+                        val link = latestDeepLink
+                        latestDeepLink = null
+                        result.success(link)
+                    }
                     else -> result.notImplemented()
                 }
             }
