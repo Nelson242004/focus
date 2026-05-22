@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -24,19 +26,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
           FocusHelpAction(
             title: 'Ayuda de historial',
             message:
-                'Aqui revisas pomodoros pasados y filtras por materia cuando quieres ver progreso real.',
+                'Aquí revisas pomodoros pasados y filtras por materia cuando quieres ver progreso real.',
             sections: [
               FocusHelpSection(
                 title: 'Como leerlo',
                 items: [
                   'Buscar y filtrar sirven para encontrar sesiones sin saturar la lista.',
-                  'Cada fila muestra materia, fecha y duracion de la sesion.',
+                  'Cada fila muestra materia, fecha y duración de la sesión.',
                 ],
               ),
               FocusHelpSection(
                 title: 'Gestion',
                 items: [
-                  'Si deslizas una sesion, la eliminas del historial local.',
+                  'Si deslizas una sesión, la eliminas del historial local.',
                 ],
               ),
             ],
@@ -89,9 +91,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               Expanded(
                 child: filteredSessions.isEmpty
-                    ? const Center(
-                        child: Text(
-                            'No hay sesiones que coincidan con el filtro.'))
+                    ? Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: FocusProfileEmptyState(
+                          icon: Icons.timer_rounded,
+                          title: provider.pomodoros.isEmpty
+                              ? 'Sin sesiones'
+                              : 'Sin resultados',
+                          message: provider.pomodoros.isEmpty
+                              ? 'Completa un Pomodoro para ver tu historial.'
+                              : 'Prueba otro filtro.',
+                        ),
+                      )
                     : ListView.builder(
                         itemCount: filteredSessions.length,
                         itemBuilder: (context, index) {
@@ -100,7 +111,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           return Dismissible(
                             key: ValueKey(session.id),
                             background: Container(
-                              color: Colors.red,
+                              color: FocusPalette.danger,
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 20),
                               child:

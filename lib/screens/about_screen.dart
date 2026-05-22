@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/app_links.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_feedback.dart';
 
 class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
@@ -12,8 +13,11 @@ class AboutScreen extends StatelessWidget {
   Future<void> _copyLink(BuildContext context) async {
     await Clipboard.setData(const ClipboardData(text: AppLinks.appDownload));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Link de descarga copiado.')),
+    showFocusFeedback(
+      context,
+      message: 'Link de descarga copiado.',
+      type: FocusFeedbackType.info,
+      icon: Icons.link_rounded,
     );
   }
 
@@ -280,4 +284,3 @@ class AboutScreen extends StatelessWidget {
     );
   }
 }
-

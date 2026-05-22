@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -82,9 +82,10 @@ class _ScheduleBoardState extends State<ScheduleBoard> {
             showPdfButton: false,
             child: const Padding(
               padding: EdgeInsets.all(24),
-              child: Center(
-                  child:
-                      Text('Todavía no hay horarios cargados en esta vista.')),
+              child: FocusInlineState(
+                icon: Icons.schedule_rounded,
+                text: 'Agrega horarios para ver esta vista.',
+              ),
             ),
           );
         }
@@ -166,21 +167,11 @@ class _ScheduleBoardState extends State<ScheduleBoard> {
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: daySchedules.isEmpty
-                      ? Container(
+                      ? FocusInlineState(
                           key: ValueKey('empty-$_selectedDay'),
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            color: Theme.of(context)
-                                .colorScheme
-                                .surfaceContainerHighest
-                                .withValues(alpha: 0.35),
-                          ),
-                          child: Text(
-                            'No hay clases cargadas para ${weekdayLabel(_selectedDay)}.',
-                            textAlign: TextAlign.center,
-                          ),
+                          icon: Icons.event_busy_rounded,
+                          text:
+                              'Sin clases para ${weekdayLabel(_selectedDay)}.',
                         )
                       : Column(
                           key: ValueKey('day-$_selectedDay'),

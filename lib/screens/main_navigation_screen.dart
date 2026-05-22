@@ -136,21 +136,21 @@ class _SubjectsHelpAction extends StatelessWidget {
     return const FocusHelpAction(
       title: 'Ayuda de materias',
       message:
-          'Aqui organizas tus clases y dejas lista la base para horarios, examenes y tareas.',
+          'Aquí organizas tus clases y dejas lista la base para horarios, exámenes y tareas.',
       sections: [
         FocusHelpSection(
-          title: 'Que guardar',
+          title: 'Qué guardar',
           items: [
             'Con el nombre ya puedes crear una materia.',
-            'Aula, profesor, seccion y color son opcionales y sirven para ordenar mejor.',
-            'Puedes agregar el horario al crearla o hacerlo despues.',
+            'Aula, profesor, sección y color son opcionales y sirven para ordenar mejor.',
+            'Puedes agregar el horario al crearla o hacerlo después.',
           ],
         ),
         FocusHelpSection(
           title: 'Consejos',
           items: [
-            'Mantener pocas materias bien cargadas hace que el dashboard y el calendario se vean mas claros.',
-            'Si eliminas una materia, sus horarios se borran y examenes, tareas y recursos quedan sin vinculo.',
+            'Mantener pocas materias bien cargadas hace que el dashboard y el calendario se vean más claros.',
+            'Si eliminas una materia, sus horarios se borran y exámenes, tareas y recursos quedan sin vínculo.',
           ],
         ),
       ],
@@ -164,23 +164,23 @@ class _HabitsHelpAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const FocusHelpAction(
-      title: 'Ayuda de habitos',
+      title: 'Ayuda de hábitos',
       message:
-          'La idea aqui es repetir pocas acciones claras para construir constancia sin sobrecargarte.',
+          'La idea aquí es repetir pocas acciones claras para construir constancia sin sobrecargarte.',
       sections: [
         FocusHelpSection(
-          title: 'Como usarlo',
+          title: 'Cómo usarlo',
           items: [
-            'Puedes tener hasta 8 habitos activos.',
-            'Cada habito se marca una vez por dia para proteger rachas y puntos.',
-            'La identidad asociada sirve para que el habito tenga una razon mas clara.',
+            'Puedes tener hasta 8 hábitos activos.',
+            'Cada hábito se marca una vez por día para proteger rachas y puntos.',
+            'La identidad asociada sirve para que el hábito tenga una razón más clara.',
           ],
         ),
         FocusHelpSection(
           title: 'Ranking',
           items: [
-            'Los habitos tambien pueden sumar puntos al ranking global con limites diarios y reglas anti abuso.',
-            'Crea habitos desde el bloque de la propia pantalla para no cargar la barra superior.',
+            'Los hábitos también pueden sumar puntos al ranking global con límites diarios y reglas anti abuso.',
+            'Crea hábitos desde el bloque de la propia pantalla para no cargar la barra superior.',
           ],
         ),
       ],
@@ -199,27 +199,27 @@ class _PomodoroHelpAction extends StatelessWidget {
           'Usa Pomodoro para trabajar en bloques cortos, registrar puntos y proteger tu enfoque.',
       sections: [
         FocusHelpSection(
-          title: 'Como usarlo',
+          title: 'Cómo usarlo',
           items: [
-            'Elige una materia si quieres asociar la sesion a una clase.',
+            'Elige una materia si quieres asociar la sesión a una clase.',
             'Pulsa iniciar para comenzar el bloque y pausa solo si necesitas cortar el ritmo.',
-            'Los descansos sirven para recuperar energia antes del siguiente bloque.',
+            'Los descansos sirven para recuperar energía antes del siguiente bloque.',
           ],
         ),
         FocusHelpSection(
           title: 'Puntos y ranking',
           items: [
-            'Los puntos se otorgan al completar bloques de enfoque validos.',
-            'Hay limites diarios para evitar puntos inflados.',
-            'Si no iniciaste sesion, el temporizador funciona igual, pero el ranking no se sincroniza.',
+            'Los puntos se otorgan al completar bloques de enfoque válidos.',
+            'Hay límites diarios para evitar puntos inflados.',
+            'Si no iniciaste sesión, el temporizador funciona igual, pero el ranking no se sincroniza.',
           ],
         ),
         FocusHelpSection(
-          title: 'Configuracion',
+          title: 'Configuración',
           items: [
-            'Puedes ajustar duracion, sonido y descanso automatico desde la tarjeta de configuracion.',
+            'Puedes ajustar duración, sonido y descanso automático desde la tarjeta de configuración.',
             'El bloqueo de apps ayuda a reducir distracciones durante el enfoque.',
-            'El modo horizontal deja una vista mas limpia para usar el celular como temporizador.',
+            'El modo horizontal deja una vista más limpia para usar el celular como temporizador.',
           ],
         ),
       ],
@@ -233,9 +233,9 @@ class _SettingsHelpAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const FocusHelpAction(
-      title: 'Ayuda de configuracion',
+      title: 'Ayuda de configuración',
       message:
-          'Aqui ajustas la app, tu cuenta y tus copias de seguridad. La ayuda concentra lo secundario para que la pantalla siga limpia.',
+          'Aquí ajustas la app, tu cuenta y tus copias de seguridad. La ayuda concentra lo secundario para que la pantalla siga limpia.',
       sections: [
         FocusHelpSection(
           title: 'Lo principal',

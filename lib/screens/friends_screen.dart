@@ -20,6 +20,7 @@ import '../utils/profile_icon_access.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
+import '../widgets/focus_feedback.dart';
 import '../widgets/focus_help_button.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_metric_icon.dart';
@@ -113,8 +114,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
   Future<void> _copyFriendCode(String code) async {
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Código $code copiado.')),
+    showFocusFeedback(
+      context,
+      message: 'Código $code copiado.',
+      icon: Icons.copy_rounded,
     );
   }
 
@@ -142,10 +145,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
           FocusHelpAction(
             title: 'Ayuda de perfil',
             message:
-                'Desde aqui editas tu perfil publico y gestionas amigos sin cargar la pantalla con explicaciones largas.',
+                'Desde aquí editas tu perfil público y gestionas amigos sin cargar la pantalla con explicaciones largas.',
             sections: [
               FocusHelpSection(
-                title: 'Perfil publico',
+                title: 'Perfil público',
                 items: [
                   'Tu nombre y carrera son los datos que otros pueden ver en funciones sociales.',
                   'Puedes cambiar personaje y color de fondo desde el editor del perfil.',
@@ -154,9 +157,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
               FocusHelpSection(
                 title: 'Amigos',
                 items: [
-                  'Tu codigo sirve para que te agreguen rapido.',
+                  'Tu código sirve para que te agreguen rápido.',
                   'Buscar te permite enviar solicitudes y compartir facilita invitar fuera de la app.',
-                  'El ranking entre amigos toma tu perfil publico, no la informacion privada de tu cuenta.',
+                  'El ranking entre amigos toma tu perfil público, no la información privada de tu cuenta.',
                 ],
               ),
             ],
@@ -170,7 +173,9 @@ class _FriendsScreenState extends State<FriendsScreen> {
               builder: (context, profileSnapshot) {
                 if (profileSnapshot.connectionState ==
                     ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const FocusSkeletonList(
+                    heights: [210, 118, 96, 132],
+                  );
                 }
                 if (profileSnapshot.hasError) {
                   return _ErrorPanel(
@@ -351,7 +356,11 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(RankingService.friendlyRankingError(error)),
+          content: FocusActionSnackContent(
+            icon: Icons.error_outline_rounded,
+            message: RankingService.friendlyRankingError(error),
+            color: FocusPalette.danger,
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -365,12 +374,26 @@ class _FriendsScreenState extends State<FriendsScreen> {
       if (!mounted) return;
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${friend.name} salió de tu círculo.')),
+        SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.person_remove_rounded,
+            message: '${friend.name} salió de tu círculo.',
+            color: FocusPalette.amber,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+        SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.error_outline_rounded,
+            message: RankingService.friendlyRankingError(error),
+            color: FocusPalette.danger,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -476,60 +499,14 @@ class _CenteredState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(22),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            color: Theme.of(context).cardColor,
-            border:
-                Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: accent.withValues(alpha: 0.10),
-                ),
-                child: Icon(icon, size: 30, color: accent),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: FocusPalette.muted,
-                      height: 1.35,
-                    ),
-              ),
-              const SizedBox(height: 18),
-              action,
-            ],
-          ),
+        child: FocusProfileEmptyState(
+          icon: icon,
+          title: title,
+          message: message,
+          action: action,
         ),
       ),
     );
@@ -1038,7 +1015,14 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       if (!mounted) return;
       setState(() => _themeIndex = previousThemeIndex);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+        SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.palette_outlined,
+            message: RankingService.friendlyRankingError(error),
+            color: FocusPalette.danger,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -1242,7 +1226,14 @@ class _ShareProfileSheetState extends State<_ShareProfileSheet> {
     );
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invitación copiada.')),
+      const SnackBar(
+        content: FocusActionSnackContent(
+          icon: Icons.ios_share_rounded,
+          message: 'Invitación copiada.',
+          color: FocusPalette.mint,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -4453,7 +4444,14 @@ Future<void> _confirmRemoveStreak(
   } catch (error) {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      SnackBar(
+        content: FocusActionSnackContent(
+          icon: Icons.error_outline_rounded,
+          message: RankingService.friendlyRankingError(error),
+          color: FocusPalette.danger,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

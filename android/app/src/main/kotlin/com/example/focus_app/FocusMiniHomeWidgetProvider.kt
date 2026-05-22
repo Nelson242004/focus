@@ -30,6 +30,20 @@ class FocusMiniHomeWidgetProvider : AppWidgetProvider() {
         )
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: android.os.Bundle,
+    ) {
+        super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
+        FocusHomeWidgetUpdater.updateWidgets(
+            context,
+            appWidgetManager,
+            intArrayOf(appWidgetId),
+        )
+    }
+
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         refreshAll(context)

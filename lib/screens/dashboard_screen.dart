@@ -88,6 +88,7 @@ class _FocusHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final remaining =
         (provider.nextLevelTarget - provider.gamifiedPoints).clamp(0, 999999);
+    final isMaxLevel = provider.level >= AppProvider.maxLevel;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: provider.levelProgress),
@@ -119,45 +120,58 @@ class _FocusHero extends StatelessWidget {
                 level: provider.level,
                 progress: value.clamp(0, 1),
               ),
-              const SizedBox(width: 18),
+              const SizedBox(width: 20),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _DashboardGreeting(provider: provider),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Progreso Focus',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Nivel ${provider.level}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 31,
+                        fontSize: 34,
                         fontWeight: FontWeight.w900,
                         height: 1.02,
+                        letterSpacing: -0.8,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '$remaining pts para subir',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      isMaxLevel
+                          ? 'Llegaste al nivel máximo.'
+                          : '$remaining pts para subir de nivel',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.74),
                         fontWeight: FontWeight.w700,
+                        height: 1.22,
                       ),
-                    ),
-                    FocusGap.md,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _HeroChip(
-                          metricIcon: FocusMetricIconKind.points,
-                          label: '${provider.gamifiedPoints} pts',
-                        ),
-                        _HeroChip(
-                          metricIcon: FocusMetricIconKind.streak,
-                          label: '${provider.currentStreak} días',
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -202,48 +216,12 @@ class _GreetingText extends StatelessWidget {
   Widget build(BuildContext context) {
     final greeting = name.isEmpty ? 'Hola, vamos con todo' : 'Hola, $name';
     return Text(
-      '👋 $greeting',
+      greeting,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
         color: Colors.white70,
         fontWeight: FontWeight.w800,
-      ),
-    );
-  }
-}
-
-class _HeroChip extends StatelessWidget {
-  final FocusMetricIconKind metricIcon;
-  final String label;
-
-  const _HeroChip({
-    required this.metricIcon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FocusMetricIcon(kind: metricIcon, size: 16, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -316,36 +294,61 @@ class _NextEventsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final nextClass = provider.nextScheduleEntry;
     final nextExam = provider.nextUpcomingExam;
-    return _SurfaceCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const _SectionHeader(
-            title: 'Próximo',
-            subtitle: '',
-            icon: Icons.bolt_rounded,
-          ),
-          const SizedBox(height: 16),
-          _EventTile(
-            icon: Icons.event_available_rounded,
-            color: FocusPalette.cyan,
-            title: nextClass == null ? 'Sin clase' : nextClass.subject.name,
-            detail: nextClass == null
-                ? 'Agrega horarios'
-                : '${_relativeDayLabel(nextClass.startsAt)} · ${nextClass.schedule.startTime} · Aula ${_classroom(nextClass.schedule)}',
-          ),
-          const SizedBox(height: 12),
-          _EventTile(
-            icon: Icons.assignment_late_rounded,
-            color: FocusPalette.amber,
-            title: nextExam == null
-                ? 'Sin examen'
-                : provider.subjectNameForExam(nextExam),
-            detail:
-                nextExam == null ? 'Agrega exámenes' : _examDetail(nextExam),
-          ),
-        ],
-      ),
+    final nextClassDetail = nextClass == null
+        ? 'Agrega horarios'
+        : '${_relativeDayLabel(nextClass.startsAt)} ? ${nextClass.schedule.startTime} ? Aula ${_classroom(nextClass.schedule)}';
+    final nextExamDetail =
+        nextExam == null ? 'Agrega ex?menes' : _examDetail(nextExam);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader(
+          title: 'Pr?ximo',
+          subtitle: 'Clase y examen m?s cercanos',
+          icon: Icons.bolt_rounded,
+        ),
+        FocusGap.sm,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 560;
+            final classCard = _EventCard(
+              icon: Icons.event_available_rounded,
+              color: FocusPalette.cyan,
+              eyebrow: 'Clase',
+              title: nextClass == null
+                  ? 'Sin clase cercana'
+                  : nextClass.subject.name,
+              detail: nextClassDetail,
+            );
+            final examCard = _EventCard(
+              icon: Icons.assignment_late_rounded,
+              color: FocusPalette.amber,
+              eyebrow: 'Examen',
+              title: nextExam == null
+                  ? 'Sin examen cercano'
+                  : provider.subjectNameForExam(nextExam),
+              detail: nextExamDetail,
+            );
+            if (compact) {
+              return Column(
+                children: [
+                  classCard,
+                  const SizedBox(height: 10),
+                  examCard,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: classCard),
+                const SizedBox(width: 10),
+                Expanded(child: examCard),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -356,42 +359,42 @@ class _NextEventsCard extends StatelessWidget {
       if (exam.startTime.trim().isNotEmpty) exam.startTime.trim(),
       if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom.trim()}',
     ];
-    return parts.join(' · ');
+    return parts.join(' ? ');
   }
 }
 
-class _EventTile extends StatelessWidget {
+class _EventCard extends StatelessWidget {
   final IconData icon;
   final Color color;
+  final String eyebrow;
   final String title;
   final String detail;
 
-  const _EventTile({
+  const _EventCard({
     required this.icon,
     required this.color,
+    required this.eyebrow,
     required this.title,
     required this.detail,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: FocusInsets.card,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        border: Border.all(color: color.withValues(alpha: 0.18)),
-      ),
+    return FocusSurfaceCard(
+      padding: FocusInsets.cardRelaxed,
+      radius: FocusRadii.card,
+      accent: color,
+      elevated: false,
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 50,
+            height: 50,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(FocusRadii.control),
+              color: color.withValues(alpha: 0.13),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(icon, color: color),
+            child: Icon(icon, color: color, size: 25),
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -399,20 +402,33 @@ class _EventTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  maxLines: 2,
+                  eyebrow,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
                     fontWeight: FontWeight.w900,
-                    fontSize: 17,
+                    letterSpacing: 0.4,
                   ),
                 ),
-                const SizedBox(height: 5),
+                const SizedBox(height: 4),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   detail,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                 ),
               ],
             ),
@@ -430,119 +446,132 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.of(context).size.width < 410;
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: compact ? 2 : 4,
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: compact ? 1.55 : 1.35,
-      children: [
-        _MetricCard(
-          metricIcon: FocusMetricIconKind.points,
-          value: '${provider.gamifiedPoints}',
-          label: 'Puntos',
-          color: FocusPalette.primary,
-        ),
-        _MetricCard(
-          metricIcon: FocusMetricIconKind.streak,
-          value: '${provider.currentStreak}',
-          label: 'Racha',
-          color: FocusPalette.amber,
-        ),
-        _MetricCard(
-          icon: Icons.schedule_rounded,
-          value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
-          label: 'Semana',
-          color: FocusPalette.mint,
-        ),
-        _MetricCard(
-          icon: Icons.emoji_events_rounded,
-          value: '${provider.unlockedAchievementCount}',
-          label: 'Logros',
-          color: FocusPalette.teal,
-        ),
-      ],
+    final metrics = [
+      _MetricData(
+        metricIcon: FocusMetricIconKind.points,
+        value: '${provider.gamifiedPoints}',
+        label: 'Puntos',
+        color: FocusPalette.primary,
+      ),
+      _MetricData(
+        metricIcon: FocusMetricIconKind.streak,
+        value: '${provider.currentStreak}',
+        label: 'Racha',
+        color: FocusPalette.amber,
+      ),
+      _MetricData(
+        icon: Icons.schedule_rounded,
+        value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
+        label: 'Semana',
+        color: FocusPalette.mint,
+      ),
+      _MetricData(
+        icon: Icons.emoji_events_rounded,
+        value: '${provider.unlockedAchievementCount}',
+        label: 'Logros',
+        color: FocusPalette.teal,
+      ),
+    ];
+
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.all(12),
+      radius: FocusRadii.card,
+      elevated: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final columns = constraints.maxWidth < 380 ? 2 : 4;
+          return GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: metrics.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              childAspectRatio: columns == 2 ? 2.45 : 1.65,
+            ),
+            itemBuilder: (context, index) => _MetricCard(data: metrics[index]),
+          );
+        },
+      ),
     );
   }
 }
 
 class _MetricCard extends StatelessWidget {
+  final _MetricData data;
+
+  const _MetricCard({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: data.color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: data.color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (data.metricIcon != null)
+            FocusMetricIcon(
+              kind: data.metricIcon!,
+              size: 22,
+              color: data.color,
+            )
+          else
+            Icon(data.icon, color: data.color, size: 22),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  data.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  data.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MetricData {
   final IconData? icon;
   final FocusMetricIconKind? metricIcon;
   final String value;
   final String label;
   final Color color;
 
-  const _MetricCard({
+  const _MetricData({
     this.icon,
     this.metricIcon,
     required this.value,
     required this.label,
     required this.color,
   });
-
-  @override
-  Widget build(BuildContext context) {
-    return FocusSurfaceCard(
-      padding: FocusInsets.card,
-      radius: FocusRadii.card,
-      accent: color,
-      elevated: false,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(FocusRadii.card),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (metricIcon != null)
-              FocusMetricIcon(kind: metricIcon!, size: 24, color: color)
-            else
-              Icon(icon, color: color, size: 22),
-            const SizedBox(width: 9),
-            Flexible(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SurfaceCard extends StatelessWidget {
-  final Widget child;
-
-  const _SurfaceCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return FocusSurfaceCard(child: child);
-  }
 }
 
 class _SectionHeader extends StatelessWidget {

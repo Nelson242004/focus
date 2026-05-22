@@ -43,10 +43,10 @@ class AchievementsScreen extends StatelessWidget {
                   FocusHelpSection(
                     title: 'Puntos y niveles',
                     items: [
-                      'Pomodoros, habitos y logros desbloqueados suman puntos.',
+                      'Pomodoros, hábitos y logros desbloqueados suman puntos.',
                       'Los niveles suben por tramos y muestran cuanto te falta para el siguiente.',
-                      'Cada pomodoro completado suma puntos por bloque de enfoque valido.',
-                      'Pomodoro sin distracciones y habitos completados pueden sumar puntos extra.',
+                      'Cada pomodoro completado suma puntos por bloque de enfoque válido.',
+                      'Pomodoro sin distracciones y hábitos completados pueden sumar puntos extra.',
                       'Los logros suman puntos una sola vez al desbloquearse.',
                       'El progreso maximo llega hasta el nivel 5.',
                     ],

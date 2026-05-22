@@ -8,7 +8,6 @@ import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
-import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
 
@@ -30,7 +29,6 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   int _selectedDay = 0;
   String _startTime = '08:00';
   String _endTime = '09:00';
-  int _selectedView = 0;
 
   @override
   void dispose() {
@@ -244,15 +242,24 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                 if (subject == null && _addInitialSchedule) {
                   if (!isValidTime(_startTime) || !isValidTime(_endTime)) {
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('Usa formato HH:MM.')),
+                      const SnackBar(
+                        content: FocusActionSnackContent(
+                          icon: Icons.access_time_rounded,
+                          message: 'Usa formato HH:MM.',
+                          color: FocusPalette.amber,
+                        ),
+                      ),
                     );
                     return;
                   }
                   if (timeToMinutes(_endTime) <= timeToMinutes(_startTime)) {
                     messenger.showSnackBar(
                       const SnackBar(
-                        content: Text(
-                          'La hora de fin debe ser mayor que la de inicio.',
+                        content: FocusActionSnackContent(
+                          icon: Icons.warning_amber_rounded,
+                          message:
+                              'La hora de fin debe ser mayor que la de inicio.',
+                          color: FocusPalette.amber,
                         ),
                       ),
                     );
@@ -302,17 +309,27 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
                   Navigator.of(dialogContext).pop();
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                        subject == null
+                      content: FocusActionSnackContent(
+                        icon: subject == null
+                            ? Icons.menu_book_rounded
+                            : Icons.check_circle_rounded,
+                        message: subject == null
                             ? 'Materia guardada.'
                             : 'Materia actualizada.',
+                        color: FocusPalette.mint,
                       ),
                     ),
                   );
                 } catch (error) {
                   if (!mounted) return;
                   messenger.showSnackBar(
-                    SnackBar(content: Text(_friendlyError(error))),
+                    SnackBar(
+                      content: FocusActionSnackContent(
+                        icon: Icons.error_outline_rounded,
+                        message: _friendlyError(error),
+                        color: FocusPalette.danger,
+                      ),
+                    ),
                   );
                 }
               },
@@ -376,7 +393,13 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
       await provider.deleteSubject(subject.id!);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Materia eliminada.')),
+        const SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.delete_rounded,
+            message: 'Materia eliminada.',
+            color: FocusPalette.danger,
+          ),
+        ),
       );
     }
   }
@@ -397,62 +420,17 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
             return ListView(
               padding: const EdgeInsets.only(bottom: 108),
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment<int>(
-                        value: 0,
-                        icon: Icon(Icons.calendar_month_rounded),
-                        label: Text('Horario'),
-                      ),
-                      ButtonSegment<int>(
-                        value: 1,
-                        icon: Icon(Icons.menu_book_rounded),
-                        label: Text('Materias'),
-                      ),
-                    ],
-                    selected: {_selectedView},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (value) {
-                      setState(() => _selectedView = value.first);
-                    },
-                  ),
+                _SubjectsPanel(
+                  provider: provider,
+                  subjects: subjects,
+                  onEdit: (subject) => _showSubjectDialog(subject: subject),
+                  onDelete: _deleteSubject,
                 ),
-                if (_selectedView == 0) ...[
-                  const ScheduleBoard(
-                    title: 'Horario semanal',
-                    visibleDays: [0, 1, 2, 3, 4, 5],
-                  ),
-                  if (subjects.isEmpty)
-                    Padding(
-                      padding: FocusInsets.pageCompact,
-                      child: FocusProfileEmptyState(
-                        icon: Icons.menu_book_rounded,
-                        accent: const Color(0xFF0EA5E9),
-                        title: 'Carga tu primera materia',
-                        message: 'Empieza con el nombre y suma detalles luego.',
-                        action: FilledButton.icon(
-                          onPressed: () => _showSubjectDialog(),
-                          icon: const Icon(Icons.add_rounded),
-                          label: const Text('Agregar materia'),
-                        ),
-                      ),
-                    ),
-                ] else
-                  _SubjectsPanel(
-                    provider: provider,
-                    subjects: subjects,
-                    onAdd: () => _showSubjectDialog(),
-                    onEdit: (subject) => _showSubjectDialog(subject: subject),
-                    onDelete: _deleteSubject,
-                  ),
               ],
             );
           },
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add-subject',
         elevation: 8,
@@ -467,14 +445,12 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
 class _SubjectsPanel extends StatelessWidget {
   final AppProvider provider;
   final List<Subject> subjects;
-  final VoidCallback onAdd;
   final ValueChanged<Subject> onEdit;
   final ValueChanged<Subject> onDelete;
 
   const _SubjectsPanel({
     required this.provider,
     required this.subjects,
-    required this.onAdd,
     required this.onEdit,
     required this.onDelete,
   });
@@ -489,11 +465,6 @@ class _SubjectsPanel extends StatelessWidget {
           accent: const Color(0xFF0EA5E9),
           title: 'Carga tu primera materia',
           message: 'Empieza con el nombre y suma detalles luego.',
-          action: FilledButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Agregar materia'),
-          ),
         ),
       );
     }
@@ -628,87 +599,118 @@ class _SubjectCard extends StatelessWidget {
                       ],
                     ),
                     FocusGap.sm,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (subject.professorName?.trim().isNotEmpty == true)
-                          _SubjectInfoChip(
-                            icon: Icons.person_rounded,
-                            label: 'Prof. ${subject.professorName!.trim()}',
-                          ),
-                        if (subject.defaultClassroom?.trim().isNotEmpty == true)
-                          _SubjectInfoChip(
-                            icon: Icons.meeting_room_rounded,
-                            label: 'Aula ${subject.defaultClassroom!.trim()}',
-                          ),
-                        if (subject.sectionCode?.trim().isNotEmpty == true)
-                          _SubjectInfoChip(
-                            icon: Icons.groups_rounded,
-                            label: 'Sección ${subject.sectionCode!.trim()}',
-                          ),
-                      ],
+                    _SubjectSummaryLine(
+                      schedules: subjectSchedules.length,
+                      exams: subjectExams.length,
+                      tasks: taskCount,
+                      resources: resourceCount,
                     ),
-                    FocusGap.md,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _SubjectInfoChip(
-                          icon: Icons.schedule_rounded,
-                          label: '${subjectSchedules.length} bloques',
-                        ),
-                        _SubjectInfoChip(
-                          icon: Icons.assignment_rounded,
-                          label: '${subjectExams.length} exámenes',
-                        ),
-                        _SubjectInfoChip(
-                          icon: Icons.task_alt_rounded,
-                          label: '$taskCount tareas',
-                        ),
-                        _SubjectInfoChip(
-                          icon: Icons.link_rounded,
-                          label: '$resourceCount recursos',
-                        ),
-                      ],
-                    ),
-                    if (subjectSchedules.isNotEmpty) ...[
-                      FocusGap.md,
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(FocusSpacing.md),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                              BorderRadius.circular(FocusRadii.control),
-                          color: accent.withValues(alpha: 0.08),
-                          border: Border.all(
-                            color: accent.withValues(alpha: 0.14),
-                          ),
-                        ),
-                        child: Text(
-                          'Próximo bloque: ${weekdayLabel(subjectSchedules.first.dayOfWeek)} · ${subjectSchedules.first.startTime} a ${subjectSchedules.first.endTime}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
+                    FocusGap.sm,
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        dividerColor: Colors.transparent,
                       ),
-                    ],
-                    FocusGap.md,
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => SubjectScheduleScreen(
-                                subject: subject,
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.tune_rounded, color: accent),
+                        title: const Text(
+                          'Detalles',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                        subtitle: const Text('Horarios y datos asociados'),
+                        children: [
+                          const SizedBox(height: FocusSpacing.sm),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (subject.professorName?.trim().isNotEmpty ==
+                                    true)
+                                  _SubjectInfoChip(
+                                    icon: Icons.person_rounded,
+                                    label:
+                                        'Prof. ${subject.professorName!.trim()}',
+                                  ),
+                                if (subject.defaultClassroom
+                                        ?.trim()
+                                        .isNotEmpty ==
+                                    true)
+                                  _SubjectInfoChip(
+                                    icon: Icons.meeting_room_rounded,
+                                    label:
+                                        'Aula ${subject.defaultClassroom!.trim()}',
+                                  ),
+                                if (subject.sectionCode?.trim().isNotEmpty ==
+                                    true)
+                                  _SubjectInfoChip(
+                                    icon: Icons.groups_rounded,
+                                    label:
+                                        'Sección ${subject.sectionCode!.trim()}',
+                                  ),
+                                _SubjectInfoChip(
+                                  icon: Icons.schedule_rounded,
+                                  label: '${subjectSchedules.length} bloques',
+                                ),
+                                _SubjectInfoChip(
+                                  icon: Icons.assignment_rounded,
+                                  label: '${subjectExams.length} exámenes',
+                                ),
+                                _SubjectInfoChip(
+                                  icon: Icons.task_alt_rounded,
+                                  label: '$taskCount tareas',
+                                ),
+                                _SubjectInfoChip(
+                                  icon: Icons.link_rounded,
+                                  label: '$resourceCount recursos',
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (subjectSchedules.isNotEmpty) ...[
+                            FocusGap.md,
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(FocusSpacing.md),
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                    BorderRadius.circular(FocusRadii.control),
+                                color: accent.withValues(alpha: 0.08),
+                                border: Border.all(
+                                  color: accent.withValues(alpha: 0.14),
+                                ),
+                              ),
+                              child: Text(
+                                'Próximo bloque: ${weekdayLabel(subjectSchedules.first.dayOfWeek)} · ${subjectSchedules.first.startTime} a ${subjectSchedules.first.endTime}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          );
-                        },
-                        icon: const Icon(Icons.calendar_month_rounded),
-                        label: const Text('Horarios'),
+                          ],
+                          FocusGap.md,
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.tonalIcon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SubjectScheduleScreen(
+                                      subject: subject,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.calendar_month_rounded),
+                              label: const Text('Horarios'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -718,6 +720,34 @@ class _SubjectCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SubjectSummaryLine extends StatelessWidget {
+  final int schedules;
+  final int exams;
+  final int tasks;
+  final int resources;
+
+  const _SubjectSummaryLine({
+    required this.schedules,
+    required this.exams,
+    required this.tasks,
+    required this.resources,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.bodySmall?.copyWith(
+          fontWeight: FontWeight.w800,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        );
+    return Text(
+      '$schedules horarios · $exams exámenes · $tasks tareas · $resources recursos',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: style,
     );
   }
 }

@@ -195,17 +195,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!mounted) return;
     final provider = Provider.of<AppProvider>(context, listen: false);
     _mode = _normalizeMode(prefs.getString(_modeKey));
-    _selectedSubject = prefs.getString(_subjectKey) ?? _selectedSubject;
+    _selectedSubject = prefs.getString(_subjectKey) ??? _selectedSubject;
     if (_activeSubjectName(provider) == 'General') {
       _selectedSubject = '';
     }
-    _completedFocusSessions = prefs.getInt(_cycleCountKey) ?? 0;
-    _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ?? 0)
+    _completedFocusSessions = prefs.getInt(_cycleCountKey) ??? 0;
+    _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ??? 0)
         .clamp(0, _horizontalThemes.length - 1)
         .toInt();
     _remainingSeconds =
-        prefs.getInt(_remainingKey) ?? _totalSecondsForMode(provider);
-    final wasRunning = prefs.getBool(_runningKey) ?? false;
+        prefs.getInt(_remainingKey) ??? _totalSecondsForMode(provider);
+    final wasRunning = prefs.getBool(_runningKey) ??? false;
     final endAtMillis = prefs.getInt(_endAtKey);
     if (wasRunning && endAtMillis != null) {
       final now = DateTime.now();
@@ -691,9 +691,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Activa Accesibilidad, superposición y acceso de uso.',
+            content: FocusActionSnackContent(
+              icon: Icons.lock_open_rounded,
+              message: 'Activa Accesibilidad, superposición y acceso de uso.',
+              color: FocusPalette.amber,
             ),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -713,9 +716,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                'Modo Enfoque Total no pudo iniciarse. El Pomodoro seguirá funcionando normal.',
+              content: FocusActionSnackContent(
+                icon: Icons.shield_outlined,
+                message:
+                    'Modo Enfoque Total no pudo iniciarse. El Pomodoro sigue normal.',
+                color: FocusPalette.amber,
               ),
+              behavior: SnackBarBehavior.floating,
             ),
           );
         }
@@ -729,9 +736,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'El bloqueo de distracciones falló al arrancar. La sesión de Pomodoro sigue activa.',
+            content: FocusActionSnackContent(
+              icon: Icons.warning_amber_rounded,
+              message:
+                  'El bloqueo falló al arrancar. La sesión de Pomodoro sigue activa.',
+              color: FocusPalette.amber,
             ),
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -806,8 +817,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ..hideCurrentSnackBar()
         ..showSnackBar(
           SnackBar(
-            content: Text('Bloqueo activo: $appName'),
+            content: FocusActionSnackContent(
+              icon: Icons.shield_rounded,
+              message: 'Bloqueo activo: $appName',
+              color: FocusPalette.amber,
+            ),
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
           ),
         );
     } finally {
@@ -892,7 +908,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final minutes = _remainingSeconds ~/ 60;
     final seconds = _remainingSeconds % 60;
     final progress =
-        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
+        totalSeconds == 0 ?? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final modeLabel = _mode == 'focus'
         ? 'Enfoque'
         : _mode == 'shortBreak'
@@ -1076,7 +1092,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themePalette = _themePalette();
     final progress =
-        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
+        totalSeconds == 0 ?? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final compact = MediaQuery.of(context).size.width < 390;
 
     return Container(
@@ -1140,39 +1156,61 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                     ],
                   ),
-                  FocusGap.md,
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      _ModePill(
-                        label: 'Enfoque',
-                        selected: _mode == 'focus',
-                        color: FocusPalette.primary,
-                        onTap: () => _changeMode('focus'),
-                      ),
-                      _ModePill(
-                        label: 'Descanso',
-                        selected: _mode == 'shortBreak',
-                        color: FocusPalette.mint,
-                        onTap: () => _changeMode('shortBreak'),
-                      ),
-                      _ModePill(
-                        label: 'Largo',
-                        selected: _mode == 'longBreak',
-                        color: FocusPalette.amber,
-                        onTap: () => _changeMode('longBreak'),
-                      ),
-                    ],
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    child: _isRunning
+                        ? _ActiveSessionStrip(
+                            subject: _selectedSubject.trim().isEmpty
+                                ? 'General'
+                                : _selectedSubject.trim(),
+                            blockedApps: _focusModeConfig.enabled
+                                ? _focusModeConfig.blockedApps.length
+                                : 0,
+                            shieldActive: _focusModeStatus.active,
+                            accent: themePalette.accent,
+                          )
+                        : Wrap(
+                            key: const ValueKey('mode-picker'),
+                            spacing: 10,
+                            runSpacing: 10,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              _ModePill(
+                                label: 'Enfoque',
+                                selected: _mode == 'focus',
+                                color: FocusPalette.primary,
+                                onTap: () => _changeMode('focus'),
+                              ),
+                              _ModePill(
+                                label: 'Descanso',
+                                selected: _mode == 'shortBreak',
+                                color: FocusPalette.mint,
+                                onTap: () => _changeMode('shortBreak'),
+                              ),
+                              _ModePill(
+                                label: 'Largo',
+                                selected: _mode == 'longBreak',
+                                color: FocusPalette.amber,
+                                onTap: () => _changeMode('longBreak'),
+                              ),
+                            ],
+                          ),
                   ),
                   FocusGap.lg,
                   FocusMicroPop(
                     trigger: 'pomodoro-timer-$_mode-$_isRunning',
-                    fromScale: _isRunning ? 0.97 : 0.99,
+                    fromScale: _isRunning ?? 0.97 : 0.99,
                     child: SizedBox(
-                      width: compact ? 230 : 268,
-                      height: compact ? 230 : 268,
+                      width: _isRunning
+                          ? (compact ? 258 : 308)
+                          : compact
+                              ? 230
+                              : 268,
+                      height: _isRunning
+                          ? (compact ? 258 : 308)
+                          : compact
+                              ? 230
+                              : 268,
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
@@ -1205,8 +1243,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             ),
                           ),
                           Container(
-                            width: compact ? 178 : 214,
-                            height: compact ? 178 : 214,
+                            width: _isRunning
+                                ? (compact ? 204 : 244)
+                                : compact
+                                    ? 178
+                                    : 214,
+                            height: _isRunning
+                                ? (compact ? 204 : 244)
+                                : compact
+                                    ? 178
+                                    : 214,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isDark
@@ -1223,7 +1269,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color: themePalette.accent.withValues(
-                                    alpha: isDark ? 0.18 : 0.08,
+                                    alpha: isDark ?? 0.18 : 0.08,
                                   ),
                                   blurRadius: isDark ? 30 : 20,
                                   offset: const Offset(0, 10),
@@ -1263,9 +1309,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  _mode == 'focus'
-                                      ? 'Tiempo restante'
-                                      : 'Cuenta regresiva',
+                                  _isRunning
+                                      ? 'Sesión activa'
+                                      : _mode == 'focus'
+                                          ? 'Tiempo restante'
+                                          : 'Cuenta regresiva',
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall
@@ -1286,7 +1334,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.lg,
-                  if (_mode == 'focus' && subjects.isNotEmpty) ...[
+                  if (!_isRunning &&
+                      _mode == 'focus' &&
+                      subjects.isNotEmpty) ...[
                     _subjectSelector(provider, subjects),
                     FocusGap.md,
                   ],
@@ -1327,63 +1377,68 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                     ),
                   ),
-                  FocusGap.sm,
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
+                  if (!_isRunning) ...[
+                    FocusGap.sm,
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
                           ),
+                          onPressed: _resetTimer,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Reiniciar'),
                         ),
-                        onPressed: _resetTimer,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Reiniciar'),
-                      ),
-                      FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
+                        FilledButton.tonalIcon(
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
                           ),
+                          onPressed: _toggleHorizontalFocusMode,
+                          icon:
+                              const Icon(Icons.stay_current_landscape_rounded),
+                          label: const Text('Horizontal'),
                         ),
-                        onPressed: _toggleHorizontalFocusMode,
-                        icon: const Icon(Icons.stay_current_landscape_rounded),
-                        label: const Text('Horizontal'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            FocusGap.md,
-            _glassCard(
-              context,
-              padding: FocusInsets.cardRelaxed,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FocusSectionHeader(
-                    icon: Icons.today_rounded,
-                    title: 'Sesiones de hoy',
-                    subtitle:
-                        'Se guardan automáticamente al completar el enfoque.',
-                    accent: themePalette.accent,
-                    action: IconButton(
-                      tooltip: 'Ajustes',
-                      onPressed: () => _showPomodoroSettingsSheet(provider),
-                      icon: const Icon(Icons.tune_rounded),
+                      ],
                     ),
-                  ),
-                  FocusGap.md,
-                  SizedBox(height: 250, child: _buildTodaySessions(provider)),
+                  ],
                 ],
               ),
             ),
+            if (!_isRunning) ...[
+              FocusGap.md,
+              _glassCard(
+                context,
+                padding: FocusInsets.cardRelaxed,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    FocusSectionHeader(
+                      icon: Icons.today_rounded,
+                      title: 'Sesiones de hoy',
+                      subtitle:
+                          'Se guardan automáticamente al completar el enfoque.',
+                      accent: themePalette.accent,
+                      action: IconButton(
+                        tooltip: 'Ajustes',
+                        onPressed: () => _showPomodoroSettingsSheet(provider),
+                        icon: const Icon(Icons.tune_rounded),
+                      ),
+                    ),
+                    FocusGap.md,
+                    SizedBox(height: 250, child: _buildTodaySessions(provider)),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1541,13 +1596,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       initialValue: subjects.any(
         (subject) => subject.name == _selectedSubject,
       )
-          ? _selectedSubject
+          ?? _selectedSubject
           : '',
       isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'Materia asociada',
         prefixIcon: Icon(Icons.menu_book_rounded),
-        helperText: 'Opcional. Se guarda en tus estadísticas del Pomodoro.',
       ),
       items: [
         const DropdownMenuItem(
@@ -1580,7 +1634,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final accent = FocusPalette.teal;
     final appsLabel = blockedApps.isEmpty
         ? 'Sin apps elegidas'
-        : '${blockedApps.length} app${blockedApps.length == 1 ? '' : 's'}';
+        : '${blockedApps.length} app${blockedApps.length == 1 ?? '' : 's'}';
 
     return Container(
       width: double.infinity,
@@ -1699,7 +1753,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               .withValues(alpha: 0.34),
         ),
         child: const Center(
-          child: Text('Todavía no hay sesiones registradas hoy.'),
+          child: Text('Sin sesiones hoy.'),
         ),
       );
     }
@@ -1760,6 +1814,57 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
         );
       },
+    );
+  }
+}
+
+class _ActiveSessionStrip extends StatelessWidget {
+  final String subject;
+  final int blockedApps;
+  final bool shieldActive;
+  final Color accent;
+
+  const _ActiveSessionStrip({
+    required this.subject,
+    required this.blockedApps,
+    required this.shieldActive,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('active-session'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color: accent.withValues(alpha: 0.10),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.menu_book_rounded, color: accent, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              subject,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FocusPill(
+            icon: shieldActive ? Icons.shield_rounded : Icons.shield_outlined,
+            label: blockedApps == 0 ? 'Sin bloqueo' : '$blockedApps apps',
+            color: shieldActive ? FocusPalette.teal : FocusPalette.muted,
+            selected: shieldActive,
+          ),
+        ],
+      ),
     );
   }
 }

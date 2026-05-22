@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
 class WeeklyScheduleScreen extends StatelessWidget {
@@ -27,7 +29,7 @@ class WeeklyScheduleScreen extends StatelessWidget {
           const FocusHelpAction(
             title: 'Ayuda de horario semanal',
             message:
-                'Esta vista junta tus bloques de lunes a viernes para que revises rapido la distribucion de clases.',
+                'Esta vista junta tus bloques de lunes a viernes para que revises rápido la distribución de clases.',
             sections: [
               FocusHelpSection(
                 title: 'Que muestra',
@@ -58,8 +60,17 @@ class WeeklyScheduleScreen extends StatelessWidget {
             });
 
           if (provider.subjects.isEmpty || schedules.isEmpty) {
-            return const Center(
-                child: Text('No hay horarios registrados de lunes a viernes.'));
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(
+                child: FocusProfileEmptyState(
+                  icon: Icons.schedule_rounded,
+                  accent: FocusPalette.teal,
+                  title: 'Sin horarios',
+                  message: 'Agrega una materia con horario para verla aquí.',
+                ),
+              ),
+            );
           }
 
           final slots = _buildTimeSlots(schedules);
@@ -75,7 +86,8 @@ class WeeklyScheduleScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                    'Vista semanal de lunes a viernes con todos los bloques registrados.'),
+                  'Lunes a viernes.',
+                ),
                 const SizedBox(height: 16),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

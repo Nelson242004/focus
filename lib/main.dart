@@ -96,6 +96,15 @@ class MyApp extends StatelessWidget {
             ),
             drawerTheme:
                 const DrawerThemeData(backgroundColor: Colors.transparent),
+            bottomSheetTheme: const BottomSheetThemeData(
+              backgroundColor: FocusPalette.card,
+              surfaceTintColor: Colors.transparent,
+              showDragHandle: true,
+              dragHandleColor: FocusPalette.border,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+            ),
             cardTheme: CardThemeData(
               elevation: 2,
               shadowColor: Color(0x120F172A),
@@ -167,6 +176,67 @@ class MyApp extends StatelessWidget {
                 foregroundColor: accent,
                 textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
+            ),
+            iconButtonTheme: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                foregroundColor: FocusPalette.ink,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                highlightColor: accent.withValues(alpha: 0.10),
+              ),
+            ),
+            floatingActionButtonTheme: FloatingActionButtonThemeData(
+              elevation: 8,
+              backgroundColor: accent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+            switchTheme: SwitchThemeData(
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : FocusPalette.muted,
+              ),
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? accent.withValues(alpha: 0.48)
+                    : FocusPalette.border,
+              ),
+            ),
+            progressIndicatorTheme: ProgressIndicatorThemeData(
+              color: accent,
+              linearTrackColor: FocusPalette.border.withValues(alpha: 0.55),
+              circularTrackColor: FocusPalette.border.withValues(alpha: 0.55),
+            ),
+            popupMenuTheme: PopupMenuThemeData(
+              color: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              textStyle: const TextStyle(
+                color: FocusPalette.ink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            expansionTileTheme: ExpansionTileThemeData(
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              collapsedShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              iconColor: accent,
+              collapsedIconColor: FocusPalette.muted,
+              textColor: FocusPalette.ink,
+              collapsedTextColor: FocusPalette.ink,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             ),
             chipTheme: ChipThemeData(
               backgroundColor: accent.withValues(alpha: 0.09),
@@ -289,6 +359,15 @@ class MyApp extends StatelessWidget {
             ),
             drawerTheme:
                 const DrawerThemeData(backgroundColor: Colors.transparent),
+            bottomSheetTheme: const BottomSheetThemeData(
+              backgroundColor: FocusPalette.darkCard,
+              surfaceTintColor: Colors.transparent,
+              showDragHandle: true,
+              dragHandleColor: FocusPalette.darkBorder,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+            ),
             cardTheme: CardThemeData(
               color: FocusPalette.darkCard,
               elevation: 0,
@@ -360,6 +439,68 @@ class MyApp extends StatelessWidget {
                 foregroundColor: accent,
                 textStyle: const TextStyle(fontWeight: FontWeight.w700),
               ),
+            ),
+            iconButtonTheme: IconButtonThemeData(
+              style: IconButton.styleFrom(
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                highlightColor: accent.withValues(alpha: 0.16),
+              ),
+            ),
+            floatingActionButtonTheme: FloatingActionButtonThemeData(
+              elevation: 4,
+              backgroundColor: accent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ),
+            switchTheme: SwitchThemeData(
+              thumbColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : const Color(0xFF94A3B8),
+              ),
+              trackColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.selected)
+                    ? accent.withValues(alpha: 0.48)
+                    : FocusPalette.darkBorder,
+              ),
+            ),
+            progressIndicatorTheme: ProgressIndicatorThemeData(
+              color: accent,
+              linearTrackColor: FocusPalette.darkBorder.withValues(alpha: 0.8),
+              circularTrackColor:
+                  FocusPalette.darkBorder.withValues(alpha: 0.8),
+            ),
+            popupMenuTheme: PopupMenuThemeData(
+              color: FocusPalette.darkCard,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              textStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            expansionTileTheme: ExpansionTileThemeData(
+              backgroundColor: Colors.transparent,
+              collapsedBackgroundColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              collapsedShape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+              iconColor: accent,
+              collapsedIconColor: const Color(0xFF94A3B8),
+              textColor: Colors.white,
+              collapsedTextColor: Colors.white,
+              tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             ),
             chipTheme: ChipThemeData(
               backgroundColor: accent.withValues(alpha: 0.10),

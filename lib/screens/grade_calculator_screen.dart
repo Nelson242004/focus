@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../utils/focus_palette.dart';
@@ -529,12 +529,26 @@ class _FinalTab extends StatelessWidget {
     final enabled = habilitatesFinal(pondered);
     final goals = enabled
         ? [
-            _GradeGoal('Nota 2', requiredFinalScore(pondered, 2), Colors.green),
-            _GradeGoal('Nota 3', requiredFinalScore(pondered, 3), Colors.blue),
             _GradeGoal(
-                'Nota 4', requiredFinalScore(pondered, 4), Colors.orange),
+              'Nota 2',
+              requiredFinalScore(pondered, 2),
+              FocusPalette.mint,
+            ),
             _GradeGoal(
-                'Nota 5', requiredFinalScore(pondered, 5), Colors.purple),
+              'Nota 3',
+              requiredFinalScore(pondered, 3),
+              FocusPalette.primary,
+            ),
+            _GradeGoal(
+              'Nota 4',
+              requiredFinalScore(pondered, 4),
+              FocusPalette.teal,
+            ),
+            _GradeGoal(
+              'Nota 5',
+              requiredFinalScore(pondered, 5),
+              FocusPalette.amber,
+            ),
           ]
         : const <_GradeGoal>[];
 
@@ -818,13 +832,15 @@ class _BlockedResult extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.red.withValues(alpha: 0.12),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.24)),
+        color: FocusPalette.danger.withValues(alpha: 0.12),
+        border: Border.all(
+          color: FocusPalette.danger.withValues(alpha: 0.24),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.block_rounded, color: Colors.red),
+          const Icon(Icons.block_rounded, color: FocusPalette.danger),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -834,7 +850,7 @@ class _BlockedResult extends StatelessWidget {
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
-                        color: Colors.red,
+                        color: FocusPalette.danger,
                       ),
                 ),
                 const SizedBox(height: 4),
@@ -901,4 +917,3 @@ class _GradeGoal {
 
   const _GradeGoal(this.label, this.value, this.color);
 }
-

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/focus_shield_app.dart';
 import '../services/focus_mode_service.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_help_button.dart';
 
 class FocusModeSetupScreen extends StatefulWidget {
@@ -163,13 +164,13 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
           FocusHelpAction(
             title: 'Ayuda de apps distractoras',
             message:
-                'Aqui eliges las apps que Focus va a considerar distractoras durante el modo de enfoque.',
+                'Aquí eliges las apps que Focus va a considerar distractoras durante el modo de enfoque.',
             sections: [
               FocusHelpSection(
                 title: 'Como usarlo',
                 items: [
                   'Selecciona solo las apps que realmente te sacan del estudio.',
-                  'Las recomendadas te ayudan a marcar rapido redes, video y mensajeria.',
+                  'Las recomendadas te ayudan a marcar rápido redes, video y mensajería.',
                   'El boton inferior guarda la lista elegida.',
                 ],
               ),
@@ -211,7 +212,10 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const FocusSkeletonList(
+                  heights: [72, 64, 64, 64, 64],
+                  padding: EdgeInsets.fromLTRB(14, 16, 14, 104),
+                )
               : ListView(
                   key: ValueKey<int>(
                     _selectedPackages.length + filteredApps.length,
@@ -744,4 +748,3 @@ class _RevealInState extends State<_RevealIn>
     );
   }
 }
-

@@ -54,22 +54,28 @@ class _HabitsScreenState extends State<HabitsScreen> {
     if (provider.habits.length >= _maxHabits) {
       _showHabitFeedback(
         'Llegaste al límite de $_maxHabits hábitos activos. Edita o elimina uno antes de crear otro.',
+        icon: Icons.info_rounded,
+        color: FocusPalette.amber,
       );
       return;
     }
     await _showHabitDialog();
   }
 
-  void _showHabitFeedback(String message) {
+  void _showHabitFeedback(
+    String message, {
+    IconData icon = Icons.check_circle_rounded,
+    Color color = FocusPalette.mint,
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: FocusActionSnackContent(
-            icon: Icons.check_circle_rounded,
+            icon: icon,
             message: message,
-            color: FocusPalette.mint,
+            color: color,
           ),
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 3),
@@ -100,6 +106,8 @@ class _HabitsScreenState extends State<HabitsScreen> {
       if (provider.habits.length >= _maxHabits) {
         _showHabitFeedback(
           'Llegaste al límite de $_maxHabits hábitos activos. Edita o elimina uno antes de crear otro.',
+          icon: Icons.info_rounded,
+          color: FocusPalette.amber,
         );
         return;
       }
@@ -215,7 +223,9 @@ class _HabitsScreenState extends State<HabitsScreen> {
                     message: habit == null
                         ? 'Hábito creado. Empieza con una repetición pequeña.'
                         : 'Hábito actualizado.',
+                    color: FocusPalette.mint,
                   ),
+                  behavior: SnackBarBehavior.floating,
                 ),
               );
             },
@@ -233,6 +243,8 @@ class _HabitsScreenState extends State<HabitsScreen> {
     if (wasCompleted) {
       _showHabitFeedback(
         'Este hábito ya quedó registrado hoy. No se puede desmarcar para mantener tus rachas y puntos consistentes.',
+        icon: Icons.lock_rounded,
+        color: FocusPalette.amber,
       );
       return;
     }
@@ -274,7 +286,23 @@ class _HabitsScreenState extends State<HabitsScreen> {
       feedbackMessage =
           'Hábito completado. No se pudo sincronizar el ranking ahora, pero tu progreso local quedó guardado.';
     }
-    _showHabitFeedback(feedbackMessage);
+    final awardedPoints = feedbackMessage.contains('+');
+    final isWarning = feedbackMessage.contains('evitar trampas') ||
+        feedbackMessage.contains('máximo') ||
+        feedbackMessage.contains('ya había');
+    _showHabitFeedback(
+      feedbackMessage,
+      icon: awardedPoints
+          ? Icons.bolt_rounded
+          : isWarning
+              ? Icons.info_rounded
+              : Icons.check_circle_rounded,
+      color: awardedPoints
+          ? FocusPalette.amber
+          : isWarning
+              ? FocusPalette.amber
+              : FocusPalette.mint,
+    );
   }
 
   @override
@@ -295,11 +323,6 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   accent: FocusPalette.primary,
                   title: 'Carga tu primer hábito',
                   message: 'Empieza con una acción pequeña.',
-                  action: FilledButton.icon(
-                    onPressed: _createHabit,
-                    icon: const Icon(Icons.add_task_rounded),
-                    label: const Text('Crear hábito'),
-                  ),
                 ),
               ),
             );
@@ -323,7 +346,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
           final canCreateMore = habits.length < _maxHabits;
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
             children: [
               _HabitsHero(
                 completedToday: completedToday,
@@ -331,11 +354,9 @@ class _HabitsScreenState extends State<HabitsScreen> {
                 bestStreak: bestStreak,
                 averageConsistency: averageConsistency,
               ),
-              const SizedBox(height: 16),
-              const _AtomicPrinciples(),
               const SizedBox(height: 18),
               Text(
-                'Tus sistemas diarios',
+                'Hoy',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
@@ -420,7 +441,7 @@ class _HabitsHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Identidad en construcción',
+                      'Hábitos',
                       style: TextStyle(
                         color: FocusPalette.muted,
                         letterSpacing: 1.1,
@@ -428,7 +449,7 @@ class _HabitsHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Cada repetición refuerza quién eres.',
+                      'Pequeños pasos.',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -436,7 +457,7 @@ class _HabitsHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '$completedToday de $totalHabits hábitos completados hoy',
+                      '$completedToday/$totalHabits completados hoy',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: FocusPalette.muted,
                             fontWeight: FontWeight.w700,
@@ -525,70 +546,6 @@ class _HeroMetric extends StatelessWidget {
   }
 }
 
-class _AtomicPrinciples extends StatelessWidget {
-  const _AtomicPrinciples();
-
-  @override
-  Widget build(BuildContext context) {
-    const principles = [
-      (
-        icon: Icons.visibility_rounded,
-        title: 'Hazlo obvio',
-        text: 'Ten una señal clara para empezar.'
-      ),
-      (
-        icon: Icons.favorite_rounded,
-        title: 'Hazlo atractivo',
-        text: 'Asocia el hábito con algo valioso.'
-      ),
-      (
-        icon: Icons.touch_app_rounded,
-        title: 'Hazlo fácil',
-        text: 'Reduce la fricción al mínimo.'
-      ),
-      (
-        icon: Icons.celebration_rounded,
-        title: 'Hazlo satisfactorio',
-        text: 'Cierra el día con una pequeña victoria.'
-      ),
-    ];
-
-    return SizedBox(
-      height: 150,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: principles.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, index) {
-          final item = principles[index];
-          return Container(
-            width: 220,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              color: Theme.of(context).cardColor,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(item.icon, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 12),
-                Text(item.title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 6),
-                Text(item.text),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
 class _HabitLimitNotice extends StatelessWidget {
   final int currentHabits;
   final int maxHabits;
@@ -628,8 +585,8 @@ class _HabitLimitNotice extends StatelessWidget {
           Expanded(
             child: Text(
               canCreateMore
-                  ? '$currentHabits de $maxHabits hábitos activos. Mantén pocos para que sean fáciles de repetir.'
-                  : 'Tienes $maxHabits hábitos activos. Para crear otro, edita o elimina uno primero.',
+                  ? '$currentHabits/$maxHabits hábitos activos'
+                  : 'Límite alcanzado: $maxHabits hábitos.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     fontWeight: canCreateMore ? null : FontWeight.w700,
                   ),
@@ -684,7 +641,9 @@ class _HabitCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Identidad asociada: ${habit.identity}',
+                        habit.identity,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],

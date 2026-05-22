@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
+import '../widgets/focus_feedback.dart';
 
 class AuthGateScreen extends StatefulWidget {
   final Widget child;
@@ -40,9 +42,7 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
           future: RankingService.ensureProfile(),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const FocusSkeletonScaffold();
             }
             final profile = profileSnapshot.data;
             if (profile == null) {
@@ -143,9 +143,7 @@ class _DuoLoginScreenState extends State<LoginScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    showFocusFeedback(context, message: message, type: FocusFeedbackType.info);
   }
 
   @override
@@ -1338,9 +1336,7 @@ class _LoginScreenState extends State<_LegacyLoginScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    showFocusFeedback(context, message: message, type: FocusFeedbackType.info);
   }
 
   @override
@@ -1752,8 +1748,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       }
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      showFocusFeedback(
+        context,
+        message: RankingService.friendlyRankingError(error),
+        type: FocusFeedbackType.error,
       );
     } finally {
       if (mounted) setState(() => _saving = false);

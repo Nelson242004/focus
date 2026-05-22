@@ -28,7 +28,7 @@ class ExamModeScreen extends StatelessWidget {
                 title: 'Que muestra',
                 items: [
                   'Plan de preparacion, tareas relacionadas y contexto de la materia.',
-                  'Si no hay examenes proximos, la pantalla te lo muestra limpio para que cargues uno primero.',
+                  'Si no hay exámenes próximos, la pantalla te lo muestra limpio para que cargues uno primero.',
                 ],
               ),
             ],

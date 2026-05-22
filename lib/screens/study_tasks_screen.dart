@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 
@@ -176,9 +177,16 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
                 navigator.pop();
                 messenger.showSnackBar(
                   SnackBar(
-                    content: Text(
-                      task == null ? 'Tarea guardada.' : 'Tarea actualizada.',
+                    content: FocusActionSnackContent(
+                      icon: task == null
+                          ? Icons.add_task_rounded
+                          : Icons.check_circle_rounded,
+                      message: task == null
+                          ? 'Tarea guardada.'
+                          : 'Tarea actualizada.',
+                      color: FocusPalette.mint,
                     ),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               },
@@ -212,6 +220,17 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
     );
     if (confirm == true && mounted) {
       await provider.deleteStudyTask(task.id!);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.delete_rounded,
+            message: 'Tarea eliminada.',
+            color: FocusPalette.danger,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     }
   }
 
@@ -235,7 +254,7 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
           FocusHelpAction(
             title: 'Ayuda de tareas',
             message:
-                'Esta pantalla esta pensada para ver rapido que sigue y que esta vencido.',
+                'Esta pantalla está pensada para ver rápido qué sigue y qué está vencido.',
             sections: [
               FocusHelpSection(
                 title: 'Como funciona',
@@ -262,7 +281,7 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
           builder: (context, provider, _) {
             final tasks = _filteredTasks(provider);
             return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
               children: [
                 _TaskHero(provider: provider),
                 const SizedBox(height: 14),
@@ -282,7 +301,7 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
                 ),
                 const SizedBox(height: 14),
                 if (tasks.isEmpty)
-                  _EmptyTasks(onAdd: () => _showTaskDialog())
+                  const _EmptyTasks()
                 else
                   ...tasks.map(
                     (task) => _TaskCard(
@@ -489,9 +508,7 @@ class _TaskChip extends StatelessWidget {
 }
 
 class _EmptyTasks extends StatelessWidget {
-  final VoidCallback onAdd;
-
-  const _EmptyTasks({required this.onAdd});
+  const _EmptyTasks();
 
   @override
   Widget build(BuildContext context) {
@@ -511,14 +528,8 @@ class _EmptyTasks extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Crea pendientes por materia, fechas límite y prioridades para organizar tu semana.',
+              'Organiza pendientes por materia.',
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Crear tarea'),
             ),
           ],
         ),

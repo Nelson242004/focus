@@ -11,7 +11,10 @@ import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
+import '../widgets/focus_empty_state.dart';
+import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
+import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
@@ -23,12 +26,14 @@ class GlobalRankingScreen extends StatefulWidget {
 
 class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
   Timer? _refreshTimer;
+  late Future<RankingProfile?> _profileFuture;
   late Future<List<RankingEntry>> _leaderboardFuture;
   DateTime _nextUpdate = RankingService.nextHourlyUpdate();
 
   @override
   void initState() {
     super.initState();
+    _profileFuture = RankingService.ensureProfile();
     _leaderboardFuture = RankingService.fetchGlobalLeaderboard();
     _scheduleHourlyRefresh();
   }
@@ -53,6 +58,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
   void _refresh() {
     setState(() {
       _nextUpdate = RankingService.nextHourlyUpdate();
+      _profileFuture = RankingService.ensureProfile();
       _leaderboardFuture = RankingService.fetchGlobalLeaderboard();
     });
   }
@@ -67,13 +73,16 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
       final profile = await RankingService.fetchProfileByUid(entry.uid);
       if (!mounted) return;
       if (profile == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo cargar ese perfil.')),
+        showFocusFeedback(
+          context,
+          message: 'No se pudo cargar ese perfil.',
+          type: FocusFeedbackType.warning,
+          icon: Icons.person_off_rounded,
         );
         return;
       }
       final isFriend =
-          isMe ? false : await FriendsService.areFriends(entry.uid);
+          isMe ?? false : await FriendsService.areFriends(entry.uid);
       if (!mounted) return;
       await showModalBottomSheet<void>(
         context: context,
@@ -88,11 +97,10 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
           onSendRequest: () async {
             await FriendsService.sendRequest(profile);
             if (!mounted) return false;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Solicitud enviada a ${profile.name}.'),
-                behavior: SnackBarBehavior.floating,
-              ),
+            showFocusFeedback(
+              context,
+              message: 'Solicitud enviada a ${profile.name}.',
+              icon: Icons.person_add_alt_1_rounded,
             );
             return true;
           },
@@ -100,8 +108,10 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      showFocusFeedback(
+        context,
+        message: RankingService.friendlyRankingError(error),
+        type: FocusFeedbackType.error,
       );
     }
   }
@@ -195,7 +205,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
         ],
       ),
       body: FutureBuilder<RankingProfile?>(
-        future: RankingService.ensureProfile(),
+        future: _profileFuture,
         builder: (context, profileSnapshot) {
           if (RankingService.currentUser == null) {
             return _MessagePanel(
@@ -211,7 +221,9 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
             );
           }
           if (profileSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const FocusSkeletonList(
+              heights: [220, 92, 86, 86],
+            );
           }
           if (profileSnapshot.hasError) {
             return _MessagePanel(
@@ -274,11 +286,11 @@ class _RankingBody extends StatelessWidget {
     return FutureBuilder<List<RankingEntry>>(
       future: leaderboardFuture,
       builder: (context, snapshot) {
-        final entries = snapshot.data ?? const <RankingEntry>[];
+        final entries = snapshot.data ??? const <RankingEntry>[];
         final participantCount = entries.length;
         final myIndex = entries.indexWhere((entry) => entry.uid == profile.uid);
         final myEntry = myIndex == -1 ? null : entries[myIndex];
-        final myPosition = myIndex == -1 ? 0 : myIndex + 1;
+        final myPosition = myIndex == -1 ?? 0 : myIndex + 1;
         final topEntries = entries.take(3).toList();
         final leaderboardEntries =
             entries.length >= 3 ? entries.skip(3).toList() : entries;
@@ -674,7 +686,7 @@ class _MyGlobalRankStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = entry?.points ?? profile.weeklyPoints;
+    final points = entry?.points ??? profile.weeklyPoints;
     final tier = _distributedRankTierForPosition(position, participantCount);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final positionLabel = position <= 0 ? 'Sin puesto' : '#$position';
@@ -1006,7 +1018,7 @@ class _MyRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = entry?.points ?? 0;
+    final points = entry?.points ??? 0;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1386,27 +1398,31 @@ class _RankingProfileSheetState extends State<_RankingProfileSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                _ProfileMetricCard(
-                  icon: FocusMetricIcon.points(size: 22),
+            FocusSocialStatsGrid(
+              items: [
+                FocusSocialStatItem(
+                  icon: FocusMetricIcon.points(
+                    size: 23,
+                    color: FocusPalette.amber,
+                  ),
                   label: 'Puntos',
                   value: '${entry.points} pts',
                   color: FocusPalette.amber,
                 ),
-                const SizedBox(width: 10),
-                _ProfileMetricCard(
-                  icon: FocusMetricIcon.streak(size: 22),
+                FocusSocialStatItem(
+                  icon: FocusMetricIcon.streak(
+                    size: 23,
+                    color: FocusPalette.amber,
+                  ),
                   label: 'Racha',
                   value: '${_rankingProfileStreak(profile)} días',
                   color: FocusPalette.amber,
                 ),
-                const SizedBox(width: 10),
-                _ProfileMetricCard(
+                FocusSocialStatItem(
                   icon: Image.asset(
                     _tierMedalAsset(tier.name),
-                    width: 24,
-                    height: 24,
+                    width: 25,
+                    height: 25,
                     fit: BoxFit.contain,
                   ),
                   label: 'Liga',
@@ -1500,63 +1516,6 @@ class _InlineRankPill extends StatelessWidget {
           color: color,
           fontSize: 12,
           fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileMetricCard extends StatelessWidget {
-  final Widget icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _ProfileMetricCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: Theme.of(context).cardColor,
-          border: Border.all(color: color.withValues(alpha: 0.16)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 7),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            icon,
-            const SizedBox(height: 8),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FocusPalette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
         ),
       ),
     );
@@ -1964,7 +1923,7 @@ String _tierProgressLabel(int position, int participantCount) {
 }
 
 int _rankingProfileStreak(RankingProfile profile) {
-  return int.tryParse('${profile.stats['currentStreak'] ?? 0}') ?? 0;
+  return int.tryParse('${profile.stats['currentStreak'] ??? 0}') ??? 0;
 }
 
 String _careerLabel(String career) {
@@ -1988,7 +1947,7 @@ String _entryProfileIconAsset(RankingEntry entry) {
 }
 
 String _profileIconAsset(RankingProfile profile) {
-  final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
+  final rawAsset = '${profile.stats['profileIconAsset'] ??? ''}';
   if (rawAsset.trim().isNotEmpty) {
     return normalizeProfileIconAsset(
       rawAsset,
@@ -2018,55 +1977,14 @@ class _MessagePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = Theme.of(context).colorScheme.primary;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(22),
-        child: FocusSurfaceCard(
-          padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
-          radius: 24,
-          accent: accent,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 58,
-                height: 58,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  color: accent.withValues(alpha: 0.10),
-                ),
-                child: Icon(
-                  icon,
-                  size: 30,
-                  color: accent,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
-                    ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      height: 1.35,
-                      fontWeight: FontWeight.w600,
-                      color: FocusPalette.muted,
-                    ),
-              ),
-              if (action != null) ...[
-                const SizedBox(height: 18),
-                action!,
-              ],
-            ],
-          ),
+        child: FocusProfileEmptyState(
+          icon: icon,
+          title: title,
+          message: message,
+          action: action,
         ),
       ),
     );

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
@@ -51,7 +51,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
           FocusHelpAction(
             title: 'Ayuda de politecnica',
             message:
-                'Esta seccion sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
+                'Esta sección sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
             sections: [
               FocusHelpSection(
                 title: 'Flujo',
@@ -63,7 +63,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
               FocusHelpSection(
                 title: 'Resultado',
                 items: [
-                  'Las materias importadas pueden crear horarios, examenes y estructura base en la app.',
+                  'Las materias importadas pueden crear horarios, exámenes y estructura base en la app.',
                 ],
               ),
             ],

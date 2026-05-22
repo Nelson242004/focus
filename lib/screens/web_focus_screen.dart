@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -75,7 +75,7 @@ class _WebFocusScreenState extends State<WebFocusScreen> {
                     title: 'Secciones',
                     items: [
                       'Inicio muestra la vista general.',
-                      'Materias, examenes y recursos enseñan la estructura principal del producto.',
+                      'Materias, exámenes y recursos enseñan la estructura principal del producto.',
                     ],
                   ),
                   FocusHelpSection(
@@ -837,4 +837,3 @@ class _EmptyPanelText extends StatelessWidget {
     );
   }
 }
-

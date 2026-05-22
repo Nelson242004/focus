@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/focus_design_system.dart';
 import 'main_navigation_screen.dart';
 
 const _permissionsCompletedKey = 'required_permissions_completed';
@@ -58,9 +59,7 @@ class _RequiredPermissionsGateState extends State<RequiredPermissionsGate> {
       future: _setupFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          return const FocusSkeletonScaffold();
         }
         return snapshot.data! == true
             ? const MainNavigationScreen()
@@ -183,9 +182,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const FocusSkeletonScaffold();
     }
 
     if (_allGranted) {
@@ -201,7 +198,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
             children: [
               const SizedBox(height: 10),
               Text(
-                'Permisos esenciales',
+                'Activa Focus',
                 style: Theme.of(context)
                     .textTheme
                     .headlineMedium
@@ -209,7 +206,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                'Activa lo esencial antes de entrar. Así Focus podrá mantener vivo el Pomodoro y bloquear distracciones al instante.',
+                'Necesario para bloquear distracciones y mantener vivo el Pomodoro.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 22),
@@ -219,9 +216,8 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                   children: [
                     _PermissionStatusCard(
                       icon: Icons.notifications_active_rounded,
-                      title: 'Enviar notificaciones',
-                      subtitle:
-                          'Temporizador activo, recordatorios y avisos del enfoque.',
+                      title: 'Notificaciones',
+                      subtitle: 'Pomodoro y recordatorios.',
                       granted: _notificationsGranted,
                       onTap: _requestNotifications,
                     ),
@@ -229,17 +225,15 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                     _PermissionStatusCard(
                       icon: Icons.accessibility_new_rounded,
                       title: 'Accesibilidad',
-                      subtitle:
-                          'Detecta al instante cuando entras a una app bloqueada.',
+                      subtitle: 'Detecta apps bloqueadas.',
                       granted: _accessibilityGranted,
                       onTap: _requestAccessibility,
                     ),
                     const SizedBox(height: 12),
                     _PermissionStatusCard(
                       icon: Icons.layers_rounded,
-                      title: 'Mostrar sobre otras apps',
-                      subtitle:
-                          'Muestra la pantalla de bloqueo encima de la distracción.',
+                      title: 'Superposición',
+                      subtitle: 'Muestra el bloqueo.',
                       granted: _overlayGranted,
                       onTap: _requestOverlay,
                     ),
@@ -247,17 +241,15 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                     _PermissionStatusCard(
                       icon: Icons.manage_search_rounded,
                       title: 'Acceso de uso',
-                      subtitle:
-                          'Permite saber qué app está abierta para bloquearla al instante.',
+                      subtitle: 'Reconoce la app abierta.',
                       granted: _usageGranted,
                       onTap: _requestUsageAccess,
                     ),
                     const SizedBox(height: 12),
                     _PermissionStatusCard(
                       icon: Icons.battery_charging_full_rounded,
-                      title: 'Ignorar optimización de batería',
-                      subtitle:
-                          'Opcional, pero ayuda a que el bloqueo dure mejor fuera de la app.',
+                      title: 'Batería',
+                      subtitle: 'Mejora la persistencia.',
                       granted: _batteryGranted,
                       onTap: _requestBattery,
                       required: false,
@@ -277,9 +269,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                         )
                       : const Icon(Icons.security_rounded),
                   label: Text(
-                    _requesting
-                        ? 'Revisando permisos...'
-                        : 'Completar configuración',
+                    _requesting ? 'Revisando permisos...' : 'Activar permisos',
                   ),
                 ),
               ),
@@ -413,4 +403,3 @@ class _PermissionStatusCard extends StatelessWidget {
     );
   }
 }
-

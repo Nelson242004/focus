@@ -43,7 +43,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               FocusHelpAction(
                 title: 'Ayuda de calendario',
                 message:
-                    'El calendario junta examenes, tareas y otras fechas para que veas tu carga de un vistazo.',
+                    'El calendario junta exámenes, tareas y otras fechas para que veas tu carga de un vistazo.',
                 sections: [
                   FocusHelpSection(
                     title: 'Vista',
@@ -55,7 +55,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   FocusHelpSection(
                     title: 'Tip',
                     items: [
-                      'Usa Hoy para volver rapido a la fecha actual y revisar lo mas cercano.',
+                      'Usa Hoy para volver rápido a la fecha actual y revisar lo más cercano.',
                     ],
                   ),
                 ],

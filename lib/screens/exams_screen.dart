@@ -5,6 +5,7 @@ import '../models/exam.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
@@ -165,7 +166,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     !isValidTime(_selectedTime)) {
                   messenger.showSnackBar(
                     const SnackBar(
-                      content: Text('Usa un horario válido en formato HH:MM.'),
+                      content: FocusActionSnackContent(
+                        icon: Icons.access_time_rounded,
+                        message: 'Usa un horario válido en formato HH:MM.',
+                        color: FocusPalette.amber,
+                      ),
                     ),
                   );
                   return;
@@ -183,8 +188,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 if (duplicate) {
                   messenger.showSnackBar(
                     const SnackBar(
-                      content: Text(
-                        'Ya existe un examen de ese tipo para esa materia y fecha.',
+                      content: FocusActionSnackContent(
+                        icon: Icons.warning_amber_rounded,
+                        message:
+                            'Ya existe un examen de ese tipo para esa materia y fecha.',
+                        color: FocusPalette.amber,
                       ),
                     ),
                   );
@@ -209,10 +217,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   Navigator.of(dialogContext).pop();
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                        _editingExam == null
+                      content: FocusActionSnackContent(
+                        icon: _editingExam == null
+                            ? Icons.assignment_late_rounded
+                            : Icons.check_circle_rounded,
+                        message: _editingExam == null
                             ? 'Examen guardado.'
                             : 'Examen actualizado.',
+                        color: FocusPalette.mint,
                       ),
                     ),
                   );
@@ -220,8 +232,11 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   if (!mounted) return;
                   messenger.showSnackBar(
                     SnackBar(
-                      content: Text(
-                        error.toString().replaceFirst('Bad state: ', ''),
+                      content: FocusActionSnackContent(
+                        icon: Icons.error_outline_rounded,
+                        message:
+                            error.toString().replaceFirst('Bad state: ', ''),
+                        color: FocusPalette.danger,
                       ),
                     ),
                   );
@@ -258,7 +273,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
       await provider.deleteExam(id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Examen eliminado.')),
+        const SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.delete_rounded,
+            message: 'Examen eliminado.',
+            color: FocusPalette.danger,
+          ),
+        ),
       );
     }
   }
@@ -344,20 +365,20 @@ class _ExamsScreenState extends State<ExamsScreen> {
         title: const Text('Exámenes'),
         actions: const [
           FocusHelpAction(
-            title: 'Ayuda de examenes',
+            title: 'Ayuda de exámenes',
             message:
-                'Aqui ves lo proximo, tu calendario y los parciales o finales de cada materia.',
+                'Aquí ves lo próximo, tu calendario y los parciales o finales de cada materia.',
             sections: [
               FocusHelpSection(
                 title: 'Datos importantes',
                 items: [
                   'Solo la materia y la fecha son obligatorias.',
-                  'La hora y el aula pueden completarse despues.',
+                  'La hora y el aula pueden completarse después.',
                   'No se permiten duplicados del mismo tipo para una materia en la misma fecha.',
                 ],
               ),
               FocusHelpSection(
-                title: 'Uso rapido',
+                title: 'Uso rápido',
                 items: [
                   'El boton inferior crea un examen nuevo.',
                   'El calendario te ayuda a detectar semanas cargadas sin meter demasiado texto en pantalla.',
@@ -381,15 +402,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                     accent: FocusPalette.softAlert,
                     title: 'Primero crea una materia',
                     message: 'Los exámenes necesitan una materia.',
-                    action: FilledButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SubjectsScreen(),
-                        ),
-                      ),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Crear materia'),
-                    ),
                   ),
                 ),
               );
@@ -448,7 +460,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                   children: [
                                     Text(
                                       nextExam == null
-                                          ? 'No tienes exámenes próximos'
+                                          ? 'Sin exámenes'
                                           : _countdownLabel(nextExam),
                                       style: Theme.of(context)
                                           .textTheme
@@ -459,7 +471,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                     const SizedBox(height: 6),
                                     Text(
                                       nextExam == null
-                                          ? 'Agrega parciales o finales para empezar a seguir tu calendario académico.'
+                                          ? 'Agrega tu próximo parcial o final.'
                                           : '${provider.subjectNameForExam(nextExam)} · ${nextExam.displayType} · ${formatDate(nextExam.date)}${nextExam.startTime.trim().isEmpty ? '' : ' · ${nextExam.startTime}'}',
                                       style: Theme.of(context)
                                           .textTheme
@@ -618,23 +630,14 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 220),
                           child: selectedDayExams.isEmpty
-                              ? Container(
+                              ? FocusInlineState(
                                   key: ValueKey(
                                     'empty-${_selectedCalendarDate.toIso8601String()}',
                                   ),
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .surfaceContainerHighest
-                                        .withValues(alpha: 0.3),
-                                  ),
-                                  child: Text(
-                                    'No hay exámenes para ${formatDate(_selectedCalendarDate)}.',
-                                    textAlign: TextAlign.center,
-                                  ),
+                                  icon: Icons.event_busy_rounded,
+                                  text:
+                                      'Sin exámenes el ${formatDate(_selectedCalendarDate)}.',
+                                  accent: FocusPalette.amber,
                                 )
                               : Column(
                                   key: ValueKey(
@@ -670,7 +673,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           .titleLarge
                           ?.copyWith(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text('${exams.length} exámenes en este filtro'),
+                    subtitle: Text('${exams.length} visibles'),
                     childrenPadding: const EdgeInsets.only(bottom: 12),
                     children: [
                       Padding(
@@ -685,11 +688,6 @@ class _ExamsScreenState extends State<ExamsScreen> {
                                     .titleMedium
                                     ?.copyWith(fontWeight: FontWeight.w800),
                               ),
-                            ),
-                            FilledButton.icon(
-                              onPressed: () => _showExamDialog(),
-                              icon: const Icon(Icons.add),
-                              label: const Text('Nuevo'),
                             ),
                           ],
                         ),
@@ -717,15 +715,10 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             accent: FocusPalette.softAlert,
                             title: provider.exams.isEmpty
                                 ? 'Carga tu primer examen'
-                                : 'Sin exámenes aquí',
+                                : 'Sin resultados',
                             message: provider.exams.isEmpty
                                 ? 'Agrega un parcial o final.'
                                 : 'Cambia el filtro o crea uno nuevo.',
-                            action: FilledButton.icon(
-                              onPressed: () => _showExamDialog(),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Agregar examen'),
-                            ),
                           ),
                         )
                       else
@@ -875,10 +868,21 @@ class _ExamsScreenState extends State<ExamsScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showExamDialog(),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Examen'),
+      floatingActionButton: Consumer<AppProvider>(
+        builder: (context, provider, _) {
+          final hasSubjects = provider.subjects.isNotEmpty;
+          return FloatingActionButton.extended(
+            onPressed: hasSubjects
+                ? () => _showExamDialog()
+                : () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const SubjectsScreen(),
+                      ),
+                    ),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(hasSubjects ? 'Examen' : 'Materia'),
+          );
+        },
       ),
     );
   }

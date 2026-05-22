@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/resource_link.dart';
 import '../providers/app_provider.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
@@ -170,7 +171,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                 setState(() => _selectedFilter = 'all');
                 Navigator.of(dialogContext).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Recurso guardado.')),
+                  const SnackBar(
+                    content: FocusActionSnackContent(
+                      icon: Icons.add_link_rounded,
+                      message: 'Recurso guardado.',
+                      color: FocusPalette.mint,
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               },
               child: const Text('Guardar'),
@@ -196,7 +204,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir el enlace.')),
+        const SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.link_off_rounded,
+            message: 'No se pudo abrir el enlace.',
+            color: FocusPalette.amber,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -214,7 +229,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!opened && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No se pudo abrir tu app de correo.')),
+        const SnackBar(
+          content: FocusActionSnackContent(
+            icon: Icons.mail_outline_rounded,
+            message: 'No se pudo abrir tu app de correo.',
+            color: FocusPalette.amber,
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -225,7 +247,14 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         .deleteResource(resource.id!);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Recurso eliminado.')),
+      const SnackBar(
+        content: FocusActionSnackContent(
+          icon: Icons.delete_rounded,
+          message: 'Recurso eliminado.',
+          color: FocusPalette.danger,
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -354,11 +383,6 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                     accent: FocusPalette.teal,
                     title: 'Tu biblioteca está vacía',
                     message: 'Guarda enlaces útiles para estudiar.',
-                    action: FilledButton.icon(
-                      onPressed: _showAddDialog,
-                      icon: const Icon(Icons.add_link_rounded),
-                      label: const Text('Agregar recurso'),
-                    ),
                   )
                 else ...[
                   if (!showGroupedBySubject)

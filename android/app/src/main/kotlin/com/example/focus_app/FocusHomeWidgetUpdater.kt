@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 
@@ -85,6 +86,11 @@ object FocusHomeWidgetUpdater {
 
         appWidgetIds.forEach { widgetId ->
             val views = RemoteViews(context.packageName, R.layout.focus_home_widget_mini)
+            val options = appWidgetManager.getAppWidgetOptions(widgetId)
+            val minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 220)
+            val minHeight = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 64)
+            val compactWidth = minWidth < 210
+            val expandedHeight = minHeight >= 82
 
             views.setTextViewText(R.id.widgetHeadline, headline)
             views.setTextViewText(R.id.widgetTitle, title)
@@ -97,9 +103,25 @@ object FocusHomeWidgetUpdater {
 
             views.setViewVisibility(
                 R.id.widgetNote,
-                if (note.isBlank()) View.GONE else View.VISIBLE,
+                if (note.isBlank() || !expandedHeight) View.GONE else View.VISIBLE,
             )
             views.setViewVisibility(R.id.widgetUrgencyPill, View.GONE)
+            views.setViewVisibility(
+                R.id.widgetHeadline,
+                if (compactWidth) View.GONE else View.VISIBLE,
+            )
+            views.setInt(R.id.widgetTitle, "setMaxLines", if (expandedHeight) 2 else 1)
+            views.setInt(R.id.widgetDetail, "setMaxLines", if (expandedHeight) 2 else 1)
+            views.setTextViewTextSize(
+                R.id.widgetTitle,
+                TypedValue.COMPLEX_UNIT_SP,
+                if (compactWidth) 14f else 16f,
+            )
+            views.setTextViewTextSize(
+                R.id.widgetDetail,
+                TypedValue.COMPLEX_UNIT_SP,
+                if (compactWidth) 10f else 11f,
+            )
 
             views.setInt(R.id.widgetRoot, "setBackgroundResource", backgroundForMode(mode))
             views.setInt(

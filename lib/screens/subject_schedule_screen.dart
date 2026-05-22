@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schedule.dart';
 import '../models/subject.dart';
@@ -203,13 +203,13 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
           FocusHelpAction(
             title: 'Ayuda de horarios',
             message:
-                'Aqui agregas o ajustas los bloques de una materia concreta.',
+                'Aquí agregas o ajustas los bloques de una materia concreta.',
             sections: [
               FocusHelpSection(
                 title: 'Que puedes hacer',
                 items: [
                   'Guardar varios bloques para la misma materia.',
-                  'Agregar aula si la conoces o dejarla para despues.',
+                  'Agrega aula si la conoces o déjala para después.',
                   'Permitir superposiciones si cursas en paralelo.',
                 ],
               ),
@@ -266,4 +266,3 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
     );
   }
 }
-
