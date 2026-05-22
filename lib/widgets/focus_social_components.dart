@@ -89,6 +89,101 @@ class FocusSocialStatsGrid extends StatelessWidget {
   }
 }
 
+class FocusFriendCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String leadingLabel;
+  final String trailingLabel;
+  final Color accent;
+  final bool highlighted;
+  final VoidCallback? onTap;
+
+  const FocusFriendCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.leadingLabel,
+    required this.trailingLabel,
+    required this.accent,
+    this.highlighted = false,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final color = highlighted ? primary : accent;
+    return InkWell(
+      borderRadius: BorderRadius.circular(FocusRadii.card),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(FocusRadii.card),
+          color: highlighted
+              ? primary.withValues(alpha: 0.10)
+              : color.withValues(alpha: 0.06),
+          border: Border.all(
+            color: highlighted
+                ? primary.withValues(alpha: 0.24)
+                : color.withValues(alpha: 0.14),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.16),
+              ),
+              child: Center(
+                child: Text(
+                  leadingLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              trailingLabel,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _FocusSocialStatCard extends StatelessWidget {
   final FocusSocialStatItem item;
 

@@ -407,6 +407,29 @@ class FocusSkeletonList extends StatelessWidget {
   }
 }
 
+class FocusSkeletonColumn extends StatelessWidget {
+  final List<double> heights;
+  final double spacing;
+
+  const FocusSkeletonColumn({
+    super.key,
+    this.heights = const [88, 88, 88],
+    this.spacing = FocusSpacing.md,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < heights.length; index++) ...[
+          if (index > 0) SizedBox(height: spacing),
+          FocusSkeletonCard(height: heights[index]),
+        ],
+      ],
+    );
+  }
+}
+
 class FocusSkeletonScaffold extends StatelessWidget {
   final PreferredSizeWidget? appBar;
   final List<double> heights;

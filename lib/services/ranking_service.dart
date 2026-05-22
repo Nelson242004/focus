@@ -36,6 +36,10 @@ class RankingService {
   static const Duration minimumHabitAgeForRanking = Duration(hours: 24);
   static const Map<String, int> achievementPoints = {
     'first_pomodoro': 50,
+    'first_habit': 25,
+    'pomodoros_5': 40,
+    'habits_5': 40,
+    'streak_3': 35,
     'streak_7': 100,
     'streak_14': 180,
     'streak_30': 400,
@@ -327,6 +331,24 @@ class RankingService {
     await ensureCurrentWeekScore();
   }
 
+  static Future<void> updatePresence({
+    required String status,
+    String subject = '',
+  }) async {
+    final user = currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).set(
+      {
+        'stats.socialStatus': status,
+        'stats.statusSubject': subject.trim(),
+        'stats.statusUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await ensureCurrentWeekScore();
+  }
+
   static Future<void> ensureCurrentWeekScore() async {
     final user = currentUser;
     if (user == null) return;
@@ -557,6 +579,10 @@ class RankingService {
   }) async {
     final candidates = <String>[
       if (pomodoros >= 1) 'first_pomodoro',
+      if (totalHabitCompletions >= 1) 'first_habit',
+      if (pomodoros >= 5) 'pomodoros_5',
+      if (totalHabitCompletions >= 5) 'habits_5',
+      if (currentStreak >= 3) 'streak_3',
       if (currentStreak >= 7) 'streak_7',
       if (currentStreak >= 14) 'streak_14',
       if (currentStreak >= 30) 'streak_30',

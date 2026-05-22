@@ -41,27 +41,27 @@ class RankingProfile {
   });
 
   factory RankingProfile.fromMap(String uid, Map<String, dynamic> map) {
-    final stats = Map<String, dynamic>.from(map['stats'] ??? {});
+    final stats = Map<String, dynamic>.from(map['stats'] ?? {});
     final favoriteBadge =
-        '${map['favoriteBadge'] ??? stats['favoriteBadge'] ?? ''}';
+        '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
     final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);
     return RankingProfile(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',
       career: '${map['career'] ?? 'Sin carrera'}',
       rank: '${map['rank'] ?? 'Bronce'}',
-      photoUrl: '${map['photoUrl'] ??? ''}',
-      totalPoints: int.tryParse('${map['totalPoints'] ??? 0}') ??? 0,
-      weeklyPoints: int.tryParse('${map['weeklyPoints'] ??? 0}') ??? 0,
-      pomodoros: int.tryParse('${map['pomodoros'] ??? 0}') ??? 0,
-      focusMinutes: int.tryParse('${map['focusMinutes'] ??? 0}') ??? 0,
-      badges: List<String>.from(map['badges'] ??? []),
+      photoUrl: '${map['photoUrl'] ?? ''}',
+      totalPoints: int.tryParse('${map['totalPoints'] ?? 0}') ?? 0,
+      weeklyPoints: int.tryParse('${map['weeklyPoints'] ?? 0}') ?? 0,
+      pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
+      focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,
+      badges: List<String>.from(map['badges'] ?? []),
       favoriteBadge: favoriteBadge,
       featuredBadges: featuredBadges,
       university: map['university'],
       joinedAt: (map['joinedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastActive: (map['updatedAt'] as Timestamp?)?.toDate(),
-      lastPointEvent: '${map['lastPointEvent'] ??? ''}',
+      lastPointEvent: '${map['lastPointEvent'] ?? ''}',
       stats: stats,
     );
   }
@@ -115,7 +115,7 @@ List<String> _featuredBadgesFromMap(
   Map<String, dynamic> stats,
   String favoriteBadge,
 ) {
-  final raw = map['featuredBadges'] ??? stats['featuredBadges'];
+  final raw = map['featuredBadges'] ?? stats['featuredBadges'];
   final badges = raw is List ? List<String>.from(raw) : <String>[];
   if (badges.isEmpty && favoriteBadge.trim().isNotEmpty) {
     badges.add(favoriteBadge.trim());
@@ -166,35 +166,35 @@ class RankingEntry {
 
   factory RankingEntry.fromMap(String uid, Map<String, dynamic> map,
       {int position = 0}) {
-    final stats = Map<String, dynamic>.from(map['stats'] ??? const {});
+    final stats = Map<String, dynamic>.from(map['stats'] ?? const {});
     final rawMascotIndex =
-        map['socialMascotIndex'] ??? stats['socialMascotIndex'];
+        map['socialMascotIndex'] ?? stats['socialMascotIndex'];
     final profileIconAsset =
-        '${map['profileIconAsset'] ??? stats['profileIconAsset'] ?? ''}';
+        '${map['profileIconAsset'] ?? stats['profileIconAsset'] ?? ''}';
     final favoriteBadge =
-        '${map['favoriteBadge'] ??? stats['favoriteBadge'] ?? ''}';
+        '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
     final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);
     return RankingEntry(
       uid: uid,
       name: '${map['name'] ?? 'Estudiante'}',
       career: '${map['career'] ?? 'Sin carrera'}',
       rank: '${map['rank'] ?? 'Bronce'}',
-      photoUrl: '${map['photoUrl'] ??? ''}',
+      photoUrl: '${map['photoUrl'] ?? ''}',
       profileIconAsset: profileIconAsset,
-      points: int.tryParse('${map['points'] ??? 0}') ??? 0,
-      pomodoros: int.tryParse('${map['pomodoros'] ??? 0}') ??? 0,
-      focusMinutes: int.tryParse('${map['focusMinutes'] ??? 0}') ??? 0,
+      points: int.tryParse('${map['points'] ?? 0}') ?? 0,
+      pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
+      focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,
       socialMascotIndex: rawMascotIndex is int
           ? rawMascotIndex
-          : int.tryParse('$rawMascotIndex') ??? 0,
+          : int.tryParse('$rawMascotIndex') ?? 0,
       position: position,
-      trend: int.tryParse('${map['trend'] ??? 0}') ??? 0,
+      trend: int.tryParse('${map['trend'] ?? 0}') ?? 0,
       university: map['university'],
-      badges: List<String>.from(map['badges'] ??? []),
+      badges: List<String>.from(map['badges'] ?? []),
       favoriteBadge: favoriteBadge,
       featuredBadges: featuredBadges,
       lastActive: (map['lastActive'] as Timestamp?)?.toDate(),
-      lastPointEvent: '${map['lastPointEvent'] ??? ''}',
+      lastPointEvent: '${map['lastPointEvent'] ?? ''}',
     );
   }
 
@@ -320,11 +320,11 @@ class RankingSeason {
   factory RankingSeason.fromMap(String id, Map<String, dynamic> map) {
     return RankingSeason(
       id: id,
-      name: '${map['name'] ??? 'Temporada'}',
+      name: '${map['name'] ?? 'Temporada'}',
       startDate: (map['startDate'] as Timestamp).toDate(),
       endDate: (map['endDate'] as Timestamp).toDate(),
-      isActive: map['isActive'] ??? false,
-      rewards: List<String>.from(map['rewards'] ??? []),
+      isActive: map['isActive'] ?? false,
+      rewards: List<String>.from(map['rewards'] ?? []),
     );
   }
 }
@@ -353,13 +353,13 @@ class UserRankingStats {
   factory UserRankingStats.fromMap(String uid, Map<String, dynamic> map) {
     return UserRankingStats(
       uid: uid,
-      currentStreak: int.tryParse('${map['currentStreak'] ??? 0}') ??? 0,
-      bestStreak: int.tryParse('${map['bestStreak'] ??? 0}') ??? 0,
-      totalSessions: int.tryParse('${map['totalSessions'] ??? 0}') ??? 0,
+      currentStreak: int.tryParse('${map['currentStreak'] ?? 0}') ?? 0,
+      bestStreak: int.tryParse('${map['bestStreak'] ?? 0}') ?? 0,
+      totalSessions: int.tryParse('${map['totalSessions'] ?? 0}') ?? 0,
       averageSessionTime:
-          int.tryParse('${map['averageSessionTime'] ??? 0}') ??? 0,
-      weeklyProgress: Map<String, int>.from(map['weeklyProgress'] ??? {}),
-      monthlyTrend: List<int>.from(map['monthlyTrend'] ??? []),
+          int.tryParse('${map['averageSessionTime'] ?? 0}') ?? 0,
+      weeklyProgress: Map<String, int>.from(map['weeklyProgress'] ?? {}),
+      monthlyTrend: List<int>.from(map['monthlyTrend'] ?? []),
       lastSession:
           (map['lastSession'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );

@@ -809,6 +809,10 @@ class AppProvider extends ChangeNotifier {
   int get achievementBonusPoints {
     var points = 0;
     if (pomodoros.isNotEmpty) points += 50;
+    if (totalHabitCompletions >= 1) points += 25;
+    if (pomodoros.length >= 5) points += 40;
+    if (totalHabitCompletions >= 5) points += 40;
+    if (currentStreak >= 3) points += 35;
     if (currentStreak >= 7) points += 100;
     if (currentStreak >= 14) points += 180;
     if (currentStreak >= 30) points += 400;
@@ -837,6 +841,10 @@ class AppProvider extends ChangeNotifier {
 
   int get unlockedAchievementCount => [
         pomodoros.isNotEmpty,
+        totalHabitCompletions >= 1,
+        pomodoros.length >= 5,
+        totalHabitCompletions >= 5,
+        currentStreak >= 3,
         currentStreak >= 7,
         currentStreak >= 14,
         currentStreak >= 30,

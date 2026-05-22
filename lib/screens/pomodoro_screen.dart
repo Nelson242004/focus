@@ -195,17 +195,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!mounted) return;
     final provider = Provider.of<AppProvider>(context, listen: false);
     _mode = _normalizeMode(prefs.getString(_modeKey));
-    _selectedSubject = prefs.getString(_subjectKey) ??? _selectedSubject;
+    _selectedSubject = prefs.getString(_subjectKey) ?? _selectedSubject;
     if (_activeSubjectName(provider) == 'General') {
       _selectedSubject = '';
     }
-    _completedFocusSessions = prefs.getInt(_cycleCountKey) ??? 0;
-    _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ??? 0)
+    _completedFocusSessions = prefs.getInt(_cycleCountKey) ?? 0;
+    _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ?? 0)
         .clamp(0, _horizontalThemes.length - 1)
         .toInt();
     _remainingSeconds =
-        prefs.getInt(_remainingKey) ??? _totalSecondsForMode(provider);
-    final wasRunning = prefs.getBool(_runningKey) ??? false;
+        prefs.getInt(_remainingKey) ?? _totalSecondsForMode(provider);
+    final wasRunning = prefs.getBool(_runningKey) ?? false;
     final endAtMillis = prefs.getInt(_endAtKey);
     if (wasRunning && endAtMillis != null) {
       final now = DateTime.now();
@@ -309,6 +309,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     unawaited(_showPomodoroNotification(provider));
     unawaited(_syncPomodoroWidget(provider, force: true));
+    if (_mode == 'focus') {
+      unawaited(
+        RankingService.updatePresence(
+          status: 'pomodoro',
+          subject: _activeSubjectName(provider),
+        ),
+      );
+    }
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remainingSeconds <= 1) {
         if (mounted) {
@@ -403,6 +411,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _lastWidgetSyncBucket = null;
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
+    unawaited(RankingService.updatePresence(status: 'idle'));
     unawaited(WidgetSyncService.syncFromProvider(provider));
     _persistState();
   }
@@ -584,6 +593,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             subjectName: subjectName,
             durationMinutes: completedFocusDuration,
             distractionFree: blockedAttempts == 0,
+          ),
+        );
+        unawaited(
+          RankingService.updatePresence(
+            status: 'studied_today',
+            subject: subjectName,
           ),
         );
 
@@ -908,7 +923,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final minutes = _remainingSeconds ~/ 60;
     final seconds = _remainingSeconds % 60;
     final progress =
-        totalSeconds == 0 ?? 0.0 : 1 - (_remainingSeconds / totalSeconds);
+        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final modeLabel = _mode == 'focus'
         ? 'Enfoque'
         : _mode == 'shortBreak'
@@ -1092,7 +1107,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themePalette = _themePalette();
     final progress =
-        totalSeconds == 0 ?? 0.0 : 1 - (_remainingSeconds / totalSeconds);
+        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final compact = MediaQuery.of(context).size.width < 390;
 
     return Container(
@@ -1199,7 +1214,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   FocusGap.lg,
                   FocusMicroPop(
                     trigger: 'pomodoro-timer-$_mode-$_isRunning',
-                    fromScale: _isRunning ?? 0.97 : 0.99,
+                    fromScale: _isRunning ? 0.97 : 0.99,
                     child: SizedBox(
                       width: _isRunning
                           ? (compact ? 258 : 308)
@@ -1269,7 +1284,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               boxShadow: [
                                 BoxShadow(
                                   color: themePalette.accent.withValues(
-                                    alpha: isDark ?? 0.18 : 0.08,
+                                    alpha: isDark ? 0.18 : 0.08,
                                   ),
                                   blurRadius: isDark ? 30 : 20,
                                   offset: const Offset(0, 10),
@@ -1596,7 +1611,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       initialValue: subjects.any(
         (subject) => subject.name == _selectedSubject,
       )
-          ?? _selectedSubject
+          ? _selectedSubject
           : '',
       isExpanded: true,
       decoration: const InputDecoration(
@@ -1634,7 +1649,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final accent = FocusPalette.teal;
     final appsLabel = blockedApps.isEmpty
         ? 'Sin apps elegidas'
-        : '${blockedApps.length} app${blockedApps.length == 1 ?? '' : 's'}';
+        : '${blockedApps.length} app${blockedApps.length == 1 ? '' : 's'}';
 
     return Container(
       width: double.infinity,

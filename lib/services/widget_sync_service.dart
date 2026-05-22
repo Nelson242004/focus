@@ -22,13 +22,23 @@ class WidgetSyncService {
         ? null
         : combineDateAndTime(nextExam.date, nextExam.startTime);
     final profileIconAsset = await _currentProfileIconAsset();
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final studiedToday = provider.pomodoros.any(
+          (pomodoro) => pomodoro.date.startsWith(today),
+        ) ||
+        provider.habits.any((habit) => habit.history.contains(today));
+    final streakAtRisk = provider.currentStreak > 0 && !studiedToday;
 
     final payload = <String, dynamic>{
-      'widgetMode': _academicMode(nextExamAt),
-      'classTitle': nextClass?.subject.name ?? 'Día libre por ahora',
-      'classDetail': nextClass != null
-          ? '${weekdayLabel(nextClass.schedule.dayOfWeek)} · ${nextClass.schedule.startTime} a ${nextClass.schedule.endTime}'
-          : 'Abre Focus y organiza tu semana.',
+      'widgetMode': streakAtRisk ? 'streak_risk' : _academicMode(nextExamAt),
+      'classTitle': streakAtRisk
+          ? 'Racha en riesgo'
+          : nextClass?.subject.name ?? 'Día libre por ahora',
+      'classDetail': streakAtRisk
+          ? 'Completa una sesión o hábito hoy.'
+          : nextClass != null
+              ? '${weekdayLabel(nextClass.schedule.dayOfWeek)} · ${nextClass.schedule.startTime} a ${nextClass.schedule.endTime}'
+              : 'Abre Focus y organiza tu semana.',
       'examTitle':
           nextExam == null ? '' : provider.subjectNameForExam(nextExam),
       'examDetail': nextExam == null ? '' : _examDetail(nextExam),

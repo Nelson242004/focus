@@ -82,7 +82,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
         return;
       }
       final isFriend =
-          isMe ?? false : await FriendsService.areFriends(entry.uid);
+          isMe ? false : await FriendsService.areFriends(entry.uid);
       if (!mounted) return;
       await showModalBottomSheet<void>(
         context: context,
@@ -286,11 +286,11 @@ class _RankingBody extends StatelessWidget {
     return FutureBuilder<List<RankingEntry>>(
       future: leaderboardFuture,
       builder: (context, snapshot) {
-        final entries = snapshot.data ??? const <RankingEntry>[];
+        final entries = snapshot.data ?? const <RankingEntry>[];
         final participantCount = entries.length;
         final myIndex = entries.indexWhere((entry) => entry.uid == profile.uid);
         final myEntry = myIndex == -1 ? null : entries[myIndex];
-        final myPosition = myIndex == -1 ?? 0 : myIndex + 1;
+        final myPosition = myIndex == -1 ? 0 : myIndex + 1;
         final topEntries = entries.take(3).toList();
         final leaderboardEntries =
             entries.length >= 3 ? entries.skip(3).toList() : entries;
@@ -327,14 +327,9 @@ class _RankingBody extends StatelessWidget {
             ),
             FocusGap.sm,
             if (snapshot.connectionState == ConnectionState.waiting)
-              const Column(
-                children: [
-                  FocusSkeletonCard(height: 88),
-                  SizedBox(height: 10),
-                  FocusSkeletonCard(height: 72),
-                  SizedBox(height: 10),
-                  FocusSkeletonCard(height: 72),
-                ],
+              const FocusSkeletonColumn(
+                heights: [88, 72, 72],
+                spacing: 10,
               )
             else if (snapshot.hasError)
               _MessagePanel(
@@ -686,7 +681,7 @@ class _MyGlobalRankStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = entry?.points ??? profile.weeklyPoints;
+    final points = entry?.points ?? profile.weeklyPoints;
     final tier = _distributedRankTierForPosition(position, participantCount);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final positionLabel = position <= 0 ? 'Sin puesto' : '#$position';
@@ -1018,7 +1013,7 @@ class _MyRankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final points = entry?.points ??? 0;
+    final points = entry?.points ?? 0;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -1923,7 +1918,7 @@ String _tierProgressLabel(int position, int participantCount) {
 }
 
 int _rankingProfileStreak(RankingProfile profile) {
-  return int.tryParse('${profile.stats['currentStreak'] ??? 0}') ??? 0;
+  return int.tryParse('${profile.stats['currentStreak'] ?? 0}') ?? 0;
 }
 
 String _careerLabel(String career) {
@@ -1947,7 +1942,7 @@ String _entryProfileIconAsset(RankingEntry entry) {
 }
 
 String _profileIconAsset(RankingProfile profile) {
-  final rawAsset = '${profile.stats['profileIconAsset'] ??? ''}';
+  final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
   if (rawAsset.trim().isNotEmpty) {
     return normalizeProfileIconAsset(
       rawAsset,

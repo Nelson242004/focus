@@ -235,17 +235,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
-  String _notificationSummary() {
-    if (!_notificationsEnabled) return 'Notificaciones desactivadas.';
-    final enabled = <String>[
-      if (_examReminderDayBefore) '1 dÃ­a antes',
-      if (_examReminderTwoHoursBefore) '2 horas antes',
-      if (_examReminderThirtyMinutesBefore) '30 minutos antes',
-    ];
-    if (enabled.isEmpty) return 'Sin avisos de examen activos.';
-    return 'Avisos: ${enabled.join(', ')}.';
-  }
-
   String _languageLabel(AppLanguage language) {
     return switch (language) {
       AppLanguage.system => 'Usar idioma del dispositivo',
@@ -673,7 +662,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             FocusGap.md,
             _SettingsSection(
               title: 'Permisos',
-              subtitle: 'Notificaciones y diagnÃ³stico',
+              subtitle: 'Notificaciones y avisos',
               icon: Icons.verified_user_rounded,
               children: [
                 SwitchListTile(
@@ -686,7 +675,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 FutureBuilder<int>(
                   future: NotificationService.pendingNotificationsCount(),
                   builder: (context, snapshot) {
-                    final pendingCount = snapshot.data ??? 0;
+                    final pendingCount = snapshot.data ?? 0;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.schedule_rounded),
@@ -763,8 +752,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   icon: const Icon(Icons.notification_add_rounded),
                   label: const Text('Probar notificaciÃ³n'),
                 ),
-                const SizedBox(height: 12),
-                _DiagnosticPanel(provider: provider),
               ],
             ),
             FocusGap.md,
@@ -826,6 +813,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.health_and_safety_rounded,
                     children: [
                       _UpdateCard(onCheck: _checkForUpdates),
+                      const SizedBox(height: 12),
+                      _DiagnosticPanel(provider: provider),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
                         onPressed: _resetPreferences,
@@ -1088,7 +1077,7 @@ class _GoalProgressRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = goal <= 0 ?? 0.0 : (current / goal).clamp(0.0, 1.0);
+    final progress = goal <= 0 ? 0.0 : (current / goal).clamp(0.0, 1.0);
     final valueText =
         suffix.isEmpty ? '$current / $goal' : '$current / $goal $suffix';
     return Padding(
@@ -1328,7 +1317,7 @@ class _SettingsHero extends StatelessWidget {
             builder: (context, snapshot) {
               final data = snapshot.data;
               final pending =
-                  data == null || data.isEmpty ?? 0 : (data[0] as int? ??? 0);
+                  data == null || data.isEmpty ? 0 : (data[0] as int? ?? 0);
               final hasBackup =
                   data != null && data.length > 1 && data[1] != null;
               return Wrap(
@@ -1340,7 +1329,7 @@ class _SettingsHero extends StatelessWidget {
                         ? Icons.person_off_rounded
                         : Icons.verified_user_rounded,
                     label: RankingService.currentUser == null
-                        ?? 'Sin cuenta'
+                        ? 'Sin cuenta'
                         : 'Cuenta activa',
                   ),
                   _HeroStatusChip(
@@ -1770,7 +1759,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                         ? Icons.person_off_rounded
                         : Icons.verified_user_rounded,
                     label: RankingService.currentUser == null
-                        ?? 'Sin cuenta'
+                        ? 'Sin cuenta'
                         : 'Cuenta activa',
                   ),
                   _DiagnosticChip(
@@ -1778,7 +1767,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                         ? Icons.notifications_active_rounded
                         : Icons.notifications_off_rounded,
                     label: widget.provider.settings.notificationsEnabled
-                        ? '${data?.pendingNotifications ??? 0} avisos'
+                        ? '${data?.pendingNotifications ?? 0} avisos'
                         : 'Notificaciones apagadas',
                   ),
                   _DiagnosticChip(

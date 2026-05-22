@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -25,6 +26,7 @@ import '../widgets/focus_help_button.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_metric_icon.dart';
 import '../widgets/focus_profile_mascot.dart';
+import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -232,29 +234,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           const SizedBox(height: 14),
                           _ProfileReveal(
                             index: 1,
-                            child: _SocialSummaryCard(
-                              friendsCount: friends.length,
-                              profile: profile,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _ProfileReveal(
-                            index: 2,
-                            child: _FriendStreaks(
-                              profile: profile,
-                              friends: friends,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          _ProfileReveal(
-                            index: 3,
-                            child: _AllBadgesGrid(
-                              profile: profile,
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-                          _ProfileReveal(
-                            index: 4,
                             child: _FriendsHubDuo(
                               friends: friends,
                               search: _SearchCard(
@@ -272,9 +251,60 @@ class _FriendsScreenState extends State<FriendsScreen> {
                             ),
                           ),
                           _ProfileReveal(
-                            index: 5,
+                            index: 2,
                             child: _RequestsCard(
                               onChanged: () => setState(() {}),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileReveal(
+                            index: 3,
+                            child: _SocialSummaryCard(
+                              friendsCount: friends.length,
+                              profile: profile,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileReveal(
+                            index: 4,
+                            child: Consumer<AppProvider>(
+                              builder: (context, provider, _) =>
+                                  _ActivityCenterCard(
+                                provider: provider,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileReveal(
+                            index: 5,
+                            child: _SocialPresenceCard(
+                              profile: profile,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          _ProfileReveal(
+                            index: 6,
+                            child: _FriendStreaks(
+                              profile: profile,
+                              friends: friends,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          _ProfileReveal(
+                            index: 7,
+                            child: Consumer<AppProvider>(
+                              builder: (context, provider, _) =>
+                                  _AchievementProgressSection(
+                                provider: provider,
+                                unlockedBadges: profile.badges.toSet(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          _ProfileReveal(
+                            index: 8,
+                            child: _AllBadgesGrid(
+                              profile: profile,
                             ),
                           ),
                           /*
@@ -1578,8 +1608,7 @@ class _SocialSummaryCard extends StatelessWidget {
         children: [
           FocusSectionHeader(
             icon: Icons.insights_rounded,
-            title: 'Estadísticas',
-            subtitle: 'Tu progreso público en Focus',
+            title: 'Resumen',
             accent: FocusPalette.teal,
           ),
           FocusGap.md,
@@ -2926,6 +2955,216 @@ class _SocialStatus {
   ]);
 }
 
+DateTime? _presenceUpdatedAt(RankingProfile profile) {
+  final raw = profile.stats['statusUpdatedAt'];
+  if (raw is Timestamp) return raw.toDate();
+  if (raw is DateTime) return raw;
+  return profile.lastActive;
+}
+
+_PresenceInfo _presenceInfo(
+    String status, String subject, DateTime? updatedAt) {
+  final fresh = updatedAt != null &&
+      DateTime.now().difference(updatedAt) <= const Duration(hours: 3);
+  if (status == 'pomodoro' && fresh) {
+    return _PresenceInfo(
+      title: 'En Pomodoro',
+      detail: subject.isEmpty ? 'Sesión activa' : subject,
+      subtitle: 'Disponible solo después de enfocarse.',
+      icon: Icons.center_focus_strong_rounded,
+      color: FocusPalette.primary,
+    );
+  }
+  if (status == 'studied_today' && updatedAt != null) {
+    return _PresenceInfo(
+      title: 'Estudió hoy',
+      detail: subject.isEmpty ? 'Actividad registrada' : subject,
+      subtitle: 'Se actualiza al terminar sesiones.',
+      icon: Icons.school_rounded,
+      color: FocusPalette.teal,
+    );
+  }
+  if (updatedAt != null && _isSameDay(updatedAt, DateTime.now())) {
+    return const _PresenceInfo(
+      title: 'Activo hoy',
+      detail: 'Actividad reciente',
+      subtitle: 'Estado social automático.',
+      icon: Icons.bolt_rounded,
+      color: FocusPalette.mint,
+    );
+  }
+  return const _PresenceInfo(
+    title: 'Sin estado activo',
+    detail: 'Listo para estudiar',
+    subtitle: 'Inicia un Pomodoro para aparecer activo.',
+    icon: Icons.auto_awesome_rounded,
+    color: FocusPalette.muted,
+  );
+}
+
+String _relativeActivityLabel(DateTime? date) {
+  if (date == null) return 'Sin datos';
+  final diff = DateTime.now().difference(date);
+  if (diff.inMinutes < 1) return 'Ahora';
+  if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
+  if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
+  if (diff.inDays == 1) return 'Ayer';
+  return 'Hace ${diff.inDays} d';
+}
+
+class _PresenceInfo {
+  final String title;
+  final String detail;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _PresenceInfo({
+    required this.title,
+    required this.detail,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+}
+
+List<_AchievementProgress> _nextAchievementProgress(
+  AppProvider provider,
+  Set<String> unlockedBadges,
+) {
+  final items = <_AchievementProgress>[
+    _AchievementProgress(
+      id: 'first_pomodoro',
+      current: provider.pomodoros.length,
+      target: 1,
+      unitSingular: 'sesión',
+      unitPlural: 'sesiones',
+    ),
+    _AchievementProgress(
+      id: 'first_habit',
+      current: provider.totalHabitCompletions,
+      target: 1,
+      unitSingular: 'hábito',
+      unitPlural: 'hábitos',
+    ),
+    _AchievementProgress(
+      id: 'pomodoros_5',
+      current: provider.pomodoros.length,
+      target: 5,
+      unitSingular: 'sesión',
+      unitPlural: 'sesiones',
+    ),
+    _AchievementProgress(
+      id: 'habits_5',
+      current: provider.totalHabitCompletions,
+      target: 5,
+      unitSingular: 'hábito',
+      unitPlural: 'hábitos',
+    ),
+    _AchievementProgress(
+      id: 'streak_3',
+      current: provider.currentStreak,
+      target: 3,
+      unitSingular: 'día de racha',
+      unitPlural: 'días de racha',
+    ),
+    _AchievementProgress(
+      id: 'streak_7',
+      current: provider.currentStreak,
+      target: 7,
+      unitSingular: 'día de racha',
+      unitPlural: 'días de racha',
+    ),
+    _AchievementProgress(
+      id: 'streak_14',
+      current: provider.currentStreak,
+      target: 14,
+      unitSingular: 'día de racha',
+      unitPlural: 'días de racha',
+    ),
+    _AchievementProgress(
+      id: 'streak_30',
+      current: provider.currentStreak,
+      target: 30,
+      unitSingular: 'día de racha',
+      unitPlural: 'días de racha',
+    ),
+    _AchievementProgress(
+      id: 'pomodoros_25',
+      current: provider.pomodoros.length,
+      target: 25,
+      unitSingular: 'sesión',
+      unitPlural: 'sesiones',
+    ),
+    _AchievementProgress(
+      id: 'pomodoros_100',
+      current: provider.pomodoros.length,
+      target: 100,
+      unitSingular: 'sesión',
+      unitPlural: 'sesiones',
+    ),
+    _AchievementProgress(
+      id: 'weekly_mission',
+      current: provider.weeklyMissionProgressCount,
+      target: provider.weeklyMissionTarget,
+      unitSingular: 'pomodoro semanal',
+      unitPlural: 'pomodoros semanales',
+    ),
+    _AchievementProgress(
+      id: 'habits_30',
+      current: provider.totalHabitCompletions,
+      target: 30,
+      unitSingular: 'hábito',
+      unitPlural: 'hábitos',
+    ),
+    _AchievementProgress(
+      id: 'habits_75',
+      current: provider.totalHabitCompletions,
+      target: 75,
+      unitSingular: 'hábito',
+      unitPlural: 'hábitos',
+    ),
+    _AchievementProgress(
+      id: 'max_level',
+      current: provider.level,
+      target: AppProvider.maxLevel,
+      unitSingular: 'nivel',
+      unitPlural: 'niveles',
+    ),
+  ];
+
+  return items
+      .where((item) => !unlockedBadges.contains(item.id) && !item.completed)
+      .toList()
+    ..sort((a, b) => b.progress.compareTo(a.progress));
+}
+
+class _AchievementProgress {
+  final String id;
+  final int current;
+  final int target;
+  final String unitSingular;
+  final String unitPlural;
+
+  const _AchievementProgress({
+    required this.id,
+    required this.current,
+    required this.target,
+    required this.unitSingular,
+    required this.unitPlural,
+  });
+
+  bool get completed => current >= target;
+  double get progress => target <= 0 ? 0 : (current / target).clamp(0.0, 1.0);
+
+  String get remainingText {
+    final remaining = (target - current).clamp(0, target);
+    if (remaining == 0) return 'Listo para desbloquear.';
+    final unit = remaining == 1 ? unitSingular : unitPlural;
+    return 'Te faltan $remaining $unit.';
+  }
+}
+
 int _profileBestStreak(RankingProfile profile) {
   return int.tryParse('${profile.stats['bestStreak'] ?? 0}') ??
       _profileStreak(profile);
@@ -3820,6 +4059,327 @@ class _FocusSummaryGrid extends StatelessWidget {
   }
 }
 
+class _ActivityCenterCard extends StatelessWidget {
+  final AppProvider provider;
+
+  const _ActivityCenterCard({
+    required this.provider,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final todayPomodoros =
+        provider.pomodoros.where((item) => item.date.startsWith(today)).length;
+    final todayHabits =
+        provider.habits.where((habit) => habit.history.contains(today)).length;
+    final todayPoints = todayPomodoros * RankingService.pointsPerPomodoro +
+        todayHabits * RankingService.pointsPerHabitCompletion;
+    final hasActivity = todayPomodoros > 0 || todayHabits > 0;
+
+    return _SocialSection(
+      title: 'Centro de actividad',
+      subtitle: hasActivity
+          ? 'Hoy ya sumaste movimiento real.'
+          : 'Todavía puedes proteger tu racha hoy.',
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _ActivityMetric(
+                  icon: Icons.timer_rounded,
+                  label: 'Pomodoros',
+                  value: '$todayPomodoros',
+                  color: FocusPalette.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ActivityMetric(
+                  icon: Icons.task_alt_rounded,
+                  label: 'Hábitos',
+                  value: '$todayHabits',
+                  color: FocusPalette.teal,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _ActivityMetric(
+                  icon: Icons.bolt_rounded,
+                  metricIcon: FocusMetricIconKind.points,
+                  label: 'Puntos',
+                  value: '+$todayPoints',
+                  color: FocusPalette.amber,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          FocusInlineState(
+            icon: hasActivity
+                ? Icons.check_circle_rounded
+                : Icons.local_fire_department_rounded,
+            text: hasActivity
+                ? 'Hoy completaste $todayPomodoros pomodoros, $todayHabits hábitos y +$todayPoints puntos.'
+                : 'Completa un Pomodoro o hábito para activar tu estado social de hoy.',
+            accent: hasActivity ? FocusPalette.teal : FocusPalette.softAlert,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityMetric extends StatelessWidget {
+  final IconData icon;
+  final FocusMetricIconKind? metricIcon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _ActivityMetric({
+    required this.icon,
+    this.metricIcon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.all(12),
+      radius: 20,
+      elevated: false,
+      accent: color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (metricIcon != null)
+            FocusMetricIcon(kind: metricIcon!, size: 22, color: color)
+          else
+            Icon(icon, size: 22, color: color),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: FocusPalette.muted,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SocialPresenceCard extends StatelessWidget {
+  final RankingProfile profile;
+
+  const _SocialPresenceCard({required this.profile});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = '${profile.stats['socialStatus'] ?? ''}';
+    final subject = '${profile.stats['statusSubject'] ?? ''}'.trim();
+    final updatedAt = _presenceUpdatedAt(profile);
+    final statusInfo = _presenceInfo(status, subject, updatedAt);
+
+    return _SocialSection(
+      title: 'Estado social',
+      subtitle: statusInfo.subtitle,
+      child: Row(
+        children: [
+          Expanded(
+            child: _PresencePill(
+              icon: statusInfo.icon,
+              title: statusInfo.title,
+              subtitle: statusInfo.detail,
+              color: statusInfo.color,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _PresencePill(
+              icon: Icons.schedule_rounded,
+              title: _relativeActivityLabel(updatedAt),
+              subtitle: 'Última actividad',
+              color: FocusPalette.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PresencePill extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+
+  const _PresencePill({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.all(13),
+      radius: 20,
+      elevated: false,
+      accent: color,
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 23),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: FocusPalette.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AchievementProgressSection extends StatelessWidget {
+  final AppProvider provider;
+  final Set<String> unlockedBadges;
+
+  const _AchievementProgressSection({
+    required this.provider,
+    required this.unlockedBadges,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items =
+        _nextAchievementProgress(provider, unlockedBadges).take(3).toList();
+    return _SocialSection(
+      title: 'Logros en progreso',
+      subtitle: 'Lo próximo que puedes desbloquear.',
+      child: items.isEmpty
+          ? const FocusInlineState(
+              icon: Icons.workspace_premium_rounded,
+              text: 'Ya tienes todos los logros principales desbloqueados.',
+              accent: FocusPalette.amber,
+            )
+          : Column(
+              children: [
+                for (var index = 0; index < items.length; index++) ...[
+                  _AchievementProgressTile(item: items[index]),
+                  if (index != items.length - 1) const SizedBox(height: 10),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _AchievementProgressTile extends StatelessWidget {
+  final _AchievementProgress item;
+
+  const _AchievementProgressTile({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    final info = badgeVisualInfo(item.id);
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.all(13),
+      radius: 20,
+      elevated: false,
+      accent: info.color,
+      child: Row(
+        children: [
+          Image.asset(
+            info.asset,
+            width: 34,
+            height: 34,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) =>
+                Icon(info.icon, color: info.color, size: 24),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        info.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                    Text(
+                      '${item.current.clamp(0, item.target)} / ${item.target}',
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: item.progress,
+                  color: info.color,
+                  backgroundColor: info.color.withValues(alpha: 0.12),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  item.remainingText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: FocusPalette.muted,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _FriendStreaks extends StatelessWidget {
   final RankingProfile profile;
   final List<RankingProfile> friends;
@@ -4039,7 +4599,6 @@ class _AllBadgesGrid extends StatelessWidget {
 
     return _SocialSection(
       title: 'Insignias',
-      subtitle: 'Tus logros desbloqueados en Focus.',
       child: badges.isEmpty
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4102,10 +4661,17 @@ class _BadgeBubble extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(
-              info.icon,
-              color: info.color,
-              size: 28,
+            child: Padding(
+              padding: const EdgeInsets.all(3),
+              child: Image.asset(
+                info.asset,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Icon(
+                  info.icon,
+                  color: info.color,
+                  size: 28,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -4938,7 +5504,10 @@ class _FriendsRanking extends StatelessWidget {
             future: future,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LinearProgressIndicator();
+                return const FocusSkeletonColumn(
+                  heights: [74, 64],
+                  spacing: 10,
+                );
               }
               if (snapshot.hasError) {
                 return _EmptyInline(
@@ -5075,67 +5644,13 @@ class _FriendRankTile extends StatelessWidget {
     final accent = entry.position <= 3
         ? FocusPalette.amber
         : Theme.of(context).colorScheme.primary;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: isCurrentUser
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-            : accent.withValues(alpha: entry.position <= 3 ? 0.1 : 0.05),
-        border: Border.all(
-          color: isCurrentUser
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.24)
-              : accent.withValues(alpha: 0.14),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: accent.withValues(alpha: 0.16),
-            ),
-            child: Center(
-              child: Text(
-                '#${entry.position}',
-                style: TextStyle(
-                  color: accent,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isCurrentUser ? '${entry.name} (tú)' : entry.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  entry.career,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${entry.points} pts',
-            style: const TextStyle(fontWeight: FontWeight.w900),
-          ),
-        ],
-      ),
+    return FocusFriendCard(
+      title: isCurrentUser ? '${entry.name} (tú)' : entry.name,
+      subtitle: entry.career,
+      leadingLabel: '#${entry.position}',
+      trailingLabel: '${entry.points} pts',
+      accent: accent,
+      highlighted: isCurrentUser,
     );
   }
 }
@@ -5531,7 +6046,10 @@ class _SearchCard extends StatelessWidget {
             future: searchFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const LinearProgressIndicator();
+                return const FocusSkeletonColumn(
+                  heights: [64, 64],
+                  spacing: 8,
+                );
               }
               if (snapshot.hasError) {
                 return _EmptyInline(

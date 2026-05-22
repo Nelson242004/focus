@@ -307,6 +307,7 @@ class _AchievementTile extends StatelessWidget {
                   color: accent.withValues(alpha: 0.14),
                 ),
                 child: _AchievementBadgeImage(
+                  asset: info.asset,
                   icon: info.icon,
                   color: info.color,
                   unlocked: data.unlocked,
@@ -341,11 +342,13 @@ class _AchievementTile extends StatelessWidget {
 }
 
 class _AchievementBadgeImage extends StatelessWidget {
+  final String asset;
   final IconData icon;
   final Color color;
   final bool unlocked;
 
   const _AchievementBadgeImage({
+    required this.asset,
     required this.icon,
     required this.color,
     required this.unlocked,
@@ -357,13 +360,51 @@ class _AchievementBadgeImage extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         FocusMicroPop(
-          trigger: '$icon-$unlocked',
+          trigger: '$asset-$unlocked',
           fromScale: unlocked ? 0.78 : 0.98,
-          child: Icon(
-            icon,
-            color: unlocked ? color : FocusPalette.muted,
-            size: 27,
-          ),
+          child: unlocked
+              ? Image.asset(
+                  asset,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    icon,
+                    color: color,
+                    size: 27,
+                  ),
+                )
+              : ColorFiltered(
+                  colorFilter: const ColorFilter.matrix(<double>[
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0.2126,
+                    0.7152,
+                    0.0722,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0.55,
+                    0,
+                  ]),
+                  child: Image.asset(
+                    asset,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Icon(
+                      icon,
+                      color: FocusPalette.muted,
+                      size: 27,
+                    ),
+                  ),
+                ),
         ),
         if (!unlocked)
           Align(
@@ -400,6 +441,10 @@ class _AchievementData {
 bool _isAchievementUnlocked(AppProvider provider, String id) {
   return switch (id) {
     'first_pomodoro' => provider.pomodoros.isNotEmpty,
+    'first_habit' => provider.totalHabitCompletions >= 1,
+    'pomodoros_5' => provider.pomodoros.length >= 5,
+    'habits_5' => provider.totalHabitCompletions >= 5,
+    'streak_3' => provider.currentStreak >= 3,
     'streak_7' => provider.currentStreak >= 7,
     'streak_14' => provider.currentStreak >= 14,
     'streak_30' => provider.currentStreak >= 30,
