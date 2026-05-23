@@ -8,6 +8,7 @@ import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
+import '../widgets/schedule_board.dart';
 import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
 
@@ -484,36 +485,26 @@ class _SubjectsPanel extends StatelessWidget {
         )
         .toList();
 
-    return Padding(
-      padding: FocusInsets.pageCompact,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FocusSectionHeader(
-            icon: Icons.menu_book_rounded,
-            title: 'Tus materias',
-            subtitle: '${subjects.length} registradas',
-            accent: const Color(0xFF0EA5E9),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ScheduleBoard(
+          title: 'Horario semanal',
+          visibleDays: [0, 1, 2, 3, 4, 5],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+          child: _SubjectsDetailsPanel(
+            provider: provider,
+            subjects: subjects,
+            subjectsById: subjectsById,
+            unscheduledSubjects: unscheduledSubjects,
+            onEdit: onEdit,
+            onDelete: onDelete,
+            subjectsForDay: _subjectsForDay,
           ),
-          FocusGap.section,
-          for (var day = 0; day < 7; day++)
-            _SubjectDaySection(
-              provider: provider,
-              title: weekdayLabel(day),
-              subjects: _subjectsForDay(day, provider, subjectsById),
-              onEdit: onEdit,
-              onDelete: onDelete,
-            ),
-          if (unscheduledSubjects.isNotEmpty)
-            _SubjectDaySection(
-              provider: provider,
-              title: 'Sin horario',
-              subjects: unscheduledSubjects,
-              onEdit: onEdit,
-              onDelete: onDelete,
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -538,6 +529,90 @@ class _SubjectsPanel extends StatelessWidget {
       }
     }
     return items;
+  }
+}
+
+class _SubjectsDetailsPanel extends StatelessWidget {
+  final AppProvider provider;
+  final List<Subject> subjects;
+  final Map<int, Subject> subjectsById;
+  final List<Subject> unscheduledSubjects;
+  final ValueChanged<Subject> onEdit;
+  final ValueChanged<Subject> onDelete;
+  final List<Subject> Function(
+    int day,
+    AppProvider provider,
+    Map<int, Subject> subjectsById,
+  ) subjectsForDay;
+
+  const _SubjectsDetailsPanel({
+    required this.provider,
+    required this.subjects,
+    required this.subjectsById,
+    required this.unscheduledSubjects,
+    required this.onEdit,
+    required this.onDelete,
+    required this.subjectsForDay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: FocusRadii.panel,
+      accent: const Color(0xFF0EA5E9),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+          childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          initiallyExpanded: false,
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
+            ),
+            child: const Icon(
+              Icons.menu_book_rounded,
+              color: Color(0xFF0EA5E9),
+            ),
+          ),
+          title: Text(
+            'Tus materias y detalles',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          subtitle: Text(
+            '${subjects.length} materias registradas',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          children: [
+            for (var day = 0; day < 7; day++)
+              _SubjectDaySection(
+                provider: provider,
+                title: weekdayLabel(day),
+                subjects: subjectsForDay(day, provider, subjectsById),
+                onEdit: onEdit,
+                onDelete: onDelete,
+              ),
+            if (unscheduledSubjects.isNotEmpty)
+              _SubjectDaySection(
+                provider: provider,
+                title: 'Sin horario',
+                subjects: unscheduledSubjects,
+                onEdit: onEdit,
+                onDelete: onDelete,
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

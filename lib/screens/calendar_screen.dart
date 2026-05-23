@@ -48,7 +48,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   FocusHelpSection(
                     title: 'Vista',
                     items: [
-                      'El resumen mensual te muestra cuanto se concentra en el mes actual.',
+                      'El resumen mensual te muestra cuánto se concentra en el mes actual.',
                       'Al tocar un día ves su agenda sin llenar toda la pantalla de texto.',
                     ],
                   ),

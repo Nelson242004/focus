@@ -83,6 +83,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     final provider = Provider.of<AppProvider>(context, listen: false);
     final goal = _weeklyGoal.clamp(1, 99);
+    var notificationsEnabled = _notificationsEnabled;
+    if (notificationsEnabled) {
+      final granted = await NotificationService.ensurePermissions();
+      if (!granted) {
+        notificationsEnabled = false;
+        if (mounted) {
+          setState(() => _notificationsEnabled = false);
+          _showMessage(
+            'Notificaciones desactivadas. Puedes activarlas cuando quieras.',
+          );
+        }
+      }
+    }
 
     await provider.updateSettings(
       AppSettings(
@@ -101,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         textScale: _textScale,
         animationsEnabled: _animationsEnabled,
         accentColor: _accentColor,
-        notificationsEnabled: _notificationsEnabled,
+        notificationsEnabled: notificationsEnabled,
         examReminderDayBefore: _examReminderDayBefore,
         examReminderTwoHoursBefore: _examReminderTwoHoursBefore,
         examReminderThirtyMinutesBefore: _examReminderThirtyMinutesBefore,
@@ -660,9 +673,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             FocusGap.md,
             _SettingsSection(
-              title: 'Permisos',
+              title: 'Notificaciones',
               subtitle: 'Notificaciones y avisos',
-              icon: Icons.verified_user_rounded,
+              icon: Icons.notifications_active_rounded,
               children: [
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,

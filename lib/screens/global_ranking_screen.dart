@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/ranking_profile.dart';
 import '../services/friends_service.dart';
@@ -14,7 +13,7 @@ import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
-import '../widgets/focus_social_components.dart';
+import '../widgets/focus_public_profile_sheet.dart';
 import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
@@ -88,12 +87,16 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
         context: context,
         showDragHandle: true,
         isScrollControlled: true,
-        builder: (_) => _RankingProfileSheet(
+        builder: (_) => FocusPublicProfileSheet(
           profile: profile,
-          entry: entry,
-          participantCount: participantCount,
           isMe: isMe,
           isFriend: isFriend,
+          points: entry.points,
+          statusLabel: isMe
+              ? 'Tu perfil'
+              : isFriend
+                  ? 'Perfil de amigo'
+                  : null,
           onSendRequest: () async {
             await FriendsService.sendRequest(profile);
             if (!mounted) return false;
@@ -300,6 +303,13 @@ class _RankingBody extends StatelessWidget {
         return ListView(
           padding: FocusInsets.pageCompact,
           children: [
+            _MyGlobalRankStrip(
+              profile: profile,
+              entry: myEntry,
+              position: myPosition,
+              participantCount: participantCount,
+            ),
+            FocusGap.section,
             const _SectionLabel(
               icon: Icons.emoji_events_rounded,
               title: 'Podio semanal',
@@ -314,13 +324,6 @@ class _RankingBody extends StatelessWidget {
               ),
               FocusGap.section,
             ],
-            _MyGlobalRankStrip(
-              profile: profile,
-              entry: myEntry,
-              position: myPosition,
-              participantCount: participantCount,
-            ),
-            FocusGap.section,
             const _SectionLabel(
               icon: Icons.format_list_numbered_rounded,
               title: 'Tabla',
@@ -867,7 +870,7 @@ class _Podium extends StatelessWidget {
       if (entries.length > 2) entries[2],
     ];
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 14, 10, 12),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(FocusRadii.panel),
         color: Theme.of(context).cardColor,
@@ -879,10 +882,10 @@ class _Podium extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: ordered.map((entry) {
           final position = entry.position;
-          final height = position == 1 ? 216.0 : 176.0;
+          final height = position == 1 ? 232.0 : 206.0;
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
                 duration: Duration(milliseconds: 520 + (position * 80)),
@@ -935,7 +938,7 @@ class _PodiumPlace extends StatelessWidget {
       onTap: () => onOpenProfile(entry),
       child: Container(
         height: height,
-        padding: const EdgeInsets.fromLTRB(8, 10, 8, 10),
+        padding: const EdgeInsets.fromLTRB(9, 12, 9, 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(FocusRadii.card),
           color: accent.withValues(alpha: 0.08),
@@ -961,14 +964,14 @@ class _PodiumPlace extends StatelessWidget {
                 ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 12),
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
                 _RankingProfileIcon(
                   asset: _entryProfileIconAsset(entry),
-                  size: entry.position == 1 ? 86 : 74,
+                  size: entry.position == 1 ? 92 : 82,
                 ),
                 Positioned(
                   right: -4,
@@ -977,16 +980,16 @@ class _PodiumPlace extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
-            Flexible(
+            const SizedBox(height: 12),
+            Expanded(
               child: Text(
                 entry.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 13,
+                  fontSize: entry.position == 1 ? 14 : 13.5,
                   height: 1.05,
                 ),
               ),
@@ -1236,281 +1239,6 @@ class _PointsPill extends StatelessWidget {
             SizedBox(width: large ? 5 : 3),
             _AnimatedPointsText(points: points, large: large),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RankingProfileSheet extends StatefulWidget {
-  final RankingProfile profile;
-  final RankingEntry entry;
-  final int participantCount;
-  final bool isMe;
-  final bool isFriend;
-  final Future<bool> Function() onSendRequest;
-
-  const _RankingProfileSheet({
-    required this.profile,
-    required this.entry,
-    required this.participantCount,
-    required this.isMe,
-    required this.isFriend,
-    required this.onSendRequest,
-  });
-
-  @override
-  State<_RankingProfileSheet> createState() => _RankingProfileSheetState();
-}
-
-class _RankingProfileSheetState extends State<_RankingProfileSheet> {
-  bool _sending = false;
-  bool _sent = false;
-
-  Future<void> _sendRequest() async {
-    if (_sending || _sent) return;
-    setState(() => _sending = true);
-    try {
-      final sent = await widget.onSendRequest();
-      if (!mounted || !sent) return;
-      HapticFeedback.mediumImpact();
-      setState(() => _sent = true);
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(RankingService.friendlyRankingError(error)),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final profile = widget.profile;
-    final entry = widget.entry;
-    final isMe = widget.isMe;
-    final isFriend = widget.isFriend;
-    final tier = _distributedRankTierForPosition(
-      entry.position,
-      widget.participantCount,
-    );
-    final accent =
-        entry.position <= 3 ? _podiumColor(entry.position) : tier.color;
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: LinearGradient(
-                  colors: [
-                    accent.withValues(alpha: 0.28),
-                    Theme.of(context).cardColor,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: accent.withValues(alpha: 0.24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.11),
-                    blurRadius: 22,
-                    offset: const Offset(0, 11),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _RankingProfileIcon(
-                        asset: _profileIconAsset(profile),
-                        size: 112,
-                      ),
-                      Positioned(
-                        right: -4,
-                        bottom: -4,
-                        child: _RankBadge(
-                          position: entry.position,
-                          entry: entry,
-                          participantCount: widget.participantCount,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            height: 1.03,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.45,
-                          ),
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          _careerLabel(profile.career),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                        ),
-                        const SizedBox(height: 10),
-                        _InlineRankPill(
-                          label: isMe
-                              ? 'Tu perfil'
-                              : isFriend
-                                  ? 'Amigo'
-                                  : _sent
-                                      ? 'Solicitud enviada'
-                                      : 'Perfil público',
-                          color: accent,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            FocusSocialStatsGrid(
-              items: [
-                FocusSocialStatItem(
-                  icon: FocusMetricIcon.points(
-                    size: 23,
-                    color: FocusPalette.amber,
-                  ),
-                  label: 'Puntos',
-                  value: '${entry.points} pts',
-                  color: FocusPalette.amber,
-                ),
-                FocusSocialStatItem(
-                  icon: FocusMetricIcon.streak(
-                    size: 23,
-                    color: FocusPalette.amber,
-                  ),
-                  label: 'Racha',
-                  value: '${_rankingProfileStreak(profile)} días',
-                  color: FocusPalette.amber,
-                ),
-                FocusSocialStatItem(
-                  icon: Image.asset(
-                    _tierMedalAsset(tier.name),
-                    width: 25,
-                    height: 25,
-                    fit: BoxFit.contain,
-                  ),
-                  label: 'Liga',
-                  value: tier.name,
-                  color: tier.color,
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: isMe
-                  ? OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.person_rounded),
-                      label: const Text('Este eres tú'),
-                    )
-                  : isFriend
-                      ? OutlinedButton.icon(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.check_circle_rounded),
-                          label: const Text('Ya está en tus amigos'),
-                        )
-                      : FilledButton.icon(
-                          onPressed: (_sending || _sent) ? null : _sendRequest,
-                          icon: _sent
-                              ? const Icon(Icons.check_circle_rounded)
-                              : _sending
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(Icons.person_add_alt_1_rounded),
-                          label: Text(
-                            _sent
-                                ? 'Solicitud enviada'
-                                : _sending
-                                    ? 'Enviando solicitud...'
-                                    : 'Enviar solicitud',
-                          ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: _sent
-                                ? FocusPalette.mint
-                                : Theme.of(context).colorScheme.primary,
-                            disabledBackgroundColor: _sent
-                                ? FocusPalette.mint
-                                : Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withValues(alpha: 0.56),
-                            disabledForegroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                        ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InlineRankPill extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _InlineRankPill({
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -1915,10 +1643,6 @@ String _tierProgressLabel(int position, int participantCount) {
   return needed == 1
       ? 'Te falta 1 puesto para Plata.'
       : 'Te faltan $needed puestos para Plata.';
-}
-
-int _rankingProfileStreak(RankingProfile profile) {
-  return int.tryParse('${profile.stats['currentStreak'] ?? 0}') ?? 0;
 }
 
 String _careerLabel(String career) {
