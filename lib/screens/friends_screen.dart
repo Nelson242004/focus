@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/rendering.dart';
@@ -74,26 +73,34 @@ class _FriendsScreenState extends State<FriendsScreen> {
     });
   }
 
-  void _syncLocalStatsToProfile(AppProvider provider) {
-    if (_syncingLocalStats ||
-        _lastSyncedLocalStreak == provider.currentStreak ||
-        RankingService.currentUser == null) {
+  void _syncLocalStatsToProfile(
+    AppProvider provider,
+    RankingProfile profile,
+  ) {
+    final localStreak = provider.currentStreak;
+    final remoteStreak = _profileStreak(profile);
+    if (_syncingLocalStats || RankingService.currentUser == null) {
+      return;
+    }
+    if (_lastSyncedLocalStreak == localStreak && remoteStreak == localStreak) {
+      return;
+    }
+    if (remoteStreak == localStreak && _lastSyncedLocalStreak == localStreak) {
       return;
     }
     _syncingLocalStats = true;
-    _lastSyncedLocalStreak = provider.currentStreak;
     RankingService.syncSocialStats(
-      currentStreak: provider.currentStreak,
+      currentStreak: localStreak,
       totalPomodoros: provider.pomodoros.length,
       totalHabitCompletions: provider.totalHabitCompletions,
       weeklyMissionCompleted: provider.weeklyMissionCompleted,
       level: provider.level,
     ).then((_) async {
+      _lastSyncedLocalStreak = localStreak;
       if (!mounted) return;
-      final profile = await RankingService.fetchProfile();
-      if (!mounted || profile == null) return;
-      // Keep the current screen stable; the sync is for Firebase/social data.
-      // Replacing _profileFuture here forces a full reload and can flash white.
+      final updatedProfile = await RankingService.fetchProfile();
+      if (!mounted || updatedProfile == null) return;
+      setState(() => _profileFuture = Future.value(updatedProfile));
     }).catchError((Object error) {
       debugPrint('Focus profile stats sync skipped: $error');
     }).whenComplete(() {
@@ -199,10 +206,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     ),
                   );
                 }
+                final loadedProfile = profile!;
                 final localProvider =
                     Provider.of<AppProvider>(context, listen: false);
                 WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _syncLocalStatsToProfile(localProvider);
+                  if (mounted) {
+                    _syncLocalStatsToProfile(localProvider, loadedProfile);
+                  }
                 });
                 return StreamBuilder<List<RankingProfile>>(
                   stream: _friendsStream ??= FriendsService.friendsStream(),
@@ -225,10 +235,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
                           _ProfileReveal(
                             index: 0,
                             child: _DuolingoFriendsHeader(
-                              profile: profile!,
+                              profile: loadedProfile,
                               friendsCount: friends.length,
                               onCopy: _copyFriendCode,
-                              onShare: () => _shareFriendInvite(profile),
+                              onShare: () => _shareFriendInvite(loadedProfile),
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -244,67 +254,48 @@ class _FriendsScreenState extends State<FriendsScreen> {
                                 onViewProfile: _showFriendProfile,
                                 onPreviewProfile: _showCandidateProfile,
                               ),
+                              requests: _RequestsCard(
+                                compact: true,
+                                onChanged: () => setState(() {}),
+                              ),
                               list: _FriendsList(
                                 friends: friends,
                                 onViewProfile: _showFriendProfile,
                               ),
                             ),
                           ),
+                          const SizedBox(height: 14),
                           _ProfileReveal(
                             index: 2,
-                            child: _RequestsCard(
-                              onChanged: () => setState(() {}),
+                            child: _SocialSummaryCard(
+                              friendsCount: friends.length,
+                              profile: loadedProfile,
                             ),
                           ),
                           const SizedBox(height: 14),
                           _ProfileReveal(
                             index: 3,
-                            child: _SocialSummaryCard(
-                              friendsCount: friends.length,
-                              profile: profile,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _ProfileReveal(
-                            index: 4,
-                            child: Consumer<AppProvider>(
-                              builder: (context, provider, _) =>
-                                  _ActivityCenterCard(
-                                provider: provider,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _ProfileReveal(
-                            index: 5,
-                            child: _SocialPresenceCard(
-                              profile: profile,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          _ProfileReveal(
-                            index: 6,
                             child: _FriendStreaks(
-                              profile: profile,
+                              profile: loadedProfile,
                               friends: friends,
                             ),
                           ),
                           const SizedBox(height: 18),
                           _ProfileReveal(
-                            index: 7,
+                            index: 4,
                             child: Consumer<AppProvider>(
                               builder: (context, provider, _) =>
                                   _AchievementProgressSection(
                                 provider: provider,
-                                unlockedBadges: profile.badges.toSet(),
+                                unlockedBadges: loadedProfile.badges.toSet(),
                               ),
                             ),
                           ),
                           const SizedBox(height: 18),
                           _ProfileReveal(
-                            index: 8,
+                            index: 5,
                             child: _AllBadgesGrid(
-                              profile: profile,
+                              profile: loadedProfile,
                             ),
                           ),
                           /*
@@ -684,29 +675,6 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    _ColorFanButton(
-                      selected: _themeIndex,
-                      size: 38,
-                      onSelected: (index) async {
-                        final previous = _themeIndex;
-                        setState(() => _themeIndex = index);
-                        try {
-                          await RankingService.updateSocialStyle(
-                            themeIndex: index,
-                          );
-                        } catch (error) {
-                          if (!context.mounted) return;
-                          setState(() => _themeIndex = previous);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                RankingService.friendlyRankingError(error),
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                    ),
                     const Spacer(),
                     IconButton.filledTonal(
                       style: IconButton.styleFrom(
@@ -966,15 +934,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                       icon: Icons.edit_rounded,
                     ),
                   ),
-                  Positioned(
-                    left: 8,
-                    bottom: 24,
-                    child: _ColorFanButton(
-                      selected: _themeIndex,
-                      size: 38,
-                      onSelected: _updateThemeIndex,
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1034,27 +993,6 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
         ),
       ),
     );
-  }
-
-  Future<void> _updateThemeIndex(int index) async {
-    final previousThemeIndex = _themeIndex;
-    setState(() => _themeIndex = index);
-    try {
-      await RankingService.updateSocialStyle(themeIndex: index);
-    } catch (error) {
-      if (!mounted) return;
-      setState(() => _themeIndex = previousThemeIndex);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: FocusActionSnackContent(
-            icon: Icons.palette_outlined,
-            message: RankingService.friendlyRankingError(error),
-            color: FocusPalette.danger,
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   void _showAvatarBuilder(BuildContext context) {
@@ -1772,112 +1710,6 @@ class _SummaryMetric extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ColorFanButton extends StatelessWidget {
-  final int selected;
-  final Future<void> Function(int index) onSelected;
-  final double size;
-
-  const _ColorFanButton({
-    required this.selected,
-    required this.onSelected,
-    this.size = 38,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final selectedTheme = _socialThemes[selected];
-    return Tooltip(
-      message: 'Cambiar fondo',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: () => _showColorFan(context),
-        child: Container(
-          width: size,
-          height: size,
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.2),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.32)),
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: SweepGradient(
-                colors: [
-                  ...selectedTheme.colors,
-                  FocusPalette.amber,
-                  FocusPalette.mint,
-                  selectedTheme.colors.first,
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showColorFan(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Color de fondo',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Elige una paleta para tu tarjeta de perfil.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FocusPalette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-              const SizedBox(height: 14),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.sizeOf(context).height * 0.52,
-                ),
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: List.generate(
-                      _socialThemes.length,
-                      (index) => InkWell(
-                        borderRadius: BorderRadius.circular(18),
-                        onTap: () async {
-                          Navigator.pop(context);
-                          if (index != selected) await onSelected(index);
-                        },
-                        child: _ThemeChoicePill(
-                          theme: _socialThemes[index],
-                          selected: index == selected,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -2955,79 +2787,6 @@ class _SocialStatus {
   ]);
 }
 
-DateTime? _presenceUpdatedAt(RankingProfile profile) {
-  final raw = profile.stats['statusUpdatedAt'];
-  if (raw is Timestamp) return raw.toDate();
-  if (raw is DateTime) return raw;
-  return profile.lastActive;
-}
-
-_PresenceInfo _presenceInfo(
-    String status, String subject, DateTime? updatedAt) {
-  final fresh = updatedAt != null &&
-      DateTime.now().difference(updatedAt) <= const Duration(hours: 3);
-  if (status == 'pomodoro' && fresh) {
-    return _PresenceInfo(
-      title: 'En Pomodoro',
-      detail: subject.isEmpty ? 'Sesión activa' : subject,
-      subtitle: 'Disponible solo después de enfocarse.',
-      icon: Icons.center_focus_strong_rounded,
-      color: FocusPalette.primary,
-    );
-  }
-  if (status == 'studied_today' && updatedAt != null) {
-    return _PresenceInfo(
-      title: 'Estudió hoy',
-      detail: subject.isEmpty ? 'Actividad registrada' : subject,
-      subtitle: 'Se actualiza al terminar sesiones.',
-      icon: Icons.school_rounded,
-      color: FocusPalette.teal,
-    );
-  }
-  if (updatedAt != null && _isSameDay(updatedAt, DateTime.now())) {
-    return const _PresenceInfo(
-      title: 'Activo hoy',
-      detail: 'Actividad reciente',
-      subtitle: 'Estado social automático.',
-      icon: Icons.bolt_rounded,
-      color: FocusPalette.mint,
-    );
-  }
-  return const _PresenceInfo(
-    title: 'Sin estado activo',
-    detail: 'Listo para estudiar',
-    subtitle: 'Inicia un Pomodoro para aparecer activo.',
-    icon: Icons.auto_awesome_rounded,
-    color: FocusPalette.muted,
-  );
-}
-
-String _relativeActivityLabel(DateTime? date) {
-  if (date == null) return 'Sin datos';
-  final diff = DateTime.now().difference(date);
-  if (diff.inMinutes < 1) return 'Ahora';
-  if (diff.inMinutes < 60) return 'Hace ${diff.inMinutes} min';
-  if (diff.inHours < 24) return 'Hace ${diff.inHours} h';
-  if (diff.inDays == 1) return 'Ayer';
-  return 'Hace ${diff.inDays} d';
-}
-
-class _PresenceInfo {
-  final String title;
-  final String detail;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-
-  const _PresenceInfo({
-    required this.title,
-    required this.detail,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-  });
-}
-
 List<_AchievementProgress> _nextAchievementProgress(
   AppProvider provider,
   Set<String> unlockedBadges,
@@ -3587,11 +3346,13 @@ class _FriendsPanel extends StatelessWidget {
 class _FriendsHubDuo extends StatefulWidget {
   final List<RankingProfile> friends;
   final Widget search;
+  final Widget requests;
   final Widget list;
 
   const _FriendsHubDuo({
     required this.friends,
     required this.search,
+    required this.requests,
     required this.list,
   });
 
@@ -3684,6 +3445,8 @@ class _FriendsHubDuoState extends State<_FriendsHubDuo> {
                 child: Column(
                   children: [
                     widget.search,
+                    const SizedBox(height: 12),
+                    widget.requests,
                     const SizedBox(height: 12),
                     widget.list,
                   ],
@@ -4059,224 +3822,6 @@ class _FocusSummaryGrid extends StatelessWidget {
   }
 }
 
-class _ActivityCenterCard extends StatelessWidget {
-  final AppProvider provider;
-
-  const _ActivityCenterCard({
-    required this.provider,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final todayPomodoros =
-        provider.pomodoros.where((item) => item.date.startsWith(today)).length;
-    final todayHabits =
-        provider.habits.where((habit) => habit.history.contains(today)).length;
-    final todayPoints = todayPomodoros * RankingService.pointsPerPomodoro +
-        todayHabits * RankingService.pointsPerHabitCompletion;
-    final hasActivity = todayPomodoros > 0 || todayHabits > 0;
-
-    return _SocialSection(
-      title: 'Centro de actividad',
-      subtitle: hasActivity
-          ? 'Hoy ya sumaste movimiento real.'
-          : 'Todavía puedes proteger tu racha hoy.',
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _ActivityMetric(
-                  icon: Icons.timer_rounded,
-                  label: 'Pomodoros',
-                  value: '$todayPomodoros',
-                  color: FocusPalette.primary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActivityMetric(
-                  icon: Icons.task_alt_rounded,
-                  label: 'Hábitos',
-                  value: '$todayHabits',
-                  color: FocusPalette.teal,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActivityMetric(
-                  icon: Icons.bolt_rounded,
-                  metricIcon: FocusMetricIconKind.points,
-                  label: 'Puntos',
-                  value: '+$todayPoints',
-                  color: FocusPalette.amber,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          FocusInlineState(
-            icon: hasActivity
-                ? Icons.check_circle_rounded
-                : Icons.local_fire_department_rounded,
-            text: hasActivity
-                ? 'Hoy completaste $todayPomodoros pomodoros, $todayHabits hábitos y +$todayPoints puntos.'
-                : 'Completa un Pomodoro o hábito para activar tu estado social de hoy.',
-            accent: hasActivity ? FocusPalette.teal : FocusPalette.softAlert,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActivityMetric extends StatelessWidget {
-  final IconData icon;
-  final FocusMetricIconKind? metricIcon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _ActivityMetric({
-    required this.icon,
-    this.metricIcon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FocusSurfaceCard(
-      padding: const EdgeInsets.all(12),
-      radius: 20,
-      elevated: false,
-      accent: color,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (metricIcon != null)
-            FocusMetricIcon(kind: metricIcon!, size: 22, color: color)
-          else
-            Icon(icon, size: 22, color: color),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: FocusPalette.muted,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SocialPresenceCard extends StatelessWidget {
-  final RankingProfile profile;
-
-  const _SocialPresenceCard({required this.profile});
-
-  @override
-  Widget build(BuildContext context) {
-    final status = '${profile.stats['socialStatus'] ?? ''}';
-    final subject = '${profile.stats['statusSubject'] ?? ''}'.trim();
-    final updatedAt = _presenceUpdatedAt(profile);
-    final statusInfo = _presenceInfo(status, subject, updatedAt);
-
-    return _SocialSection(
-      title: 'Estado social',
-      subtitle: statusInfo.subtitle,
-      child: Row(
-        children: [
-          Expanded(
-            child: _PresencePill(
-              icon: statusInfo.icon,
-              title: statusInfo.title,
-              subtitle: statusInfo.detail,
-              color: statusInfo.color,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: _PresencePill(
-              icon: Icons.schedule_rounded,
-              title: _relativeActivityLabel(updatedAt),
-              subtitle: 'Última actividad',
-              color: FocusPalette.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PresencePill extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color color;
-
-  const _PresencePill({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FocusSurfaceCard(
-      padding: const EdgeInsets.all(13),
-      radius: 20,
-      elevated: false,
-      accent: color,
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 23),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: FocusPalette.muted,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _AchievementProgressSection extends StatelessWidget {
   final AppProvider provider;
   final Set<String> unlockedBadges;
@@ -4292,7 +3837,6 @@ class _AchievementProgressSection extends StatelessWidget {
         _nextAchievementProgress(provider, unlockedBadges).take(3).toList();
     return _SocialSection(
       title: 'Logros en progreso',
-      subtitle: 'Lo próximo que puedes desbloquear.',
       child: items.isEmpty
           ? const FocusInlineState(
               icon: Icons.workspace_premium_rounded,
@@ -4817,12 +4361,10 @@ class _MonthlyMedal {
 
 class _SocialSection extends StatelessWidget {
   final String title;
-  final String? subtitle;
   final Widget child;
 
   const _SocialSection({
     required this.title,
-    this.subtitle,
     required this.child,
   });
 
@@ -4839,16 +4381,6 @@ class _SocialSection extends StatelessWidget {
                 letterSpacing: 1.2,
               ),
         ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            subtitle!,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: FocusPalette.muted,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
         const SizedBox(height: 12),
         child,
       ],
@@ -5657,8 +5189,12 @@ class _FriendRankTile extends StatelessWidget {
 
 class _RequestsCard extends StatefulWidget {
   final VoidCallback onChanged;
+  final bool compact;
 
-  const _RequestsCard({required this.onChanged});
+  const _RequestsCard({
+    required this.onChanged,
+    this.compact = false,
+  });
 
   @override
   State<_RequestsCard> createState() => _RequestsCardState();
@@ -5695,7 +5231,7 @@ class _RequestsCardState extends State<_RequestsCard> {
               );
             }
             final outgoing = outgoingSnapshot.data ?? const <FriendRequest>[];
-            if (incoming.isEmpty && outgoing.isEmpty) {
+            if (widget.compact && incoming.isEmpty && outgoing.isEmpty) {
               return const SizedBox.shrink();
             }
 
@@ -5706,47 +5242,47 @@ class _RequestsCardState extends State<_RequestsCard> {
               });
             }
 
-            return _FriendsPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _PanelTitle(
-                    icon: Icons.mark_email_unread_rounded,
-                    title: 'Solicitudes',
-                    subtitle: _showSent
-                        ? '${outgoing.length} enviadas pendientes.'
-                        : incoming.isEmpty
-                            ? 'Sin pendientes por ahora.'
-                            : '${incoming.length} esperando respuesta.',
-                  ),
-                  const SizedBox(height: 12),
-                  _RequestTabs(
-                    selectedSent: _showSent,
-                    incomingCount: incoming.length,
-                    outgoingCount: outgoing.length,
-                    onChanged: (sent) => setState(() => _showSent = sent),
-                  ),
-                  const SizedBox(height: 12),
-                  if (visibleRequests.isEmpty)
-                    _EmptyInline(
-                      icon: _showSent
-                          ? Icons.send_rounded
-                          : Icons.check_circle_outline_rounded,
-                      text: _showSent
-                          ? 'No tienes solicitudes enviadas.'
-                          : 'Cuando alguien use tu código, aparecerá aquí.',
-                    )
-                  else
-                    ...visibleRequests.map(
-                      (request) => _RequestTile(
-                        request: request,
-                        outgoing: _showSent,
-                        onChanged: widget.onChanged,
-                      ),
+            final content = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PanelTitle(
+                  icon: Icons.mark_email_unread_rounded,
+                  title: 'Solicitudes',
+                  subtitle: _showSent
+                      ? '${outgoing.length} enviadas pendientes.'
+                      : incoming.isEmpty
+                          ? 'Sin pendientes por ahora.'
+                          : '${incoming.length} esperando respuesta.',
+                ),
+                const SizedBox(height: 12),
+                _RequestTabs(
+                  selectedSent: _showSent,
+                  incomingCount: incoming.length,
+                  outgoingCount: outgoing.length,
+                  onChanged: (sent) => setState(() => _showSent = sent),
+                ),
+                const SizedBox(height: 12),
+                if (visibleRequests.isEmpty)
+                  _EmptyInline(
+                    icon: _showSent
+                        ? Icons.send_rounded
+                        : Icons.check_circle_outline_rounded,
+                    text: _showSent
+                        ? 'No tienes solicitudes enviadas.'
+                        : 'Cuando alguien use tu código, aparecerá aquí.',
+                  )
+                else
+                  ...visibleRequests.map(
+                    (request) => _RequestTile(
+                      request: request,
+                      outgoing: _showSent,
+                      onChanged: widget.onChanged,
                     ),
-                ],
-              ),
+                  ),
+              ],
             );
+            if (widget.compact) return content;
+            return _FriendsPanel(child: content);
           },
         );
       },
@@ -6318,6 +5854,8 @@ class _FriendProfileSheetState extends State<_FriendProfileSheet> {
                             label: actionTitle,
                             color: accent,
                           ),
+                          const SizedBox(height: 8),
+                          _InlineSocialStatus(profile: friend),
                         ],
                       ),
                     ),

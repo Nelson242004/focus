@@ -469,6 +469,21 @@ class _SubjectsPanel extends StatelessWidget {
       );
     }
 
+    final subjectsById = <int, Subject>{
+      for (final subject in subjects)
+        if (subject.id != null) subject.id!: subject,
+    };
+    final scheduledSubjectIds = provider.schedules
+        .where((schedule) => subjectsById.containsKey(schedule.subjectId))
+        .map((schedule) => schedule.subjectId)
+        .toSet();
+    final unscheduledSubjects = subjects
+        .where(
+          (subject) =>
+              subject.id == null || !scheduledSubjectIds.contains(subject.id),
+        )
+        .toList();
+
     return Padding(
       padding: FocusInsets.pageCompact,
       child: Column(
@@ -481,12 +496,119 @@ class _SubjectsPanel extends StatelessWidget {
             accent: const Color(0xFF0EA5E9),
           ),
           FocusGap.section,
+          for (var day = 0; day < 7; day++)
+            _SubjectDaySection(
+              provider: provider,
+              title: weekdayLabel(day),
+              subjects: _subjectsForDay(day, provider, subjectsById),
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
+          if (unscheduledSubjects.isNotEmpty)
+            _SubjectDaySection(
+              provider: provider,
+              title: 'Sin horario',
+              subjects: unscheduledSubjects,
+              onEdit: onEdit,
+              onDelete: onDelete,
+            ),
+        ],
+      ),
+    );
+  }
+
+  List<Subject> _subjectsForDay(
+    int day,
+    AppProvider provider,
+    Map<int, Subject> subjectsById,
+  ) {
+    final schedules = provider.schedules
+        .where(
+          (schedule) =>
+              schedule.dayOfWeek == day &&
+              subjectsById.containsKey(schedule.subjectId),
+        )
+        .toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    final seen = <int>{};
+    final items = <Subject>[];
+    for (final schedule in schedules) {
+      if (seen.add(schedule.subjectId)) {
+        items.add(subjectsById[schedule.subjectId]!);
+      }
+    }
+    return items;
+  }
+}
+
+class _SubjectDaySection extends StatelessWidget {
+  final AppProvider provider;
+  final String title;
+  final List<Subject> subjects;
+  final ValueChanged<Subject> onEdit;
+  final ValueChanged<Subject> onDelete;
+
+  const _SubjectDaySection({
+    required this.provider,
+    required this.title,
+    required this.subjects,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (subjects.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: FocusSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+              left: FocusSpacing.xs,
+              bottom: FocusSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(width: FocusSpacing.sm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(FocusRadii.chip),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.1),
+                  ),
+                  child: Text(
+                    '${subjects.length}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           ...subjects.map(
             (subject) => Padding(
               padding: const EdgeInsets.only(bottom: FocusSpacing.sm),
               child: _SubjectCard(
                 provider: provider,
                 subject: subject,
+                dayContext: title,
                 onEdit: () => onEdit(subject),
                 onDelete: () => onDelete(subject),
               ),
@@ -501,12 +623,14 @@ class _SubjectsPanel extends StatelessWidget {
 class _SubjectCard extends StatelessWidget {
   final AppProvider provider;
   final Subject subject;
+  final String? dayContext;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _SubjectCard({
     required this.provider,
     required this.subject,
+    this.dayContext,
     required this.onEdit,
     required this.onDelete,
   });
@@ -683,7 +807,7 @@ class _SubjectCard extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                'Próximo bloque: ${weekdayLabel(subjectSchedules.first.dayOfWeek)} · ${subjectSchedules.first.startTime} a ${subjectSchedules.first.endTime}',
+                                _blockTextForContext(subjectSchedules),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -721,6 +845,18 @@ class _SubjectCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _blockTextForContext(List<Schedule> schedules) {
+    if (schedules.isEmpty) return 'Sin horarios cargados';
+    final contextualSchedules = schedules.where((schedule) {
+      if (dayContext == null || dayContext == 'Sin horario') return false;
+      return weekdayLabel(schedule.dayOfWeek) == dayContext;
+    }).toList();
+    final schedule = contextualSchedules.isNotEmpty
+        ? contextualSchedules.first
+        : schedules.first;
+    return 'Bloque: ${weekdayLabel(schedule.dayOfWeek)} · ${schedule.startTime} a ${schedule.endTime}';
   }
 }
 

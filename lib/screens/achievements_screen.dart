@@ -38,7 +38,7 @@ class AchievementsScreen extends StatelessWidget {
               FocusHelpAction(
                 title: 'Ayuda de logros',
                 message:
-                    'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aqui.',
+                    'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aquí.',
                 sections: [
                   FocusHelpSection(
                     title: 'Puntos y niveles',

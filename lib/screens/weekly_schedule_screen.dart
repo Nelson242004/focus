@@ -35,7 +35,7 @@ class WeeklyScheduleScreen extends StatelessWidget {
                 title: 'Que muestra',
                 items: [
                   'Solo aparecen horarios registrados de materias.',
-                  'La tabla se arma segun tu primer bloque y tu ultimo bloque del dia.',
+                  'La tabla se arma según tu primer bloque y tu último bloque del día.',
                 ],
               ),
               FocusHelpSection(

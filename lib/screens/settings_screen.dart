@@ -111,7 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (!mounted) return;
-    _showMessage('Listo. Tu configuraciÃ³n quedÃ³ guardada.');
+    _showMessage('Listo. Tu configuración quedó guardada.');
   }
 
   void _setWeeklyGoal(int value) {
@@ -134,9 +134,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Restablecer configuraciÃ³n'),
+        title: const Text('Restablecer configuración'),
         content: const Text(
-          'VolverÃ¡n a sus valores iniciales la apariencia, notificaciones, inicio y metas. Tus datos de estudio no se borran.',
+          'Volverán a sus valores iniciales la apariencia, notificaciones, inicio y metas. Tus datos de estudio no se borran.',
         ),
         actions: [
           TextButton(
@@ -177,7 +177,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           defaults.examReminderThirtyMinutesBefore;
       _accentColor = defaults.accentColor;
     });
-    _showMessage('ConfiguraciÃ³n restablecida. Tus datos siguen intactos.');
+    _showMessage('Configuración restablecida. Tus datos siguen intactos.');
   }
 
   Future<void> _exportData() async {
@@ -185,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final provider = Provider.of<AppProvider>(context, listen: false);
       await BackupService.exportBackup(provider);
       if (!mounted) return;
-      _showMessage('Backup creado. GuÃ¡rdalo en un lugar seguro.');
+      _showMessage('Backup creado. Guárdalo en un lugar seguro.');
     } catch (error) {
       if (!mounted) return;
       _showMessage(
@@ -198,9 +198,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Cerrar sesiÃ³n'),
+        title: const Text('Cerrar sesión'),
         content: const Text(
-          'Tus materias, exÃ¡menes y recursos quedan guardados en este dispositivo.',
+          'Tus materias, exámenes y recursos quedan guardados en este dispositivo.',
         ),
         actions: [
           TextButton(
@@ -210,7 +210,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FilledButton.icon(
             onPressed: () => Navigator.pop(context, true),
             icon: const Icon(Icons.logout_rounded),
-            label: const Text('Cerrar sesiÃ³n'),
+            label: const Text('Cerrar sesión'),
           ),
         ],
       ),
@@ -221,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await RankingService.signOut();
       if (!mounted) return;
       setState(() {});
-      _showMessage('SesiÃ³n cerrada.');
+      _showMessage('Sesión cerrada.');
     } catch (error) {
       if (!mounted) return;
       _showMessage(RankingService.friendlyRankingError(error));
@@ -238,9 +238,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _languageLabel(AppLanguage language) {
     return switch (language) {
       AppLanguage.system => 'Usar idioma del dispositivo',
-      AppLanguage.spanish => 'EspaÃ±ol',
+      AppLanguage.spanish => 'Español',
       AppLanguage.english => 'English',
-      AppLanguage.portuguese => 'PortuguÃªs',
+      AppLanguage.portuguese => 'Português',
     };
   }
 
@@ -265,13 +265,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final latestData = await BackupService.latestBackupData();
       if (latestData == null) {
         throw const FormatException(
-          'No se encontrÃ³ un backup reciente dentro de Focus.',
+          'No se encontró un backup reciente dentro de Focus.',
         );
       }
 
       await _restoreBackupFromData(
         latestData,
-        'Ãšltimo backup guardado en Focus',
+        'Último backup guardado en Focus',
       );
     } catch (error) {
       if (!mounted) return;
@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Restaurar backup'),
         content: Text(
-          'Se reemplazarÃ¡n tus datos actuales por el backup:\n$sourceLabel',
+          'Se reemplazarán tus datos actuales por el backup:\n$sourceLabel',
         ),
         actions: [
           TextButton(
@@ -318,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await BackupService.restoreBackupData(provider, data);
 
     if (!mounted) return;
-    _showMessage('Backup restaurado. Tus datos ya estÃ¡n de vuelta.');
+    _showMessage('Backup restaurado. Tus datos ya están de vuelta.');
   }
 
   Future<void> _deleteAllData() async {
@@ -328,7 +328,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => AlertDialog(
         title: const Text('Borrar toda la app'),
         content: const Text(
-          'Esta acciÃ³n elimina materias, exÃ¡menes, Hábitos, recursos y sesiones. No se puede deshacer.',
+          'Esta acción elimina materias, exámenes, hábitos, recursos y sesiones. No se puede deshacer.',
         ),
         actions: [
           TextButton(
@@ -345,7 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirm == true && mounted) {
       await provider.clearAllData();
       if (!mounted) return;
-      _showMessage('Datos borrados. Focus quedÃ³ limpio.');
+      _showMessage('Datos borrados. Focus quedó limpio.');
     }
   }
 
@@ -362,12 +362,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       await NotificationService.showTestNotification();
       if (!mounted) return;
-      _showMessage(
-          'NotificaciÃ³n de prueba enviada. Revisa la barra superior.');
+      _showMessage('Notificación de prueba enviada. Revisa la barra superior.');
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        'No pudimos lanzar la prueba. Revisa permisos de notificaciÃ³n y baterÃ­a.',
+        'No pudimos lanzar la prueba. Revisa permisos de notificación y batería.',
       );
     }
   }
@@ -375,7 +374,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _openExternalUrl(String url) async {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasScheme) {
-      _showMessage('El enlace no es vÃ¡lido.');
+      _showMessage('El enlace no es válido.');
       return;
     }
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -392,7 +391,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        'No se pudo abrir la actualizaciÃƒÂ³n. Revisa tu conexiÃƒÂ³n e intenta otra vez.',
+        'No se pudo abrir la actualización. Revisa tu conexión e intenta otra vez.',
       );
     }
   }
@@ -425,7 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final provider = Provider.of<AppProvider>(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ConfiguraciÃ³n'),
+        title: const Text('Configuración'),
         actions: [
           IconButton(
             tooltip: 'Guardar',
@@ -445,7 +444,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsSection(
               title: 'Cuenta',
               subtitle: RankingService.currentUser == null
-                  ? 'SesiÃ³n y perfil pÃºblico'
+                  ? 'Sesión y perfil público'
                   : RankingService.currentUser?.email ?? 'Cuenta activa',
               icon: Icons.person_rounded,
               children: [
@@ -494,7 +493,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Text('TamaÃ±o del texto: ${_textScale.toStringAsFixed(2)}x'),
+                Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
                 Slider(
                   value: _textScale,
                   min: 0.9,
@@ -572,7 +571,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   items: const [
                     DropdownMenuItem(
                       value: 'auto',
-                      child: Text('AutomÃ¡tico'),
+                      child: Text('Automático'),
                     ),
                     DropdownMenuItem(
                       value: 'short',
@@ -635,8 +634,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 12),
                       _GoalControl(
                         icon: Icons.local_fire_department_rounded,
-                        title: 'DÃƒÂ­as de racha objetivo',
-                        valueLabel: '$_streakGoal dÃ­as',
+                        title: 'Días de racha objetivo',
+                        valueLabel: '$_streakGoal días',
                         value: _streakGoal,
                         min: 1,
                         max: 365,
@@ -691,12 +690,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
                   onPressed: () => _showSettingsSheet(
-                    title: 'Avisos de exÃ¡menes',
+                    title: 'Avisos de exámenes',
                     icon: Icons.assignment_rounded,
                     childrenBuilder: (setSheetState) => [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text('Avisar 1 dÃ­a antes'),
+                        title: const Text('Avisar 1 día antes'),
                         value: _examReminderDayBefore,
                         onChanged: _notificationsEnabled
                             ? (value) {
@@ -708,7 +707,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Avisar 2 horas antes'),
-                        subtitle: const Text('Solo para exÃ¡menes con hora.'),
+                        subtitle: const Text('Solo para exámenes con hora.'),
                         value: _examReminderTwoHoursBefore,
                         onChanged: _notificationsEnabled
                             ? (value) {
@@ -722,7 +721,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('Avisar 30 minutos antes'),
-                        subtitle: const Text('Solo para exÃ¡menes con hora.'),
+                        subtitle: const Text('Solo para exámenes con hora.'),
                         value: _examReminderThirtyMinutesBefore,
                         onChanged: _notificationsEnabled
                             ? (value) {
@@ -750,7 +749,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 OutlinedButton.icon(
                   onPressed: _testNotification,
                   icon: const Icon(Icons.notification_add_rounded),
-                  label: const Text('Probar notificaciÃ³n'),
+                  label: const Text('Probar notificación'),
                 ),
               ],
             ),
@@ -777,7 +776,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     OutlinedButton.icon(
                       onPressed: _importLatestBackup,
                       icon: const Icon(Icons.restore_page_rounded),
-                      label: const Text('Ãšltimo backup'),
+                      label: const Text('Último backup'),
                     ),
                   ],
                 ),
@@ -819,7 +818,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       OutlinedButton.icon(
                         onPressed: _resetPreferences,
                         icon: const Icon(Icons.restart_alt_rounded),
-                        label: const Text('Restablecer configuraciÃ³n'),
+                        label: const Text('Restablecer configuración'),
                       ),
                     ],
                   ),
@@ -881,7 +880,7 @@ class _AccountSettingsContent extends StatelessWidget {
               title: Text(user?.email ?? 'Sin cuenta'),
               subtitle: Text(
                 user == null
-                    ? 'Puedes usar materias, exÃ¡menes y Pomodoro sin iniciar sesiÃ³n.'
+                    ? 'Puedes usar materias, exámenes y Pomodoro sin iniciar sesión.'
                     : 'Tu ranking y progreso social usan esta cuenta.',
               ),
             ),
@@ -889,13 +888,13 @@ class _AccountSettingsContent extends StatelessWidget {
               FilledButton.icon(
                 onPressed: onLogin,
                 icon: const Icon(Icons.login_rounded),
-                label: const Text('Iniciar sesiÃ³n'),
+                label: const Text('Iniciar sesión'),
               )
             else ...[
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.badge_rounded),
-                title: const Text('Perfil pÃºblico'),
+                title: const Text('Perfil público'),
                 subtitle: const Text('Editar nombre y carrera del ranking.'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () async {
@@ -915,7 +914,7 @@ class _AccountSettingsContent extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: onSignOut,
                 icon: const Icon(Icons.logout_rounded),
-                label: const Text('Cerrar sesiÃ³n'),
+                label: const Text('Cerrar sesión'),
               ),
             ],
           ],
@@ -1050,7 +1049,7 @@ class _GoalsProgressPanel extends StatelessWidget {
             label: 'Racha',
             current: provider.currentStreak,
             goal: streakGoal,
-            suffix: 'dÃ­as',
+            suffix: 'días',
           ),
         ],
       ),
@@ -1289,7 +1288,7 @@ class _SettingsHero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'ConfiguraciÃ³n',
+                      'Configuración',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w900,
@@ -1297,7 +1296,7 @@ class _SettingsHero extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${provider.subjects.length} materias, ${provider.exams.length} exÃ¡menes y ${provider.activeStudyTasks.length} tareas activas.',
+                      '${provider.subjects.length} materias, ${provider.exams.length} exámenes y ${provider.activeStudyTasks.length} tareas activas.',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: FocusPalette.muted,
                             fontWeight: FontWeight.w700,
@@ -1506,7 +1505,7 @@ class _AcademicLocalNotice extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Datos acadÃƒÂ©micos locales',
+                  'Datos académicos locales',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -1517,7 +1516,7 @@ class _AcademicLocalNotice extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Materias, horarios, exÃ¡menes y recursos se guardan en este dispositivo. Exporta una copia antes de cambiar de celular o borrar la app.',
+            'Materias, horarios, exámenes y recursos se guardan en este dispositivo. Exporta una copia antes de cambiar de celular o borrar la app.',
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
@@ -1531,7 +1530,7 @@ class _AcademicLocalNotice extends StatelessWidget {
               ),
               _DiagnosticChip(
                 icon: Icons.assignment_rounded,
-                label: '${provider.exams.length} exÃ¡menes',
+                label: '${provider.exams.length} exámenes',
               ),
               _DiagnosticChip(
                 icon: Icons.task_alt_rounded,
@@ -1582,7 +1581,7 @@ class _PrivacyDataNotice extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Tus materias, horarios, exÃ¡menes, recursos y sesiones se guardan en este dispositivo. Si inicias sesiÃ³n, tu perfil pÃºblico, puntos y ranking usan tu cuenta.',
+            'Tus materias, horarios, exámenes, recursos y sesiones se guardan en este dispositivo. Si inicias sesión, tu perfil público, puntos y ranking usan tu cuenta.',
           ),
         ],
       ),
@@ -1717,7 +1716,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                         Text(
                           data == null
                               ? 'Comprobando permisos y servicios.'
-                              : '${data.blockedApps} apps Â· ${data.blockedAttempts} bloqueos',
+                              : '${data.blockedApps} apps · ${data.blockedAttempts} bloqueos',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodySmall,
@@ -1726,7 +1725,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Actualizar diagnÃ³stico',
+                    tooltip: 'Actualizar diagnóstico',
                     onPressed:
                         snapshot.connectionState == ConnectionState.waiting
                             ? null
@@ -1790,7 +1789,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                   ok: data.accessibility,
                   detail: data.accessibility
                       ? 'Focus puede detectar apps abiertas.'
-                      : 'ActÃƒÂ­vala para bloquear distracciones.',
+                      : 'Actívala para bloquear distracciones.',
                   onFix: data.accessibility
                       ? null
                       : FocusModeService.openAccessibilitySettings,
@@ -1801,7 +1800,7 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                   ok: data.overlay,
                   detail: data.overlay
                       ? 'La pantalla de bloqueo puede aparecer encima.'
-                      : 'ActÃƒÂ­valo para mostrar el bloqueo visual.',
+                      : 'Actívalo para mostrar el bloqueo visual.',
                   onFix: data.overlay
                       ? null
                       : FocusModeService.openOverlaySettings,
@@ -1812,17 +1811,17 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                   ok: data.usageAccess,
                   detail: data.usageAccess
                       ? 'Focus puede verificar apps recientes.'
-                      : 'ActÃƒÂ­valo para mejorar la detecciÃƒÂ³n.',
+                      : 'Actívalo para mejorar la detección.',
                   onFix: data.usageAccess
                       ? null
                       : FocusModeService.openUsageAccessSettings,
                 ),
                 _DiagnosticRow(
                   icon: Icons.battery_charging_full_rounded,
-                  title: 'SuspensiÃƒÂ³n de baterÃ­a',
+                  title: 'Suspensión de batería',
                   ok: data.batteryIgnored,
                   detail: data.batteryIgnored
-                      ? 'Android no deberÃƒÂ­a dormir el bloqueo.'
+                      ? 'Android no debería dormir el bloqueo.'
                       : 'Recomendado para sesiones largas.',
                   onFix: data.batteryIgnored
                       ? null

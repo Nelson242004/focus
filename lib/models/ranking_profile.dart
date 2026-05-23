@@ -42,6 +42,11 @@ class RankingProfile {
 
   factory RankingProfile.fromMap(String uid, Map<String, dynamic> map) {
     final stats = Map<String, dynamic>.from(map['stats'] ?? {});
+    stats['currentStreak'] ??= map['currentStreak'] ?? 0;
+    stats['bestStreak'] ??= map['bestStreak'] ?? stats['currentStreak'] ?? 0;
+    stats['totalHabitCompletions'] ??= map['habitCompletions'] ?? 0;
+    stats['weeklyMissionCompleted'] ??= false;
+    stats['level'] ??= 1;
     final favoriteBadge =
         '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
     final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);

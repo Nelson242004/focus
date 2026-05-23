@@ -371,6 +371,16 @@ class RankingService {
         'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
         'profileIconAsset': _profileIconAssetFromProfile(profile),
         'socialAvatar': profile['stats']?['socialAvatar'],
+        'currentStreak':
+            profile['stats']?['currentStreak'] ?? profile['currentStreak'] ?? 0,
+        'bestStreak':
+            profile['stats']?['bestStreak'] ?? profile['bestStreak'] ?? 0,
+        'totalHabitCompletions': profile['stats']?['totalHabitCompletions'] ??
+            profile['habitCompletions'] ??
+            0,
+        'weeklyMissionCompleted':
+            profile['stats']?['weeklyMissionCompleted'] ?? false,
+        'level': profile['stats']?['level'] ?? 1,
       },
       'points': currentPoints,
       'pomodoros': int.tryParse('${profile['weeklyPomodoros'] ?? 0}') ?? 0,
@@ -1038,6 +1048,15 @@ class RankingService {
         'socialMascotIndex': map['stats']?['socialMascotIndex'] ?? 0,
         'profileIconAsset': _profileIconAssetFromProfile(map),
         'socialAvatar': map['stats']?['socialAvatar'],
+        'currentStreak':
+            map['stats']?['currentStreak'] ?? map['currentStreak'] ?? 0,
+        'bestStreak': map['stats']?['bestStreak'] ?? map['bestStreak'] ?? 0,
+        'totalHabitCompletions': map['stats']?['totalHabitCompletions'] ??
+            map['habitCompletions'] ??
+            0,
+        'weeklyMissionCompleted':
+            map['stats']?['weeklyMissionCompleted'] ?? false,
+        'level': map['stats']?['level'] ?? 1,
       },
       'points': normalized.points,
       'pomodoros': normalized.pomodoros,
@@ -1079,6 +1098,17 @@ class RankingService {
         'socialMascotIndex': profile['stats']?['socialMascotIndex'] ?? 0,
         'profileIconAsset': _profileIconAssetFromProfile(profile),
         'socialAvatar': profile['stats']?['socialAvatar'],
+        'currentStreak':
+            profile['stats']?['currentStreak'] ?? profile['currentStreak'] ?? 0,
+        'bestStreak':
+            profile['stats']?['bestStreak'] ?? profile['bestStreak'] ?? 0,
+        'totalHabitCompletions': profile['stats']?['totalHabitCompletions'] ??
+            profile['habitCompletions'] ??
+            habitCompletions ??
+            0,
+        'weeklyMissionCompleted':
+            profile['stats']?['weeklyMissionCompleted'] ?? false,
+        'level': profile['stats']?['level'] ?? 1,
       },
       'points': points,
       if (pomodoros != null) 'pomodoros': pomodoros,

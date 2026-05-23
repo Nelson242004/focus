@@ -22,12 +22,12 @@ class ExamModeScreen extends StatelessWidget {
           FocusHelpAction(
             title: 'Ayuda de modo examen',
             message:
-                'Esta pantalla toma tu proximo examen y arma una vista concentrada en preparacion.',
+                'Esta pantalla toma tu próximo examen y arma una vista concentrada en preparación.',
             sections: [
               FocusHelpSection(
                 title: 'Que muestra',
                 items: [
-                  'Plan de preparacion, tareas relacionadas y contexto de la materia.',
+                  'Plan de preparación, tareas relacionadas y contexto de la materia.',
                   'Si no hay exámenes próximos, la pantalla te lo muestra limpio para que cargues uno primero.',
                 ],
               ),
