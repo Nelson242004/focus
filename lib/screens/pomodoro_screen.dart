@@ -300,13 +300,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             SnackBar(
               content: FocusActionSnackContent(
                 icon: _mode == 'focus'
-                    ? Icons.play_circle_fill_rounded
+                    ? Icons.self_improvement_rounded
                     : Icons.self_improvement_rounded,
                 message: _mode == 'focus'
                     ? 'Sesión de enfoque iniciada.'
                     : 'Descanso iniciado.',
                 color: _mode == 'focus'
-                    ? FocusPalette.amber
+                    ? FocusPalette.primary
                     : _themePalette().accent,
               ),
               duration: const Duration(seconds: 2),
@@ -1244,9 +1244,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     children: [
                       Icon(
                         _mode == 'focus'
-                            ? Icons.school_rounded
+                            ? Icons.self_improvement_rounded
                             : Icons.spa_rounded,
-                        color: themePalette.accent,
+                        color: _mode == 'focus'
+                            ? FocusPalette.primary
+                            : themePalette.accent,
                         size: 24,
                       ),
                       const SizedBox(width: 10),
