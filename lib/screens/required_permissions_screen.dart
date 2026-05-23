@@ -17,6 +17,8 @@ class RequiredPermissionsGate extends StatefulWidget {
   }
 
   static Future<bool> shouldSkipSetup() async {
+    final completed = await isSetupCompleted();
+    if (completed) return true;
     final notificationsGranted = await NotificationService.hasPermissions();
     final accessibilityGranted =
         await FocusModeService.hasAccessibilityPermission();
@@ -26,8 +28,6 @@ class RequiredPermissionsGate extends StatefulWidget {
         accessibilityGranted &&
         overlayGranted &&
         usageGranted;
-    final completed = await isSetupCompleted();
-    if (completed && allGranted) return true;
     if (allGranted) {
       await markSetupCompleted();
     }
@@ -198,7 +198,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
             children: [
               const SizedBox(height: 10),
               Text(
-                'Activa Focus',
+                'Permisos de Focus',
                 style: Theme.of(context)
                     .textTheme
                     .headlineMedium
@@ -206,7 +206,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
               ),
               const SizedBox(height: 10),
               Text(
-                'Necesario para bloquear distracciones y mantener vivo el Pomodoro.',
+                'Puedes omitirlos ahora. Te los pediremos cuando actives recordatorios o bloqueo de apps.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 22),
@@ -280,6 +280,25 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
                   onPressed: _requesting ? null : _refreshStatus,
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Volver a comprobar'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: _requesting
+                      ? null
+                      : () async {
+                          await RequiredPermissionsGate.markSetupCompleted();
+                          if (!context.mounted) return;
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(
+                              builder: (_) => const MainNavigationScreen(),
+                            ),
+                          );
+                        },
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Omitir por ahora'),
                 ),
               ),
             ],

@@ -25,6 +25,7 @@ import '../widgets/focus_help_button.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_metric_icon.dart';
 import '../widgets/focus_profile_mascot.dart';
+import '../widgets/focus_public_profile_sheet.dart';
 import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
 
@@ -398,7 +399,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
         SnackBar(
           content: FocusActionSnackContent(
             icon: Icons.person_remove_rounded,
-            message: '${friend.name} salió de tu círculo.',
+            message: '${friend.name} salió de tus amigos.',
             color: FocusPalette.amber,
           ),
           behavior: SnackBarBehavior.floating,
@@ -424,8 +425,8 @@ class _FriendsScreenState extends State<FriendsScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _FriendProfileSheet(
-        friend: friend,
+      builder: (_) => FocusPublicProfileSheet(
+        profile: friend,
         onRemove: () async {
           await _removeFriend(friend);
           if (mounted && Navigator.of(context).canPop()) {
@@ -450,11 +451,10 @@ class _FriendsScreenState extends State<FriendsScreen> {
       context: context,
       showDragHandle: true,
       isScrollControlled: true,
-      builder: (_) => _FriendProfileSheet(
-        friend: profile,
+      builder: (_) => FocusPublicProfileSheet(
+        profile: profile,
         isFriend: false,
         onSendRequest: () => _sendRequest(profile),
-        onRemove: () async {},
       ),
     );
   }
@@ -2941,19 +2941,6 @@ String _leagueLabel(String rank) {
   };
 }
 
-Color _leagueColor(String rank) {
-  return switch (_leagueLabel(rank)) {
-    'Oro' => FocusPalette.amber,
-    'Plata' => const Color(0xFF64748B),
-    _ => const Color(0xFFB45309),
-  };
-}
-
-String _careerLabel(String career) {
-  final cleaned = career.trim();
-  return cleaned.isEmpty ? 'Sin carrera' : cleaned;
-}
-
 /*
                 Align(
                   alignment: Alignment.topLeft,
@@ -3210,7 +3197,7 @@ class _FriendCodeHero extends StatelessWidget {
                         Text(
                           friendsCount == 0
                               ? 'Invita compañeros y compara puntos.'
-                              : '$friendsCount amigos activos en tu círculo.',
+                              : '$friendsCount amigos activos.',
                           style: const TextStyle(color: Colors.white70),
                         ),
                       ],
@@ -3521,7 +3508,7 @@ class _FriendsHub extends StatelessWidget {
                   Text(
                     friends.isEmpty
                         ? 'Busca por código o nombre'
-                        : '${friends.length} en tu círculo',
+                        : '${friends.length} amigos',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -3571,7 +3558,7 @@ class _FriendsHub extends StatelessWidget {
           subtitle: Text(
             friends.isEmpty
                 ? 'Busca y agrega compañeros'
-                : '${friends.length} en tu círculo',
+                : '${friends.length} amigos',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -4886,7 +4873,7 @@ class _SocialInfoSection extends StatelessWidget {
               icon: Icons.groups_rounded,
               title: 'Ranking de amigos',
               text:
-                  'Compara tus puntos solo con tu círculo. Ahora tienes $friendsCount amigos agregados.',
+                  'Compara tus puntos solo con tus amigos. Ahora tienes $friendsCount amigos agregados.',
             ),
             _InfoTile(
               icon: Icons.local_fire_department_rounded,
@@ -5304,103 +5291,149 @@ class _RequestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = outgoing ? request.toName : request.fromName;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.26),
-      ),
-      child: Row(
-        children: [
-          _InitialAvatar(name: displayName),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  outgoing
-                      ? 'Esperando que acepte tu solicitud.'
-                      : 'Quiere entrar a tu círculo.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => _openRequestProfile(context),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.26),
+        ),
+        child: Row(
+          children: [
+            _InitialAvatar(name: displayName),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    outgoing
+                        ? 'Esperando que acepte tu solicitud.'
+                        : 'Quiere agregarte como amigo.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
-          ),
-          if (outgoing)
-            _TinyProfileChip(
-              icon: Icons.schedule_rounded,
-              label: 'Pendiente',
-              color: FocusPalette.amber,
-            )
-          else ...[
-            IconButton.filledTonal(
-              tooltip: 'Aceptar',
-              onPressed: () async {
-                try {
-                  await FriendsService.acceptRequest(request);
-                  onChanged();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: FocusActionSnackContent(
-                        icon: Icons.people_alt_rounded,
-                        message: '${request.fromName} ya es tu amigo.',
-                        color: FocusPalette.mint,
+            if (outgoing) ...[
+              _TinyProfileChip(
+                icon: Icons.schedule_rounded,
+                label: 'Pendiente',
+                color: FocusPalette.amber,
+              ),
+              IconButton(
+                tooltip: 'Ver perfil',
+                onPressed: () => _openRequestProfile(context),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
+            ] else ...[
+              IconButton.filledTonal(
+                tooltip: 'Aceptar',
+                onPressed: () async {
+                  try {
+                    await FriendsService.acceptRequest(request);
+                    onChanged();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: FocusActionSnackContent(
+                          icon: Icons.people_alt_rounded,
+                          message: '${request.fromName} ya es tu amigo.',
+                          color: FocusPalette.mint,
+                        ),
+                        behavior: SnackBarBehavior.floating,
                       ),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(RankingService.friendlyRankingError(error)),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.check_rounded),
-            ),
-            IconButton(
-              tooltip: 'Rechazar',
-              onPressed: () async {
-                try {
-                  await FriendsService.rejectRequest(request);
-                  onChanged();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Solicitud rechazada.'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                } catch (error) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(RankingService.friendlyRankingError(error)),
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.close_rounded),
-            ),
+                    );
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text(RankingService.friendlyRankingError(error)),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.check_rounded),
+              ),
+              IconButton(
+                tooltip: 'Rechazar',
+                onPressed: () async {
+                  try {
+                    await FriendsService.rejectRequest(request);
+                    onChanged();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Solicitud rechazada.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } catch (error) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content:
+                            Text(RankingService.friendlyRankingError(error)),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
+  }
+
+  Future<void> _openRequestProfile(BuildContext context) async {
+    final targetUid = outgoing ? request.toUid : request.fromUid;
+    try {
+      final profile = await RankingService.fetchProfileByUid(targetUid);
+      if (!context.mounted) return;
+      if (profile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo cargar ese perfil.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+      await showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        isScrollControlled: true,
+        builder: (_) => FocusPublicProfileSheet(
+          profile: profile,
+          isFriend: false,
+          statusLabel: outgoing ? 'Solicitud pendiente' : 'Solicitud recibida',
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(RankingService.friendlyRankingError(error)),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 }
 
@@ -5667,7 +5700,7 @@ class _FriendsList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Mi círculo',
+          'Mis amigos',
           style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 color: FocusPalette.muted,
                 fontWeight: FontWeight.w900,
@@ -5690,329 +5723,6 @@ class _FriendsList extends StatelessWidget {
             ),
       ],
     );
-  }
-}
-
-class _FriendProfileSheet extends StatefulWidget {
-  final RankingProfile friend;
-  final bool isFriend;
-  final Future<void> Function() onRemove;
-  final Future<bool> Function()? onSendRequest;
-
-  const _FriendProfileSheet({
-    required this.friend,
-    required this.onRemove,
-    this.isFriend = true,
-    this.onSendRequest,
-  });
-
-  @override
-  State<_FriendProfileSheet> createState() => _FriendProfileSheetState();
-}
-
-class _FriendProfileSheetState extends State<_FriendProfileSheet> {
-  bool _sending = false;
-  bool _sent = false;
-  bool _removing = false;
-
-  Future<bool> _sendRequest() async {
-    final action = widget.onSendRequest;
-    if (action == null || _sending || _sent) return _sent;
-    setState(() => _sending = true);
-    try {
-      final sent = await action();
-      if (!mounted || !sent) return sent;
-      HapticFeedback.mediumImpact();
-      setState(() => _sent = true);
-      return true;
-    } catch (_) {
-      return false;
-    } finally {
-      if (mounted) setState(() => _sending = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final friend = widget.friend;
-    final isFriend = widget.isFriend;
-    final league = _leagueLabel(friend.rank);
-    final accent = _leagueColor(league);
-    final actionTitle = isFriend
-        ? 'Perfil de amigo'
-        : _sent
-            ? 'Solicitud enviada'
-            : 'Perfil encontrado';
-    final actionSubtitle = isFriend
-        ? 'Ya forma parte de tu círculo de Focus.'
-        : _sent
-            ? 'Ahora espera a que acepte tu solicitud.'
-            : 'Revisa su perfil antes de enviar la solicitud.';
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _ProfileReveal(
-              index: 0,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(30),
-                  gradient: LinearGradient(
-                    colors: [
-                      accent.withValues(alpha: 0.28),
-                      Theme.of(context).cardColor,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: accent.withValues(alpha: 0.24)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.11),
-                      blurRadius: 22,
-                      offset: const Offset(0, 11),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        _ProfileIconAvatar(profile: friend, size: 116),
-                        Positioned(
-                          right: -4,
-                          bottom: -4,
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            padding: const EdgeInsets.all(5),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Theme.of(context).cardColor,
-                              border: Border.all(
-                                color: accent.withValues(alpha: 0.22),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: accent.withValues(alpha: 0.12),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 7),
-                                ),
-                              ],
-                            ),
-                            child: Image.asset(
-                              _rankMedalAsset(friend.rank),
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            friend.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(
-                                  fontSize: 24,
-                                  height: 1.03,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.45,
-                                ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            _careerLabel(friend.career),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 10),
-                          _TinyProfileChip(
-                            icon: isFriend
-                                ? Icons.people_alt_rounded
-                                : _sent
-                                    ? Icons.check_circle_rounded
-                                    : Icons.person_search_rounded,
-                            label: actionTitle,
-                            color: accent,
-                          ),
-                          const SizedBox(height: 8),
-                          _InlineSocialStatus(profile: friend),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _ProfileReveal(
-              index: 1,
-              child: Text(
-                actionSubtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: FocusPalette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _ProfileReveal(
-              index: 2,
-              child: Row(
-                children: [
-                  _FriendMetricCard(
-                    icon: Icons.bolt_rounded,
-                    metricIcon: FocusMetricIconKind.points,
-                    label: 'Puntos',
-                    value: '${friend.totalPoints}',
-                    color: FocusPalette.amber,
-                  ),
-                  const SizedBox(width: 10),
-                  _FriendMetricCard(
-                    icon: Icons.emoji_events_rounded,
-                    assetIcon: _rankMedalAsset(friend.rank),
-                    label: 'Liga',
-                    value: league,
-                    color: accent,
-                  ),
-                  const SizedBox(width: 10),
-                  _FriendMetricCard(
-                    icon: Icons.local_fire_department_rounded,
-                    metricIcon: FocusMetricIconKind.streak,
-                    label: 'Racha',
-                    value: '${_profileStreak(friend)}',
-                    color: FocusPalette.amber,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: isFriend
-                  ? OutlinedButton.icon(
-                      onPressed: _removing
-                          ? null
-                          : () => _confirmRemoveFriend(context),
-                      icon: _removing
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.person_remove_rounded),
-                      label: Text(
-                        _removing ? 'Eliminando...' : 'Eliminar de amigos',
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: FocusPalette.danger,
-                        side: BorderSide(
-                          color: FocusPalette.danger.withValues(alpha: 0.38),
-                        ),
-                      ),
-                    )
-                  : FilledButton.icon(
-                      onPressed: (_sending || _sent) ? null : _sendRequest,
-                      icon: _sent
-                          ? const Icon(Icons.check_circle_rounded)
-                          : _sending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Icon(Icons.person_add_alt_1_rounded),
-                      label: Text(
-                        _sent
-                            ? 'Solicitud enviada'
-                            : _sending
-                                ? 'Enviando solicitud...'
-                                : 'Enviar solicitud',
-                      ),
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            _sent ? FocusPalette.mint : FocusPalette.primary,
-                        disabledBackgroundColor: _sent
-                            ? FocusPalette.mint
-                            : FocusPalette.primary.withValues(alpha: 0.56),
-                        disabledForegroundColor: Colors.white,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(50),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                    ),
-            ),
-            if (!isFriend) ...[
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'La solicitud se enviará con tu perfil público.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: FocusPalette.muted,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _confirmRemoveFriend(BuildContext context) async {
-    if (_removing) return;
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminar amigo'),
-        content: Text(
-          '¿Quieres eliminar a ${widget.friend.name} de tus amigos?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(context, true),
-            icon: const Icon(Icons.person_remove_rounded),
-            label: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    setState(() => _removing = true);
-    try {
-      await widget.onRemove();
-    } finally {
-      if (mounted) setState(() => _removing = false);
-    }
   }
 }
 
@@ -6058,77 +5768,6 @@ class _TinyProfileChip extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FriendMetricCard extends StatelessWidget {
-  final IconData icon;
-  final String? assetIcon;
-  final FocusMetricIconKind? metricIcon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _FriendMetricCard({
-    required this.icon,
-    this.assetIcon,
-    this.metricIcon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: Theme.of(context).cardColor,
-          border: Border.all(color: color.withValues(alpha: 0.14)),
-          boxShadow: [
-            BoxShadow(
-              color: color.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, 7),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (assetIcon != null)
-              Image.asset(
-                assetIcon!,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-              )
-            else if (metricIcon != null)
-              FocusMetricIcon(kind: metricIcon!, size: 22, color: color)
-            else
-              Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w900),
-            ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: FocusPalette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ],
-        ),
       ),
     );
   }

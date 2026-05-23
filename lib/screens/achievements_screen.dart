@@ -44,11 +44,11 @@ class AchievementsScreen extends StatelessWidget {
                     title: 'Puntos y niveles',
                     items: [
                       'Pomodoros, hábitos y logros desbloqueados suman puntos.',
-                      'Los niveles suben por tramos y muestran cuanto te falta para el siguiente.',
+                      'Los niveles suben por tramos y muestran cuánto te falta para el siguiente.',
                       'Cada pomodoro completado suma puntos por bloque de enfoque válido.',
                       'Pomodoro sin distracciones y hábitos completados pueden sumar puntos extra.',
                       'Los logros suman puntos una sola vez al desbloquearse.',
-                      'El progreso maximo llega hasta el nivel 5.',
+                      'El progreso máximo llega hasta el nivel 5.',
                     ],
                   ),
                   FocusHelpSection(
@@ -62,18 +62,18 @@ class AchievementsScreen extends StatelessWidget {
                     ],
                   ),
                   FocusHelpSection(
-                    title: 'Mision semanal',
+                    title: 'Misión semanal',
                     items: [
-                      'Completar la mision semanal desbloquea una insignia extra.',
-                      'La mision se basa en pomodoros completados durante la semana.',
-                      'La racha tambien ayuda a empujar tu progreso general.',
+                      'Completar la misión semanal desbloquea una insignia extra.',
+                      'La misión se basa en pomodoros completados durante la semana.',
+                      'La racha también ayuda a empujar tu progreso general.',
                     ],
                   ),
                   FocusHelpSection(
                     title: 'Insignias',
                     items: [
                       'Cada insignia se desbloquea una sola vez.',
-                      'La mision semanal y la racha ayudan a empujar tu progreso general.',
+                      'La misión semanal y la racha ayudan a empujar tu progreso general.',
                     ],
                   ),
                 ],

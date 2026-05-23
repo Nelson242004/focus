@@ -416,11 +416,13 @@ class _HabitsHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = totalHabits == 0 ? 0.0 : completedToday / totalHabits;
-    final accent = Theme.of(context).colorScheme.primary;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final accent = colorScheme.primary;
     return Container(
       padding: FocusInsets.panel,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(FocusRadii.panel),
         border: Border.all(color: accent.withValues(alpha: 0.14)),
         boxShadow: [
@@ -443,7 +445,6 @@ class _HabitsHero extends StatelessWidget {
                     const Text(
                       'Hábitos',
                       style: TextStyle(
-                        color: FocusPalette.muted,
                         letterSpacing: 1.1,
                       ),
                     ),
@@ -458,10 +459,10 @@ class _HabitsHero extends StatelessWidget {
                     const SizedBox(height: 10),
                     Text(
                       '$completedToday/$totalHabits completados hoy',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: FocusPalette.muted,
-                            fontWeight: FontWeight.w700,
-                          ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ],
                 ),
@@ -483,7 +484,7 @@ class _HabitsHero extends StatelessWidget {
                       child: Text(
                         '${(progress * 100).round()}%',
                         style: TextStyle(
-                          color: accent,
+                          color: colorScheme.onSurface,
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                         ),
@@ -498,13 +499,18 @@ class _HabitsHero extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                  child: _HeroMetric(
-                      label: 'Mejor racha', value: '$bestStreak días')),
+                child: _HeroMetric(
+                  label: 'Mejor racha',
+                  value: '$bestStreak días',
+                ),
+              ),
               const SizedBox(width: 10),
               Expanded(
-                  child: _HeroMetric(
-                      label: 'Constancia',
-                      value: '${(averageConsistency * 100).round()}%')),
+                child: _HeroMetric(
+                  label: 'Constancia',
+                  value: '${(averageConsistency * 100).round()}%',
+                ),
+              ),
             ],
           ),
         ],
@@ -524,22 +530,37 @@ class _HeroMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: Colors.white.withValues(alpha: 0.08),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold)),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(color: Colors.white70)),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -746,6 +767,7 @@ class _HabitCard extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor:
                         doneToday ? FocusPalette.mint : FocusPalette.primary,
+                    foregroundColor: Colors.white,
                   ),
                 ),
               ),
@@ -772,6 +794,7 @@ class _MiniStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -789,20 +812,35 @@ class _MiniStat extends StatelessWidget {
               FocusMetricIcon(
                 kind: metricIcon!,
                 size: 20,
-                color: Theme.of(context).colorScheme.primary,
+                color: colorScheme.primary,
               )
             else
               Icon(
                 icon,
                 size: 18,
-                color: Theme.of(context).colorScheme.primary,
+                color: colorScheme.primary,
               ),
             const SizedBox(height: 8),
-            Text(value,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
             const SizedBox(height: 2),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
           ],
         ),
       ),
