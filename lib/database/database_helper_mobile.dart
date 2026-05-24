@@ -241,18 +241,6 @@ class DatabaseHelper {
 
   Future<void> _insertDefaultData(Database db) async {
     await db.insert(
-      'subjects',
-      {'name': 'Matemáticas', 'color': '#3b82f6', 'icon': 'calculate'},
-    );
-    await db.insert(
-      'subjects',
-      {'name': 'Programación', 'color': '#22c55e', 'icon': 'code'},
-    );
-    await db.insert(
-      'subjects',
-      {'name': 'Física', 'color': '#f59e0b', 'icon': 'science'},
-    );
-    await db.insert(
       'settings',
       {'key': 'settings', 'value': _serializeSettings(AppSettings())},
       conflictAlgorithm: ConflictAlgorithm.replace,

@@ -244,6 +244,7 @@ class FocusCuteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final softAccent = Color.lerp(Colors.white, accent, 0.08)!;
     return Container(
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
@@ -260,9 +261,8 @@ class FocusCuteCard extends StatelessWidget {
                 ]
               : [
                   Colors.white,
-                  Color.lerp(Colors.white, accent, 0.10)!,
-                  Color.lerp(
-                      FocusPalette.primarySoft, FocusPalette.mint, 0.16)!,
+                  softAccent,
+                  Color.lerp(FocusPalette.surfaceTop, accent, 0.05)!,
                 ],
         ),
         border:

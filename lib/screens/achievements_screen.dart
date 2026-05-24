@@ -6,12 +6,13 @@ import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import '../widgets/focus_metric_icon.dart';
 
 class AchievementsScreen extends StatelessWidget {
-  const AchievementsScreen({super.key});
+  final bool showAppBar;
+
+  const AchievementsScreen({super.key, this.showAppBar = true});
 
   @override
   Widget build(BuildContext context) {
@@ -32,55 +33,56 @@ class AchievementsScreen extends StatelessWidget {
             .toList();
 
         return Scaffold(
-          drawer: const FocusDrawer(selectedRoute: 'achievements'),
-          appBar: AppBar(
-            title: const Text('Logros'),
-            actions: const [
-              FocusHelpAction(
-                title: 'Ayuda de logros',
-                message:
-                    'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aquí.',
-                sections: [
-                  FocusHelpSection(
-                    title: 'Puntos y niveles',
-                    items: [
-                      'Pomodoros, hábitos y logros desbloqueados suman puntos.',
-                      'Los niveles suben por tramos y muestran cuánto te falta para el siguiente.',
-                      'Cada pomodoro completado suma puntos por bloque de enfoque válido.',
-                      'Pomodoro sin distracciones y hábitos completados pueden sumar puntos extra.',
-                      'Los logros suman puntos una sola vez al desbloquearse.',
-                      'El progreso máximo llega hasta el nivel 5.',
-                    ],
-                  ),
-                  FocusHelpSection(
-                    title: 'Ruta de niveles',
-                    items: [
-                      'Nivel 1: desde 0 puntos.',
-                      'Nivel 2: desde 200 puntos.',
-                      'Nivel 3: desde 400 puntos.',
-                      'Nivel 4: desde 600 puntos.',
-                      'Nivel 5: desde 800 puntos.',
-                    ],
-                  ),
-                  FocusHelpSection(
-                    title: 'Misión semanal',
-                    items: [
-                      'Completar la misión semanal desbloquea una insignia extra.',
-                      'La misión se basa en pomodoros completados durante la semana.',
-                      'La racha también ayuda a empujar tu progreso general.',
-                    ],
-                  ),
-                  FocusHelpSection(
-                    title: 'Insignias',
-                    items: [
-                      'Cada insignia se desbloquea una sola vez.',
-                      'La misión semanal y la racha ayudan a empujar tu progreso general.',
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
+          appBar: showAppBar
+              ? AppBar(
+                  title: const Text('Logros'),
+                  actions: const [
+                    FocusHelpAction(
+                      title: 'Ayuda de logros',
+                      message:
+                          'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aquí.',
+                      sections: [
+                        FocusHelpSection(
+                          title: 'Puntos y niveles',
+                          items: [
+                            'Pomodoros, hábitos y logros desbloqueados suman puntos.',
+                            'Los niveles suben por tramos y muestran cuánto te falta para el siguiente.',
+                            'Cada pomodoro completado suma puntos por bloque de enfoque válido.',
+                            'Pomodoro sin distracciones y hábitos completados pueden sumar puntos extra.',
+                            'Los logros suman puntos una sola vez al desbloquearse.',
+                            'El progreso máximo llega hasta el nivel 5.',
+                          ],
+                        ),
+                        FocusHelpSection(
+                          title: 'Ruta de niveles',
+                          items: [
+                            'Nivel 1: desde 0 puntos.',
+                            'Nivel 2: desde 200 puntos.',
+                            'Nivel 3: desde 400 puntos.',
+                            'Nivel 4: desde 600 puntos.',
+                            'Nivel 5: desde 800 puntos.',
+                          ],
+                        ),
+                        FocusHelpSection(
+                          title: 'Misión semanal',
+                          items: [
+                            'Completar la misión semanal desbloquea una insignia extra.',
+                            'La misión se basa en pomodoros completados durante la semana.',
+                            'La racha también ayuda a empujar tu progreso general.',
+                          ],
+                        ),
+                        FocusHelpSection(
+                          title: 'Insignias',
+                          items: [
+                            'Cada insignia se desbloquea una sola vez.',
+                            'La misión semanal y la racha ayudan a empujar tu progreso general.',
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : null,
           body: FocusPageBackground(
             child: ListView(
               padding: const EdgeInsets.all(16),

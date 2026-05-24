@@ -19,7 +19,6 @@ import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_help_button.dart';
@@ -32,8 +31,13 @@ import 'auth_gate_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   final String? initialFriendCode;
+  final bool showAppBar;
 
-  const FriendsScreen({super.key, this.initialFriendCode});
+  const FriendsScreen({
+    super.key,
+    this.initialFriendCode,
+    this.showAppBar = true,
+  });
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -149,34 +153,35 @@ class _FriendsScreenState extends State<FriendsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'friends'),
-      appBar: AppBar(
-        title: const Text('Perfil'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de perfil',
-            message:
-                'Desde aquí editas tu perfil público y gestionas amigos sin cargar la pantalla con explicaciones largas.',
-            sections: [
-              FocusHelpSection(
-                title: 'Perfil público',
-                items: [
-                  'Tu nombre y carrera son los datos que otros pueden ver en funciones sociales.',
-                  'Puedes cambiar personaje y color de fondo desde el editor del perfil.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Amigos',
-                items: [
-                  'Tu código sirve para que te agreguen rápido.',
-                  'Buscar te permite enviar solicitudes y compartir facilita invitar fuera de la app.',
-                  'El ranking entre amigos toma tu perfil público, no la información privada de tu cuenta.',
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Perfil'),
+              actions: const [
+                FocusHelpAction(
+                  title: 'Ayuda de perfil',
+                  message:
+                      'Desde aquí editas tu perfil público y gestionas amigos sin cargar la pantalla con explicaciones largas.',
+                  sections: [
+                    FocusHelpSection(
+                      title: 'Perfil público',
+                      items: [
+                        'Tu nombre y carrera son los datos que otros pueden ver en funciones sociales.',
+                        'Puedes cambiar personaje y color de fondo desde el editor del perfil.',
+                      ],
+                    ),
+                    FocusHelpSection(
+                      title: 'Amigos',
+                      items: [
+                        'Tu código sirve para que te agreguen rápido.',
+                        'Buscar te permite enviar solicitudes y compartir facilita invitar fuera de la app.',
+                        'El ranking entre amigos toma tu perfil público, no la información privada de tu cuenta.',
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: RankingService.currentUser == null
           ? _LoginRequiredPanel(onLogin: _openLogin)
           : FutureBuilder<RankingProfile?>(
@@ -526,6 +531,7 @@ class _CenteredState extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: FocusProfileEmptyState(
           icon: icon,
+          iconKind: FocusAppIconKind.friends,
           title: title,
           message: message,
           action: action,
@@ -5693,6 +5699,7 @@ class _FriendsList extends StatelessWidget {
     if (friends.isEmpty) {
       return const FocusProfileEmptyState(
         icon: Icons.person_add_alt_1_rounded,
+        iconKind: FocusAppIconKind.friends,
         accent: FocusPalette.primary,
         title: 'Todavía no agregaste amigos',
         message: 'Busca por código o nombre.',

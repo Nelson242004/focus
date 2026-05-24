@@ -135,6 +135,7 @@ class AppProvider extends ChangeNotifier {
         _loadSchedules(),
         _loadResources(),
       ]);
+      await _removeUntouchedDemoSubjects();
       _syncExamSubjectNames();
       await _syncExamNotifications();
     } catch (error, stackTrace) {
@@ -197,6 +198,48 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> _loadResources() async {
     resources = await db.getAllResources();
+  }
+
+  Future<void> _removeUntouchedDemoSubjects() async {
+    final demoSubjects = subjects.where(_isUntouchedDemoSubject).toList();
+    if (demoSubjects.isEmpty) return;
+
+    final linkedSubjectIds = <int>{
+      for (final schedule in schedules) schedule.subjectId,
+      for (final exam in exams)
+        if (exam.subjectId != null) exam.subjectId!,
+      for (final task in studyTasks)
+        if (task.subjectId != null) task.subjectId!,
+      for (final resource in resources)
+        if (resource.subjectId != null) resource.subjectId!,
+    };
+
+    final removable = demoSubjects
+        .where((subject) =>
+            subject.id != null && !linkedSubjectIds.contains(subject.id))
+        .toList();
+    if (removable.isEmpty) return;
+
+    for (final subject in removable) {
+      await db.deleteSubject(subject.id!);
+    }
+    subjects =
+        subjects.where((subject) => !removable.contains(subject)).toList();
+  }
+
+  bool _isUntouchedDemoSubject(Subject subject) {
+    final defaultClassroom = subject.defaultClassroom?.trim() ?? '';
+    final professor = subject.professorName?.trim() ?? '';
+    final section = subject.sectionCode?.trim() ?? '';
+    if (defaultClassroom.isNotEmpty ||
+        professor.isNotEmpty ||
+        section.isNotEmpty) {
+      return false;
+    }
+    final key = '${subject.name}|${subject.color}|${subject.icon}';
+    return key == 'Matemáticas|#3b82f6|calculate' ||
+        key == 'Programación|#22c55e|code' ||
+        key == 'Física|#f59e0b|science';
   }
 
   Future<void> syncExamNotifications() async {

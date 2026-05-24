@@ -8,6 +8,7 @@ import '../models/schedule.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
@@ -60,16 +61,12 @@ class WeeklyScheduleScreen extends StatelessWidget {
             });
 
           if (provider.subjects.isEmpty || schedules.isEmpty) {
-            return const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: FocusProfileEmptyState(
-                  icon: Icons.schedule_rounded,
-                  accent: FocusPalette.teal,
-                  title: 'Sin horarios',
-                  message: 'Agrega una materia con horario para verla aquí.',
-                ),
-              ),
+            return const FocusCenteredEmptyState(
+              icon: Icons.schedule_rounded,
+              iconKind: FocusAppIconKind.calendar,
+              accent: FocusPalette.teal,
+              title: 'Sin horarios',
+              message: 'Agrega una materia con horario para verla aquí.',
             );
           }
 

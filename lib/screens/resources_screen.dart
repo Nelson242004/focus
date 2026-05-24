@@ -7,12 +7,13 @@ import '../providers/app_provider.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
 class ResourcesScreen extends StatefulWidget {
-  const ResourcesScreen({super.key});
+  final bool showAppBar;
+
+  const ResourcesScreen({super.key, this.showAppBar = true});
 
   @override
   State<ResourcesScreen> createState() => _ResourcesScreenState();
@@ -300,34 +301,35 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'resources'),
-      appBar: AppBar(
-        title: const Text('Recursos'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de recursos',
-            message:
-                'Guarda solo enlaces utiles para estudiar y deja el resto fuera para que la biblioteca se mantenga limpia.',
-            sections: [
-              FocusHelpSection(
-                title: 'Que puedes guardar',
-                items: [
-                  'Playlists, cursos, herramientas y perfiles o redes utiles.',
-                  'Puedes dejar un recurso como general o vincularlo a una materia.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Organizacion',
-                items: [
-                  'Usa buscar y filtros para no llenar la pantalla con texto secundario.',
-                  'El boton inferior sirve para agregar recursos nuevos.',
-                  'Si quieres sugerir recursos para Focus, usa el boton Sugerir recurso.',
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Recursos'),
+              actions: const [
+                FocusHelpAction(
+                  title: 'Ayuda de recursos',
+                  message:
+                      'Guarda solo enlaces utiles para estudiar y deja el resto fuera para que la biblioteca se mantenga limpia.',
+                  sections: [
+                    FocusHelpSection(
+                      title: 'Que puedes guardar',
+                      items: [
+                        'Playlists, cursos, herramientas y perfiles o redes utiles.',
+                        'Puedes dejar un recurso como general o vincularlo a una materia.',
+                      ],
+                    ),
+                    FocusHelpSection(
+                      title: 'Organizacion',
+                      items: [
+                        'Usa buscar y filtros para no llenar la pantalla con texto secundario.',
+                        'El boton inferior sirve para agregar recursos nuevos.',
+                        'Si quieres sugerir recursos para Focus, usa el boton Sugerir recurso.',
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         top: false,
         bottom: true,
@@ -381,8 +383,10 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (filteredResources.isEmpty)
-                    FocusProfileEmptyState(
+                    FocusCenteredEmptyState(
+                      height: MediaQuery.of(context).size.height * 0.42,
                       icon: Icons.public_rounded,
+                      iconKind: FocusAppIconKind.resources,
                       accent: FocusPalette.teal,
                       title: 'Tu biblioteca está esperando',
                       message:

@@ -7,14 +7,15 @@ import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 import '../widgets/time_picker_field.dart';
 import 'subjects_screen.dart';
 
 class ExamsScreen extends StatefulWidget {
-  const ExamsScreen({super.key});
+  final bool showAppBar;
+
+  const ExamsScreen({super.key, this.showAppBar = true});
 
   @override
   State<ExamsScreen> createState() => _ExamsScreenState();
@@ -361,34 +362,35 @@ class _ExamsScreenState extends State<ExamsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'exams'),
-      appBar: AppBar(
-        title: const Text('Exámenes'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de exámenes',
-            message:
-                'Aquí ves lo próximo, tu calendario y los parciales o finales de cada materia.',
-            sections: [
-              FocusHelpSection(
-                title: 'Datos importantes',
-                items: [
-                  'Solo la materia y la fecha son obligatorias.',
-                  'La hora y el aula pueden completarse después.',
-                  'No se permiten duplicados del mismo tipo para una materia en la misma fecha.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Uso rápido',
-                items: [
-                  'El boton inferior crea un examen nuevo.',
-                  'El calendario te ayuda a detectar semanas cargadas sin meter demasiado texto en pantalla.',
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Exámenes'),
+              actions: const [
+                FocusHelpAction(
+                  title: 'Ayuda de exámenes',
+                  message:
+                      'Aquí ves lo próximo, tu calendario y los parciales o finales de cada materia.',
+                  sections: [
+                    FocusHelpSection(
+                      title: 'Datos importantes',
+                      items: [
+                        'Solo la materia y la fecha son obligatorias.',
+                        'La hora y el aula pueden completarse después.',
+                        'No se permiten duplicados del mismo tipo para una materia en la misma fecha.',
+                      ],
+                    ),
+                    FocusHelpSection(
+                      title: 'Uso rápido',
+                      items: [
+                        'El boton inferior crea un examen nuevo.',
+                        'El calendario te ayuda a detectar semanas cargadas sin meter demasiado texto en pantalla.',
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         top: false,
         bottom: true,
@@ -396,16 +398,12 @@ class _ExamsScreenState extends State<ExamsScreen> {
           child: Consumer<AppProvider>(
             builder: (context, provider, _) {
               if (provider.subjects.isEmpty) {
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: FocusProfileEmptyState(
-                      icon: Icons.assignment_late_rounded,
-                      accent: FocusPalette.softAlert,
-                      title: 'Primero una materia',
-                      message: 'Así tu examen queda conectado a tu plan.',
-                    ),
-                  ),
+                return const FocusCenteredEmptyState(
+                  icon: Icons.assignment_late_rounded,
+                  iconKind: FocusAppIconKind.exams,
+                  accent: FocusPalette.softAlert,
+                  title: 'Primero una materia',
+                  message: 'Así tu examen queda conectado a tu plan.',
                 );
               }
 
@@ -710,18 +708,18 @@ class _ExamsScreenState extends State<ExamsScreen> {
                           ),
                         ),
                         if (exams.isEmpty)
-                          Padding(
+                          FocusCenteredEmptyState(
+                            height: MediaQuery.of(context).size.height * 0.42,
                             padding: const EdgeInsets.all(16),
-                            child: FocusProfileEmptyState(
-                              icon: Icons.event_busy_rounded,
-                              accent: FocusPalette.softAlert,
-                              title: provider.exams.isEmpty
-                                  ? 'Tu primer examen te espera'
-                                  : 'Sin resultados',
-                              message: provider.exams.isEmpty
-                                  ? 'Agrega un parcial o final y Focus lo recuerda.'
-                                  : 'Cambia el filtro o crea uno nuevo.',
-                            ),
+                            icon: Icons.event_busy_rounded,
+                            iconKind: FocusAppIconKind.exams,
+                            accent: FocusPalette.softAlert,
+                            title: provider.exams.isEmpty
+                                ? 'Tu primer examen te espera'
+                                : 'Sin resultados',
+                            message: provider.exams.isEmpty
+                                ? 'Agrega un parcial o final y Focus lo recuerda.'
+                                : 'Cambia el filtro o crea uno nuevo.',
                           )
                         else
                           ...exams.asMap().entries.map((entry) {

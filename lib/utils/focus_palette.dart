@@ -39,10 +39,16 @@ class FocusPalette {
   static const muted = Color(0xFF64748B);
   static const border = Color(0xFFD6E0EC);
   static const surface = Color(0xFFF6F8FC);
+  static const surfaceTop = Color(0xFFF8FAFC);
+  static const surfaceMid = Color(0xFFF3F7FD);
+  static const surfaceTint = Color(0xFFF4FBF9);
   static const card = Color(0xFFFFFFFF);
 
   static const darkInk = Color(0xFF020617);
   static const darkSurface = Color(0xFF050816);
+  static const darkSurfaceTop = Color(0xFF050816);
+  static const darkSurfaceMid = Color(0xFF07101F);
+  static const darkSurfaceTint = Color(0xFF081421);
   static const darkCard = Color(0xFF09111F);
   static const darkCard2 = Color(0xFF0D1B2E);
   static const darkBorder = Color(0xFF1E293B);
@@ -57,14 +63,14 @@ class FocusPalette {
   static const socialGradient = [primaryDeep, cyan, mint];
   static const rewardGradient = [amber, mint];
   static const lightBackgroundGradient = [
-    Color(0xFFF6F8FC),
-    Color(0xFFEFF6FF),
-    Color(0xFFF0FDFA),
+    surfaceTop,
+    surfaceMid,
+    surfaceTint,
   ];
   static const darkBackgroundGradient = [
-    Color(0xFF050816),
-    Color(0xFF081226),
-    Color(0xFF061B1A),
+    darkSurfaceTop,
+    darkSurfaceMid,
+    darkSurfaceTint,
   ];
 
   static const coreAccents = [

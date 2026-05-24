@@ -8,8 +8,8 @@ import '../services/ranking_service.dart';
 import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
@@ -17,7 +17,9 @@ import '../widgets/focus_public_profile_sheet.dart';
 import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
-  const GlobalRankingScreen({super.key});
+  final bool showAppBar;
+
+  const GlobalRankingScreen({super.key, this.showAppBar = true});
 
   @override
   State<GlobalRankingScreen> createState() => _GlobalRankingScreenState();
@@ -196,17 +198,18 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'ranking'),
-      appBar: AppBar(
-        title: const Text('Ranking global'),
-        actions: [
-          IconButton(
-            onPressed: _showRankingInfo,
-            tooltip: 'Información',
-            icon: const Icon(Icons.help_outline_rounded),
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Ranking global'),
+              actions: [
+                IconButton(
+                  onPressed: _showRankingInfo,
+                  tooltip: 'Información',
+                  icon: const Icon(Icons.help_outline_rounded),
+                ),
+              ],
+            )
+          : null,
       body: FutureBuilder<RankingProfile?>(
         future: _profileFuture,
         builder: (context, profileSnapshot) {
@@ -1748,6 +1751,7 @@ class _MessagePanel extends StatelessWidget {
         padding: const EdgeInsets.all(22),
         child: FocusProfileEmptyState(
           icon: icon,
+          iconKind: FocusAppIconKind.ranking,
           title: title,
           message: message,
           action: action,

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import '../utils/focus_icon_assets.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 enum FocusAppIconKind {
   focus,
@@ -55,42 +54,35 @@ class FocusAppIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      _assetFor(kind),
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) => Icon(
-        fallback,
-        size: size,
-        color: fallbackColor ?? Theme.of(context).colorScheme.primary,
-      ),
+    return Icon(
+      _iconFor(kind),
+      size: size,
+      color: fallbackColor ?? Theme.of(context).colorScheme.primary,
     );
   }
 
-  static String _assetFor(FocusAppIconKind kind) {
+  static IconData _iconFor(FocusAppIconKind kind) {
     return switch (kind) {
-      FocusAppIconKind.focus => FocusIconAssets.focus,
-      FocusAppIconKind.points => FocusIconAssets.iconPoints,
-      FocusAppIconKind.streak => FocusIconAssets.iconStreak,
-      FocusAppIconKind.pomodoro => FocusIconAssets.pomodoro,
-      FocusAppIconKind.subjects => FocusIconAssets.subjects,
-      FocusAppIconKind.exams => FocusIconAssets.exams,
-      FocusAppIconKind.habits => FocusIconAssets.habits,
-      FocusAppIconKind.friends => FocusIconAssets.friends,
-      FocusAppIconKind.resources => FocusIconAssets.resources,
-      FocusAppIconKind.achievements => FocusIconAssets.achievements,
-      FocusAppIconKind.ranking => FocusIconAssets.ranking,
-      FocusAppIconKind.settings => FocusIconAssets.settings,
-      FocusAppIconKind.calendar => FocusIconAssets.calendar,
-      FocusAppIconKind.tasks => FocusIconAssets.tasks,
-      FocusAppIconKind.polytechnic => FocusIconAssets.polytechnic,
-      FocusAppIconKind.permissions => FocusIconAssets.permissions,
-      FocusAppIconKind.help => FocusIconAssets.help,
-      FocusAppIconKind.profile => FocusIconAssets.profile,
-      FocusAppIconKind.notifications => FocusIconAssets.notifications,
-      FocusAppIconKind.backup => FocusIconAssets.backup,
+      FocusAppIconKind.focus => LucideIcons.target,
+      FocusAppIconKind.points => LucideIcons.coins,
+      FocusAppIconKind.streak => LucideIcons.flame,
+      FocusAppIconKind.pomodoro => LucideIcons.timer,
+      FocusAppIconKind.subjects => LucideIcons.bookOpen,
+      FocusAppIconKind.exams => LucideIcons.clipboardCheck,
+      FocusAppIconKind.habits => LucideIcons.listChecks,
+      FocusAppIconKind.friends => LucideIcons.users,
+      FocusAppIconKind.resources => LucideIcons.folderOpen,
+      FocusAppIconKind.achievements => LucideIcons.award,
+      FocusAppIconKind.ranking => LucideIcons.trophy,
+      FocusAppIconKind.settings => LucideIcons.settings,
+      FocusAppIconKind.calendar => LucideIcons.calendarDays,
+      FocusAppIconKind.tasks => LucideIcons.squareCheckBig,
+      FocusAppIconKind.polytechnic => LucideIcons.graduationCap,
+      FocusAppIconKind.permissions => LucideIcons.shieldCheck,
+      FocusAppIconKind.help => LucideIcons.circleHelp,
+      FocusAppIconKind.profile => LucideIcons.userRound,
+      FocusAppIconKind.notifications => LucideIcons.bell,
+      FocusAppIconKind.backup => LucideIcons.cloudUpload,
     };
   }
 }

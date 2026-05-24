@@ -22,7 +22,9 @@ import '../widgets/focus_metric_icon.dart';
 import 'auth_gate_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final bool showAppBar;
+
+  const SettingsScreen({super.key, this.showAppBar = true});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -436,16 +438,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configuración'),
-        actions: [
-          IconButton(
-            tooltip: 'Guardar',
-            onPressed: _saveSettings,
-            icon: const Icon(Icons.save_rounded),
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Configuración'),
+              actions: [
+                IconButton(
+                  tooltip: 'Guardar',
+                  onPressed: _saveSettings,
+                  icon: const Icon(Icons.save_rounded),
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         top: false,
         bottom: true,
@@ -455,411 +459,412 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               _SettingsHero(provider: provider),
               FocusGap.md,
-            _SettingsSection(
-              title: 'Cuenta',
-              subtitle: RankingService.currentUser == null
-                  ? 'Sesión y perfil público'
-                  : RankingService.currentUser?.email ?? 'Cuenta activa',
-              icon: Icons.person_rounded,
-              children: [
-                _AccountSettingsContent(
-                  onLogin: _openLogin,
-                  onSignOut: _signOut,
-                  onProfileUpdated: () => setState(() {}),
-                ),
-              ],
-            ),
-            FocusGap.md,
-            _SettingsSection(
-              title: 'Apariencia',
-              subtitle: 'Tema, idioma, texto y color',
-              icon: Icons.palette_rounded,
-              children: [
-                _ThemePreview(
-                  accentColor: _accentColor,
-                  darkMode:
-                      provider.settings.themeMode == ThemeModeSetting.dark,
-                ),
-                const SizedBox(height: 12),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Modo oscuro'),
-                  value: provider.settings.themeMode == ThemeModeSetting.dark,
-                  onChanged: (_) => provider.toggleTheme(),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<AppLanguage>(
-                  initialValue: _selectedLanguage,
-                  decoration: const InputDecoration(
-                    labelText: 'Idioma',
-                    prefixIcon: Icon(Icons.language_rounded),
+              _SettingsSection(
+                title: 'Cuenta',
+                subtitle: RankingService.currentUser == null
+                    ? 'Sesión y perfil público'
+                    : RankingService.currentUser?.email ?? 'Cuenta activa',
+                icon: Icons.person_rounded,
+                children: [
+                  _AccountSettingsContent(
+                    onLogin: _openLogin,
+                    onSignOut: _signOut,
+                    onProfileUpdated: () => setState(() {}),
                   ),
-                  items: AppLanguage.values
-                      .map(
-                        (language) => DropdownMenuItem(
-                          value: language,
-                          child: Text(_languageLabel(language)),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(
-                    () => _selectedLanguage = value ?? AppLanguage.system,
+                ],
+              ),
+              FocusGap.md,
+              _SettingsSection(
+                title: 'Apariencia',
+                subtitle: 'Tema, idioma, texto y color',
+                icon: Icons.palette_rounded,
+                children: [
+                  _ThemePreview(
+                    accentColor: _accentColor,
+                    darkMode:
+                        provider.settings.themeMode == ThemeModeSetting.dark,
                   ),
-                ),
-                const SizedBox(height: 12),
-                Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
-                Slider(
-                  value: _textScale,
-                  min: 0.9,
-                  max: 1.2,
-                  divisions: 6,
-                  label: _textScale.toStringAsFixed(2),
-                  onChanged: (value) => setState(() => _textScale = value),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Animaciones'),
-                  value: _animationsEnabled,
-                  onChanged: (value) =>
-                      setState(() => _animationsEnabled = value),
-                ),
-                const SizedBox(height: 8),
-                Text('Color principal',
-                    style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: _accentPalette.map((colorHex) {
-                    final selected = _accentColor == colorHex;
-                    return GestureDetector(
-                      onTap: () => setState(() => _accentColor = colorHex),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        width: 34,
-                        height: 34,
-                        decoration: BoxDecoration(
-                          color: colorFromHex(colorHex),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selected
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Colors.transparent,
-                            width: 3,
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Modo oscuro'),
+                    value: provider.settings.themeMode == ThemeModeSetting.dark,
+                    onChanged: (_) => provider.toggleTheme(),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<AppLanguage>(
+                    initialValue: _selectedLanguage,
+                    decoration: const InputDecoration(
+                      labelText: 'Idioma',
+                      prefixIcon: Icon(Icons.language_rounded),
+                    ),
+                    items: AppLanguage.values
+                        .map(
+                          (language) => DropdownMenuItem(
+                            value: language,
+                            child: Text(_languageLabel(language)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) => setState(
+                      () => _selectedLanguage = value ?? AppLanguage.system,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text('Tamaño del texto: ${_textScale.toStringAsFixed(2)}x'),
+                  Slider(
+                    value: _textScale,
+                    min: 0.9,
+                    max: 1.2,
+                    divisions: 6,
+                    label: _textScale.toStringAsFixed(2),
+                    onChanged: (value) => setState(() => _textScale = value),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Animaciones'),
+                    value: _animationsEnabled,
+                    onChanged: (value) =>
+                        setState(() => _animationsEnabled = value),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Color principal',
+                      style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _accentPalette.map((colorHex) {
+                      final selected = _accentColor == colorHex;
+                      return GestureDetector(
+                        onTap: () => setState(() => _accentColor = colorHex),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: colorFromHex(colorHex),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: selected
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Colors.transparent,
+                              width: 3,
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: () => setState(
-                      () => _accentColor = AppSettings().accentColor,
-                    ),
-                    icon: const Icon(Icons.restart_alt_rounded),
-                    label: const Text('Restablecer apariencia'),
+                      );
+                    }).toList(),
                   ),
-                ),
-              ],
-            ),
-            FocusGap.md,
-            _SettingsSection(
-              title: 'Pomodoro',
-              subtitle: 'Tiempo y metas',
-              icon: Icons.timer_rounded,
-              children: [
-                _StartScreenSelector(
-                  value: _selectedStartScreen,
-                  onChanged: (value) =>
-                      setState(() => _selectedStartScreen = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: _breakAfterFocus,
-                  decoration: const InputDecoration(
-                    labelText: 'Al terminar',
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => setState(
+                        () => _accentColor = AppSettings().accentColor,
+                      ),
+                      icon: const Icon(Icons.restart_alt_rounded),
+                      label: const Text('Restablecer apariencia'),
+                    ),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'auto',
-                      child: Text('Automático'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'short',
-                      child: Text('Ir a descanso corto'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'long',
-                      child: Text('Ir a descanso largo'),
-                    ),
-                  ],
-                  onChanged: (value) =>
-                      setState(() => _breakAfterFocus = value ?? 'auto'),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.timer_rounded),
-                  title: const Text('Tiempos'),
-                  subtitle: const Text('Desde Pomodoro'),
-                ),
-                const SizedBox(height: 12),
-                _GoalControl(
-                  icon: Icons.flag_rounded,
-                  title: 'Pomodoros por semana',
-                  valueLabel: '$_weeklyGoal sesiones',
-                  value: _weeklyGoal,
-                  min: 1,
-                  max: 99,
-                  onChanged: _setWeeklyGoal,
-                ),
-                const SizedBox(height: 12),
-                _GoalControl(
-                  icon: Icons.schedule_rounded,
-                  title: 'Minutos semanales',
-                  valueLabel: '$_weeklyFocusMinutesGoal min',
-                  value: _weeklyFocusMinutesGoal,
-                  min: 25,
-                  max: 3000,
-                  step: 25,
-                  onChanged: _setWeeklyFocusMinutesGoal,
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _showSettingsSheet(
-                    title: 'Metas y progreso',
-                    icon: Icons.flag_rounded,
-                    childrenBuilder: (setSheetState) => [
-                      _GoalControl(
-                        icon: Icons.check_circle_rounded,
-                        title: 'Hábitos diarios esperados',
-                        valueLabel: '$_dailyHabitGoal Hábitos',
-                        value: _dailyHabitGoal,
-                        min: 1,
-                        max: 20,
-                        onChanged: (value) {
-                          _setDailyHabitGoal(value);
-                          setSheetState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _GoalControl(
-                        icon: Icons.local_fire_department_rounded,
-                        title: 'Días de racha objetivo',
-                        valueLabel: '$_streakGoal días',
-                        value: _streakGoal,
-                        min: 1,
-                        max: 365,
-                        onChanged: (value) {
-                          _setStreakGoal(value);
-                          setSheetState(() {});
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      _GoalsProgressPanel(
-                        provider: provider,
-                        weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal,
-                        dailyHabitGoal: _dailyHabitGoal,
-                        streakGoal: _streakGoal,
-                      ),
-                    ],
-                  ),
-                  icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Metas avanzadas'),
-                ),
-              ],
-            ),
-            FocusGap.md,
-            _SettingsSection(
-              title: 'Notificaciones',
-              subtitle: 'Notificaciones y avisos',
-              icon: Icons.notifications_active_rounded,
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Notificaciones'),
-                  value: _notificationsEnabled,
-                  onChanged: (value) =>
-                      setState(() => _notificationsEnabled = value),
-                ),
-                FutureBuilder<int>(
-                  future: NotificationService.pendingNotificationsCount(),
-                  builder: (context, snapshot) {
-                    final pendingCount = snapshot.data ?? 0;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.schedule_rounded),
-                      title: const Text('Recordatorios pendientes'),
-                      subtitle: Text(
-                        pendingCount == 0
-                            ? 'No hay avisos programados ahora.'
-                            : '$pendingCount avisos programados.',
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _showSettingsSheet(
-                    title: 'Avisos de exámenes',
-                    icon: Icons.assignment_rounded,
-                    childrenBuilder: (setSheetState) => [
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Avisar 1 día antes'),
-                        value: _examReminderDayBefore,
-                        onChanged: _notificationsEnabled
-                            ? (value) {
-                                setState(() => _examReminderDayBefore = value);
-                                setSheetState(() {});
-                              }
-                            : null,
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Avisar 2 horas antes'),
-                        subtitle: const Text('Solo para exámenes con hora.'),
-                        value: _examReminderTwoHoursBefore,
-                        onChanged: _notificationsEnabled
-                            ? (value) {
-                                setState(
-                                  () => _examReminderTwoHoursBefore = value,
-                                );
-                                setSheetState(() {});
-                              }
-                            : null,
-                      ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Avisar 30 minutos antes'),
-                        subtitle: const Text('Solo para exámenes con hora.'),
-                        value: _examReminderThirtyMinutesBefore,
-                        onChanged: _notificationsEnabled
-                            ? (value) {
-                                setState(
-                                  () =>
-                                      _examReminderThirtyMinutesBefore = value,
-                                );
-                                setSheetState(() {});
-                              }
-                            : null,
-                      ),
-                      const SizedBox(height: 8),
-                      const ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.task_alt_rounded),
-                        title: Text('Hábitos'),
-                        subtitle: Text('Próximamente'),
-                      ),
-                    ],
-                  ),
-                  icon: const Icon(Icons.tune_rounded),
-                  label: const Text('Configurar avisos'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _testNotification,
-                  icon: const Icon(Icons.notification_add_rounded),
-                  label: const Text('Probar notificación'),
-                ),
-              ],
-            ),
-            FocusGap.md,
-            _SettingsSection(
-              title: 'Backup',
-              subtitle: '${provider.subjects.length} materias locales',
-              icon: Icons.backup_rounded,
-              children: [
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: _exportData,
-                      icon: const Icon(Icons.download_rounded),
-                      label: const Text('Exportar copia'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _chooseBackupFile,
-                      icon: const Icon(Icons.upload_rounded),
-                      label: const Text('Restaurar copia'),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: _importLatestBackup,
-                      icon: const Icon(Icons.restore_page_rounded),
-                      label: const Text('Último backup'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () => _showSettingsSheet(
-                    title: 'Datos guardados',
-                    icon: Icons.storage_rounded,
-                    childrenBuilder: (_) => [
-                      const _PrivacyDataNotice(),
-                      const SizedBox(height: 12),
-                      _AcademicLocalNotice(provider: provider),
-                    ],
-                  ),
-                  icon: const Icon(Icons.info_outline_rounded),
-                  label: const Text('Ver detalle de datos'),
-                ),
-              ],
-            ),
-            FocusGap.md,
-            FocusSurfaceCard(
-              padding: EdgeInsets.zero,
-              elevated: false,
-              child: ExpansionTile(
-                tilePadding: const EdgeInsets.symmetric(horizontal: 18),
-                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                leading: const Icon(Icons.tune_rounded),
-                title: const Text('Avanzado'),
-                subtitle: const Text('Actualizaciones y acciones delicadas'),
+                ],
+              ),
+              FocusGap.md,
+              _SettingsSection(
+                title: 'Pomodoro',
+                subtitle: 'Tiempo y metas',
+                icon: Icons.timer_rounded,
                 children: [
-                  _SettingsSection(
-                    title: 'Sistema',
-                    icon: Icons.health_and_safety_rounded,
+                  _StartScreenSelector(
+                    value: _selectedStartScreen,
+                    onChanged: (value) =>
+                        setState(() => _selectedStartScreen = value),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _breakAfterFocus,
+                    decoration: const InputDecoration(
+                      labelText: 'Al terminar',
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'auto',
+                        child: Text('Automático'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'short',
+                        child: Text('Ir a descanso corto'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'long',
+                        child: Text('Ir a descanso largo'),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _breakAfterFocus = value ?? 'auto'),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.timer_rounded),
+                    title: const Text('Tiempos'),
+                    subtitle: const Text('Desde Pomodoro'),
+                  ),
+                  const SizedBox(height: 12),
+                  _GoalControl(
+                    icon: Icons.flag_rounded,
+                    title: 'Pomodoros por semana',
+                    valueLabel: '$_weeklyGoal sesiones',
+                    value: _weeklyGoal,
+                    min: 1,
+                    max: 99,
+                    onChanged: _setWeeklyGoal,
+                  ),
+                  const SizedBox(height: 12),
+                  _GoalControl(
+                    icon: Icons.schedule_rounded,
+                    title: 'Minutos semanales',
+                    valueLabel: '$_weeklyFocusMinutesGoal min',
+                    value: _weeklyFocusMinutesGoal,
+                    min: 25,
+                    max: 3000,
+                    step: 25,
+                    onChanged: _setWeeklyFocusMinutesGoal,
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => _showSettingsSheet(
+                      title: 'Metas y progreso',
+                      icon: Icons.flag_rounded,
+                      childrenBuilder: (setSheetState) => [
+                        _GoalControl(
+                          icon: Icons.check_circle_rounded,
+                          title: 'Hábitos diarios esperados',
+                          valueLabel: '$_dailyHabitGoal Hábitos',
+                          value: _dailyHabitGoal,
+                          min: 1,
+                          max: 20,
+                          onChanged: (value) {
+                            _setDailyHabitGoal(value);
+                            setSheetState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _GoalControl(
+                          icon: Icons.local_fire_department_rounded,
+                          title: 'Días de racha objetivo',
+                          valueLabel: '$_streakGoal días',
+                          value: _streakGoal,
+                          min: 1,
+                          max: 365,
+                          onChanged: (value) {
+                            _setStreakGoal(value);
+                            setSheetState(() {});
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _GoalsProgressPanel(
+                          provider: provider,
+                          weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal,
+                          dailyHabitGoal: _dailyHabitGoal,
+                          streakGoal: _streakGoal,
+                        ),
+                      ],
+                    ),
+                    icon: const Icon(Icons.tune_rounded),
+                    label: const Text('Metas avanzadas'),
+                  ),
+                ],
+              ),
+              FocusGap.md,
+              _SettingsSection(
+                title: 'Notificaciones',
+                subtitle: 'Notificaciones y avisos',
+                icon: Icons.notifications_active_rounded,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Notificaciones'),
+                    value: _notificationsEnabled,
+                    onChanged: (value) =>
+                        setState(() => _notificationsEnabled = value),
+                  ),
+                  FutureBuilder<int>(
+                    future: NotificationService.pendingNotificationsCount(),
+                    builder: (context, snapshot) {
+                      final pendingCount = snapshot.data ?? 0;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.schedule_rounded),
+                        title: const Text('Recordatorios pendientes'),
+                        subtitle: Text(
+                          pendingCount == 0
+                              ? 'No hay avisos programados ahora.'
+                              : '$pendingCount avisos programados.',
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => _showSettingsSheet(
+                      title: 'Avisos de exámenes',
+                      icon: Icons.assignment_rounded,
+                      childrenBuilder: (setSheetState) => [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Avisar 1 día antes'),
+                          value: _examReminderDayBefore,
+                          onChanged: _notificationsEnabled
+                              ? (value) {
+                                  setState(
+                                      () => _examReminderDayBefore = value);
+                                  setSheetState(() {});
+                                }
+                              : null,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Avisar 2 horas antes'),
+                          subtitle: const Text('Solo para exámenes con hora.'),
+                          value: _examReminderTwoHoursBefore,
+                          onChanged: _notificationsEnabled
+                              ? (value) {
+                                  setState(
+                                    () => _examReminderTwoHoursBefore = value,
+                                  );
+                                  setSheetState(() {});
+                                }
+                              : null,
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Avisar 30 minutos antes'),
+                          subtitle: const Text('Solo para exámenes con hora.'),
+                          value: _examReminderThirtyMinutesBefore,
+                          onChanged: _notificationsEnabled
+                              ? (value) {
+                                  setState(
+                                    () => _examReminderThirtyMinutesBefore =
+                                        value,
+                                  );
+                                  setSheetState(() {});
+                                }
+                              : null,
+                        ),
+                        const SizedBox(height: 8),
+                        const ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.task_alt_rounded),
+                          title: Text('Hábitos'),
+                          subtitle: Text('Próximamente'),
+                        ),
+                      ],
+                    ),
+                    icon: const Icon(Icons.tune_rounded),
+                    label: const Text('Configurar avisos'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _testNotification,
+                    icon: const Icon(Icons.notification_add_rounded),
+                    label: const Text('Probar notificación'),
+                  ),
+                ],
+              ),
+              FocusGap.md,
+              _SettingsSection(
+                title: 'Backup',
+                subtitle: '${provider.subjects.length} materias locales',
+                icon: Icons.backup_rounded,
+                children: [
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
-                      _UpdateCard(onCheck: _checkForUpdates),
-                      const SizedBox(height: 12),
-                      _DiagnosticPanel(provider: provider),
-                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _exportData,
+                        icon: const Icon(Icons.download_rounded),
+                        label: const Text('Exportar copia'),
+                      ),
                       OutlinedButton.icon(
-                        onPressed: _resetPreferences,
-                        icon: const Icon(Icons.restart_alt_rounded),
-                        label: const Text('Restablecer configuración'),
+                        onPressed: _chooseBackupFile,
+                        icon: const Icon(Icons.upload_rounded),
+                        label: const Text('Restaurar copia'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _importLatestBackup,
+                        icon: const Icon(Icons.restore_page_rounded),
+                        label: const Text('Último backup'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _SettingsSection(
-                    title: 'Zona peligrosa',
-                    icon: Icons.warning_amber_rounded,
-                    danger: true,
-                    children: [
-                      const Text('Acciones permanentes.'),
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: _deleteAllData,
-                        icon: const Icon(
-                          Icons.delete_forever_rounded,
-                          color: FocusPalette.danger,
-                        ),
-                        label: const Text(
-                          'Borrar todos los datos',
-                          style: TextStyle(color: FocusPalette.danger),
-                        ),
-                      ),
-                    ],
+                  OutlinedButton.icon(
+                    onPressed: () => _showSettingsSheet(
+                      title: 'Datos guardados',
+                      icon: Icons.storage_rounded,
+                      childrenBuilder: (_) => [
+                        const _PrivacyDataNotice(),
+                        const SizedBox(height: 12),
+                        _AcademicLocalNotice(provider: provider),
+                      ],
+                    ),
+                    icon: const Icon(Icons.info_outline_rounded),
+                    label: const Text('Ver detalle de datos'),
                   ),
                 ],
               ),
-            ),
+              FocusGap.md,
+              FocusSurfaceCard(
+                padding: EdgeInsets.zero,
+                elevated: false,
+                child: ExpansionTile(
+                  tilePadding: const EdgeInsets.symmetric(horizontal: 18),
+                  childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  leading: const Icon(Icons.tune_rounded),
+                  title: const Text('Avanzado'),
+                  subtitle: const Text('Actualizaciones y acciones delicadas'),
+                  children: [
+                    _SettingsSection(
+                      title: 'Sistema',
+                      icon: Icons.health_and_safety_rounded,
+                      children: [
+                        _UpdateCard(onCheck: _checkForUpdates),
+                        const SizedBox(height: 12),
+                        _DiagnosticPanel(provider: provider),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _resetPreferences,
+                          icon: const Icon(Icons.restart_alt_rounded),
+                          label: const Text('Restablecer configuración'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _SettingsSection(
+                      title: 'Zona peligrosa',
+                      icon: Icons.warning_amber_rounded,
+                      danger: true,
+                      children: [
+                        const Text('Acciones permanentes.'),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _deleteAllData,
+                          icon: const Icon(
+                            Icons.delete_forever_rounded,
+                            color: FocusPalette.danger,
+                          ),
+                          label: const Text(
+                            'Borrar todos los datos',
+                            style: TextStyle(color: FocusPalette.danger),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

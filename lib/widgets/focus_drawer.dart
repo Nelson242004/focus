@@ -11,6 +11,7 @@ import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
 import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
+import '../screens/settings_screen.dart';
 import '../screens/study_tasks_screen.dart';
 import '../utils/focus_palette.dart';
 import 'focus_app_icon.dart';
@@ -168,8 +169,8 @@ class FocusDrawer extends StatelessWidget {
                       icon: Icons.settings,
                       iconKind: FocusAppIconKind.settings,
                       label: 'Configuración',
-                      selected: selectedMainIndex == 4,
-                      onTap: () => _goToMain(context, 4),
+                      selected: selectedRoute == 'settings',
+                      onTap: () => _replace(context, const SettingsScreen()),
                     ),
                   ],
                 ),

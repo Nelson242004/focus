@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../utils/focus_palette.dart';
 import '../utils/polytechnic_grade_utils.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 
 class GradeCalculatorScreen extends StatefulWidget {
@@ -109,7 +108,6 @@ class _GradeCalculatorScreenState extends State<GradeCalculatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
       appBar: AppBar(
         title: const Text('Calculadora Politécnica'),
         actions: const [

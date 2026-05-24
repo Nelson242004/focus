@@ -40,6 +40,7 @@ dependencies:
   cloud_firestore: ^6.3.0
   google_sign_in: ^7.2.0
   qr_flutter: ^4.1.0
+  lucide_icons_flutter: ^3.1.14+1
 
 dev_dependencies:
   flutter_test:
@@ -55,7 +56,6 @@ flutter:
     - assets/medals/silver.png
     - assets/medals/bronze.png
     - assets/metrics/focus_points.png
-    - assets/focus_icons/
     - android/app/src/main/res/drawable-nodpi/focus_streak_fire.png
     - assets/profile_icons/
     - assets/badges/

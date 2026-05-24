@@ -199,8 +199,9 @@ const _loginTextMuted = Color(0xFF9FB4CC);
 bool _loginIsDark(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark;
 
-Color _loginBackground(BuildContext context) =>
-    _loginIsDark(context) ? FocusPalette.darkSurface : FocusPalette.surface;
+Color _loginBackground(BuildContext context) => _loginIsDark(context)
+    ? FocusPalette.darkSurfaceTop
+    : FocusPalette.surfaceTop;
 
 Color _loginCard(BuildContext context) =>
     _loginIsDark(context) ? FocusPalette.darkCard : Theme.of(context).cardColor;
@@ -233,14 +234,14 @@ class _FocusLoginBackdrop extends StatelessWidget {
         gradient: LinearGradient(
           colors: isDark
               ? const [
-                  FocusPalette.darkSurface,
+                  FocusPalette.darkSurfaceTop,
                   FocusPalette.darkCard,
-                  Color(0xFF0B2433),
+                  FocusPalette.darkSurfaceTint,
                 ]
               : const [
-                  FocusPalette.surface,
-                  Color(0xFFEFF6FF),
-                  Color(0xFFE6FFFA),
+                  FocusPalette.surfaceTop,
+                  FocusPalette.surfaceMid,
+                  FocusPalette.surfaceTint,
                 ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -1344,7 +1345,8 @@ class _LoginScreenState extends State<_LegacyLoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
-      backgroundColor: isDark ? Colors.black : const Color(0xFFF6F8FC),
+      backgroundColor:
+          isDark ? FocusPalette.darkSurfaceTop : FocusPalette.surfaceTop,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),

@@ -12,7 +12,9 @@ import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
 
 class HabitsScreen extends StatefulWidget {
-  const HabitsScreen({super.key});
+  final bool showAppBar;
+
+  const HabitsScreen({super.key, this.showAppBar = true});
 
   @override
   State<HabitsScreen> createState() => _HabitsScreenState();
@@ -305,24 +307,22 @@ class _HabitsScreenState extends State<HabitsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Hábitos atómicos'),
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Hábitos atómicos'),
+            )
+          : null,
       body: FocusPageBackground(
         child: Consumer<AppProvider>(
           builder: (context, provider, _) {
             final habits = provider.habits;
             if (habits.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: FocusProfileEmptyState(
-                    icon: Icons.auto_awesome_rounded,
-                    accent: FocusPalette.primary,
-                    title: 'Tu primer hábito te espera',
-                    message: 'Elige una acción pequeñita y empieza suave.',
-                  ),
-                ),
+              return const FocusCenteredEmptyState(
+                icon: Icons.auto_awesome_rounded,
+                iconKind: FocusAppIconKind.habits,
+                accent: FocusPalette.primary,
+                title: 'Tu primer hábito te espera',
+                message: 'Elige una acción pequeñita y empieza suave.',
               );
             }
 

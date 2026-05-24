@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
@@ -91,17 +92,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               Expanded(
                 child: filteredSessions.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: FocusProfileEmptyState(
-                          icon: Icons.timer_rounded,
-                          title: provider.pomodoros.isEmpty
-                              ? 'Sin sesiones'
-                              : 'Sin resultados',
-                          message: provider.pomodoros.isEmpty
-                              ? 'Completa un Pomodoro para ver tu historial.'
-                              : 'Prueba otro filtro.',
-                        ),
+                    ? FocusCenteredEmptyState(
+                        icon: Icons.timer_rounded,
+                        iconKind: FocusAppIconKind.pomodoro,
+                        title: provider.pomodoros.isEmpty
+                            ? 'Sin sesiones'
+                            : 'Sin resultados',
+                        message: provider.pomodoros.isEmpty
+                            ? 'Completa un Pomodoro para ver tu historial.'
+                            : 'Prueba otro filtro.',
                       )
                     : ListView.builder(
                         itemCount: filteredSessions.length,

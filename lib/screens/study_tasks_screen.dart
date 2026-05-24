@@ -5,12 +5,15 @@ import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
-import '../widgets/focus_drawer.dart';
+import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
 
 class StudyTasksScreen extends StatefulWidget {
-  const StudyTasksScreen({super.key});
+  final bool showAppBar;
+
+  const StudyTasksScreen({super.key, this.showAppBar = true});
 
   @override
   State<StudyTasksScreen> createState() => _StudyTasksScreenState();
@@ -247,33 +250,34 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'tasks'),
-      appBar: AppBar(
-        title: const Text('Tareas'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de tareas',
-            message:
-                'Esta pantalla está pensada para ver rápido qué sigue y qué está vencido.',
-            sections: [
-              FocusHelpSection(
-                title: 'Como funciona',
-                items: [
-                  'Activas muestra lo pendiente, Hoy prioriza lo urgente y Vencidas te ayuda a recuperar control.',
-                  'La materia es opcional, pero ayuda a ordenar mejor tu semana.',
-                  'La prioridad y el estado sirven para que la lista no se vuelva confusa.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Tip',
-                items: [
-                  'Usa el boton inferior para crear tareas nuevas sin cargar la barra superior.',
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Tareas'),
+              actions: const [
+                FocusHelpAction(
+                  title: 'Ayuda de tareas',
+                  message:
+                      'Esta pantalla está pensada para ver rápido qué sigue y qué está vencido.',
+                  sections: [
+                    FocusHelpSection(
+                      title: 'Como funciona',
+                      items: [
+                        'Activas muestra lo pendiente, Hoy prioriza lo urgente y Vencidas te ayuda a recuperar control.',
+                        'La materia es opcional, pero ayuda a ordenar mejor tu semana.',
+                        'La prioridad y el estado sirven para que la lista no se vuelva confusa.',
+                      ],
+                    ),
+                    FocusHelpSection(
+                      title: 'Tip',
+                      items: [
+                        'Usa el boton inferior para crear tareas nuevas sin cargar la barra superior.',
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         top: false,
         bottom: true,
@@ -512,28 +516,13 @@ class _EmptyTasks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Icon(Icons.task_alt_rounded, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              'Sin tareas en esta vista',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w900),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Organiza pendientes por materia.',
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return FocusCenteredEmptyState(
+      height: MediaQuery.of(context).size.height * 0.42,
+      icon: Icons.task_alt_rounded,
+      iconKind: FocusAppIconKind.tasks,
+      accent: FocusPalette.mint,
+      title: 'Sin tareas por ahora',
+      message: 'Crea un pendiente pequeño y déjalo conectado a tu materia.',
     );
   }
 }

@@ -39,16 +39,6 @@ class DatabaseHelper {
   Future<Object?> get database async => _preferences;
 
   Future<void> _seedDefaults(SharedPreferences prefs) async {
-    await _writeCollection(
-        _subjectsKey,
-        [
-          Subject(name: 'Matemáticas', color: '#3b82f6', icon: 'calculate')
-              .toMap(),
-          Subject(name: 'Programación', color: '#22c55e', icon: 'code').toMap(),
-          Subject(name: 'Física', color: '#f59e0b', icon: 'science').toMap(),
-        ],
-        prefsOverride: prefs);
-    await prefs.setInt(_sequenceKey(_subjectsKey), 3);
     await prefs.setString(_settingsKey, jsonEncode(AppSettings().toMap()));
     await prefs.setBool(_seededKey, true);
   }
@@ -390,4 +380,3 @@ class DatabaseHelper {
     }
   }
 }
-

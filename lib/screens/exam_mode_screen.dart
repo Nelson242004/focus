@@ -5,7 +5,6 @@ import '../models/exam.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import 'study_tasks_screen.dart';
 
@@ -15,7 +14,6 @@ class ExamModeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'examMode'),
       appBar: AppBar(
         title: const Text('Modo examen'),
         actions: const [

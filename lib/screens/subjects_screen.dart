@@ -14,7 +14,9 @@ import '../widgets/time_picker_field.dart';
 import 'subject_schedule_screen.dart';
 
 class SubjectsScreen extends StatefulWidget {
-  const SubjectsScreen({super.key});
+  final bool showAppBar;
+
+  const SubjectsScreen({super.key, this.showAppBar = true});
 
   @override
   State<SubjectsScreen> createState() => _SubjectsScreenState();
@@ -409,9 +411,11 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Materias'),
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Materias'),
+            )
+          : null,
       body: SafeArea(
         top: false,
         bottom: true,
@@ -419,6 +423,15 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
           child: Consumer<AppProvider>(
             builder: (context, provider, _) {
               final subjects = provider.subjects;
+              if (subjects.isEmpty) {
+                return const FocusCenteredEmptyState(
+                  icon: Icons.menu_book_rounded,
+                  iconKind: FocusAppIconKind.subjects,
+                  accent: Color(0xFF0EA5E9),
+                  title: 'Tu primera materia te espera',
+                  message: 'Empieza con el nombre y suma detalles luego.',
+                );
+              }
               return ListView(
                 padding: const EdgeInsets.only(bottom: 108),
                 children: [
@@ -460,18 +473,6 @@ class _SubjectsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (subjects.isEmpty) {
-      return Padding(
-        padding: FocusInsets.pageCompact,
-        child: FocusProfileEmptyState(
-          icon: Icons.menu_book_rounded,
-          accent: const Color(0xFF0EA5E9),
-          title: 'Tu primera materia te espera',
-          message: 'Empieza con el nombre y suma detalles luego.',
-        ),
-      );
-    }
-
     final subjectsById = <int, Subject>{
       for (final subject in subjects)
         if (subject.id != null) subject.id!: subject,

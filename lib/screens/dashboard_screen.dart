@@ -10,10 +10,35 @@ import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
+import '../widgets/focus_main_navigation_scope.dart';
 import '../widgets/focus_metric_icon.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  late final String _dailyPhrase;
+
+  static const List<String> _heroPhrases = [
+    'Un bloque claro, un avance real.',
+    'Hoy gana el siguiente paso.',
+    'Empieza pequeño y mantén el ritmo.',
+    'Tu enfoque empieza por lo próximo.',
+    'Ordena lo importante y avanza.',
+    'Menos ruido, más progreso.',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    final seed = now.microsecondsSinceEpoch + now.day + now.month;
+    _dailyPhrase = _heroPhrases[seed % _heroPhrases.length];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +54,10 @@ class DashboardScreen extends StatelessWidget {
               ],
               FocusStaggeredItem(
                 index: 0,
-                child: _DashboardGreeting(provider: provider),
+                child: _DashboardGreeting(
+                  provider: provider,
+                  phrase: _dailyPhrase,
+                ),
               ),
               FocusGap.md,
               FocusStaggeredItem(
@@ -51,8 +79,12 @@ class DashboardScreen extends StatelessWidget {
 
 class _DashboardGreeting extends StatelessWidget {
   final AppProvider provider;
+  final String phrase;
 
-  const _DashboardGreeting({required this.provider});
+  const _DashboardGreeting({
+    required this.provider,
+    required this.phrase,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +102,11 @@ class _DashboardGreeting extends StatelessWidget {
             email: RankingService.currentUser?.email,
             enforceAccess: true,
           );
-          return _DashboardGreetingLayout(name: name, avatarAsset: asset);
+          return _DashboardGreetingLayout(
+            name: name,
+            avatarAsset: asset,
+            phrase: phrase,
+          );
         },
       );
     }
@@ -78,6 +114,7 @@ class _DashboardGreeting extends StatelessWidget {
     return _DashboardGreetingLayout(
       name: _fallbackDashboardName(provider),
       avatarAsset: defaultProfileIconAsset,
+      phrase: phrase,
     );
   }
 
@@ -99,68 +136,77 @@ class _DashboardGreeting extends StatelessWidget {
 class _DashboardGreetingLayout extends StatelessWidget {
   final String name;
   final String avatarAsset;
+  final String phrase;
 
   const _DashboardGreetingLayout({
     required this.name,
     required this.avatarAsset,
+    required this.phrase,
   });
 
   @override
   Widget build(BuildContext context) {
-    return FocusCuteCard(
-      accent: FocusPalette.primary,
-      padding: const EdgeInsets.fromLTRB(20, 18, 4, 4),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 122),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(right: 118, bottom: 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Hola, $name 👋',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.8,
-                        ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'Organiza tu día con calma.',
-                    style: FocusTypography.helper(context),
-                  ),
-                  const SizedBox(height: 12),
-                  const FocusPill(
-                    icon: Icons.auto_awesome_rounded,
-                    label: 'Pequeños pasos, gran enfoque',
-                    color: FocusPalette.amber,
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              right: -6,
-              bottom: -4,
-              child: Image.asset(
-                avatarAsset,
-                width: 132,
-                height: 132,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => Image.asset(
-                  defaultProfileIconAsset,
-                  width: 132,
-                  height: 132,
-                  fit: BoxFit.contain,
+    return InkWell(
+      borderRadius: BorderRadius.circular(FocusRadii.panel),
+      onTap: () => FocusMainNavigationScope.of(context)(9),
+      child: FocusCuteCard(
+        accent: FocusPalette.primary,
+        padding: const EdgeInsets.fromLTRB(22, 22, 4, 4),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 152),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 138, bottom: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Hola, $name',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.8,
+                              ),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      phrase,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: FocusTypography.helper(context),
+                    ),
+                    const SizedBox(height: 14),
+                    const FocusPill(
+                      icon: Icons.person_rounded,
+                      label: 'Ver perfil',
+                      color: FocusPalette.amber,
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                right: -8,
+                bottom: -4,
+                child: Image.asset(
+                  avatarAsset,
+                  width: 154,
+                  height: 154,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    defaultProfileIconAsset,
+                    width: 154,
+                    height: 154,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -462,6 +508,7 @@ class _NextEventsCard extends StatelessWidget {
                 badge: nextClassAt == null
                     ? 'Pendiente'
                     : _relativeDayLabel(nextClassAt),
+                onTap: () => FocusMainNavigationScope.of(context)(2),
               );
               final examCard = _EventCard(
                 iconKind: FocusAppIconKind.exams,
@@ -475,6 +522,7 @@ class _NextEventsCard extends StatelessWidget {
                 badge: nextExamAt == null
                     ? 'Pendiente'
                     : _relativeDayLabel(nextExamAt),
+                onTap: () => FocusMainNavigationScope.of(context)(4),
               );
               if (compact) {
                 return Column(
@@ -518,6 +566,7 @@ class _EventCard extends StatelessWidget {
   final String title;
   final String detail;
   final String badge;
+  final VoidCallback onTap;
 
   const _EventCard({
     required this.iconKind,
@@ -527,66 +576,71 @@ class _EventCard extends StatelessWidget {
     required this.title,
     required this.detail,
     required this.badge,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: FocusInsets.card,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        border: Border.all(color: color.withValues(alpha: 0.13)),
-      ),
-      child: Row(
-        children: [
-          FocusAssetBadge(
-            kind: iconKind,
-            fallback: fallbackIcon,
-            color: color,
-            size: 50,
-            iconSize: 32,
-          ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  eyebrow,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  detail,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-              ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(FocusRadii.card),
+      onTap: onTap,
+      child: Container(
+        padding: FocusInsets.card,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(FocusRadii.card),
+          border: Border.all(color: color.withValues(alpha: 0.13)),
+        ),
+        child: Row(
+          children: [
+            FocusAssetBadge(
+              kind: iconKind,
+              fallback: fallbackIcon,
+              color: color,
+              size: 50,
+              iconSize: 32,
             ),
-          ),
-          const SizedBox(width: 10),
-          FocusPill(label: badge, color: color),
-        ],
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    eyebrow,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            FocusPill(label: badge, color: color),
+          ],
+        ),
       ),
     );
   }

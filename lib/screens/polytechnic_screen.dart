@@ -14,7 +14,6 @@ import '../services/polytechnic_cache_service.dart';
 import '../services/polytechnic_import_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import 'grade_calculator_screen.dart';
 import 'main_navigation_screen.dart';
@@ -22,7 +21,9 @@ import 'main_navigation_screen.dart';
 enum _SubjectSelectionState { none, taking }
 
 class PolytechnicScreen extends StatefulWidget {
-  const PolytechnicScreen({super.key});
+  final bool showAppBar;
+
+  const PolytechnicScreen({super.key, this.showAppBar = true});
 
   @override
   State<PolytechnicScreen> createState() => _PolytechnicScreenState();
@@ -45,32 +46,33 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
   Widget build(BuildContext context) {
     final workbook = _workbook;
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'polytechnic'),
-      appBar: AppBar(
-        title: const Text('Politécnica'),
-        actions: const [
-          FocusHelpAction(
-            title: 'Ayuda de politecnica',
-            message:
-                'Esta sección sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
-            sections: [
-              FocusHelpSection(
-                title: 'Flujo',
-                items: [
-                  'Primero cargas el archivo, luego eliges carrera, materias y secciones.',
-                  'El asistente separa el proceso en pasos para que todo quede ordenado.',
-                ],
-              ),
-              FocusHelpSection(
-                title: 'Resultado',
-                items: [
-                  'Las materias importadas pueden crear horarios, exámenes y estructura base en la app.',
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: const Text('Politécnica'),
+              actions: const [
+                FocusHelpAction(
+                  title: 'Ayuda de politecnica',
+                  message:
+                      'Esta sección sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
+                  sections: [
+                    FocusHelpSection(
+                      title: 'Flujo',
+                      items: [
+                        'Primero cargas el archivo, luego eliges carrera, materias y secciones.',
+                        'El asistente separa el proceso en pasos para que todo quede ordenado.',
+                      ],
+                    ),
+                    FocusHelpSection(
+                      title: 'Resultado',
+                      items: [
+                        'Las materias importadas pueden crear horarios, exámenes y estructura base en la app.',
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : null,
       body: Stack(
         children: [
           ListView(

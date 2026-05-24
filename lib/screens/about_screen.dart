@@ -4,7 +4,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/app_links.dart';
-import '../widgets/focus_drawer.dart';
+import '../utils/focus_palette.dart';
+import '../widgets/focus_design_system.dart';
 import '../widgets/focus_feedback.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -36,19 +37,16 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final surface = isDark ? const Color(0xFF020617) : const Color(0xFFF8FAFC);
-    final cardColor = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final cardColor = isDark ? FocusPalette.darkCard : FocusPalette.card;
     final primaryText = isDark ? Colors.white : const Color(0xFF0F172A);
     final secondaryText = isDark ? Colors.white70 : const Color(0xFF475569);
 
     return Scaffold(
-      drawer: const FocusDrawer(selectedRoute: 'about'),
       appBar: AppBar(title: const Text('Acerca de Focus')),
       body: SafeArea(
         top: false,
         bottom: true,
-        child: Container(
-          color: surface,
+        child: FocusPageBackground(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
             children: [

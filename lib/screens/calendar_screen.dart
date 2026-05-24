@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
-import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -36,7 +35,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final nextItems = _nextItems(provider);
 
         return Scaffold(
-          drawer: const FocusDrawer(selectedRoute: 'calendar'),
           appBar: AppBar(
             title: const Text('Calendario'),
             actions: const [
