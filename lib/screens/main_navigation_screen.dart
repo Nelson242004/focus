@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
+import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import 'dashboard_screen.dart';
@@ -91,39 +93,244 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: _FocusDockNavigation(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() {
           _selectedIndex = index;
         }),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded),
-            label: 'Inicio',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.timer_outlined),
-            selectedIcon: Icon(Icons.timer_rounded),
-            label: 'Pomodoro',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.menu_book_outlined),
-            selectedIcon: Icon(Icons.menu_book_rounded),
-            label: 'Materias',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline_rounded),
-            selectedIcon: Icon(Icons.check_circle_rounded),
-            label: 'Hábitos',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded),
-            label: 'Ajustes',
-          ),
-        ],
       ),
+    );
+  }
+}
+
+class _FocusDockNavigation extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onDestinationSelected;
+
+  const _FocusDockNavigation({
+    required this.selectedIndex,
+    required this.onDestinationSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final surface = isDark
+        ? Color.lerp(FocusPalette.darkCard, FocusPalette.darkSurface, 0.32)!
+        : theme.colorScheme.surface.withValues(alpha: 0.96);
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : FocusPalette.border.withValues(alpha: 0.75);
+    final shadow = isDark ? Colors.black : FocusPalette.ink;
+    final items = const [
+      _DockItem(
+        label: 'Inicio',
+        kind: FocusAppIconKind.focus,
+        fallback: Icons.dashboard_rounded,
+      ),
+      _DockItem(
+        label: 'Focus',
+        kind: FocusAppIconKind.pomodoro,
+        fallback: Icons.timer_rounded,
+      ),
+      _DockItem(
+        label: 'Materias',
+        kind: FocusAppIconKind.subjects,
+        fallback: Icons.menu_book_rounded,
+      ),
+      _DockItem(
+        label: 'Hábitos',
+        kind: FocusAppIconKind.habits,
+        fallback: Icons.check_circle_rounded,
+      ),
+      _DockItem(
+        label: 'Ajustes',
+        kind: FocusAppIconKind.settings,
+        fallback: Icons.settings_rounded,
+      ),
+    ];
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        decoration: BoxDecoration(
+          color: surface,
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: border),
+          boxShadow: [
+            BoxShadow(
+              color: shadow.withValues(alpha: isDark ? 0.28 : 0.08),
+              blurRadius: isDark ? 26 : 22,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            for (var index = 0; index < items.length; index++)
+              Expanded(
+                child: _DockButton(
+                  item: items[index],
+                  selected: selectedIndex == index,
+                  onTap: () => onDestinationSelected(index),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DockItem {
+  final String label;
+  final FocusAppIconKind? kind;
+  final IconData fallback;
+
+  const _DockItem({
+    required this.label,
+    this.kind,
+    required this.fallback,
+  });
+}
+
+class _DockButton extends StatelessWidget {
+  final _DockItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DockButton({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = selected
+        ? theme.colorScheme.primary
+        : (isDark ? const Color(0xFF94A3B8) : FocusPalette.muted);
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colorScheme.primary
+                  .withValues(alpha: isDark ? 0.18 : 0.10)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: selected
+                ? theme.colorScheme.primary
+                    .withValues(alpha: isDark ? 0.22 : 0.12)
+                : Colors.transparent,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (item.kind != null)
+              FocusAppIcon(
+                kind: item.kind!,
+                size: selected ? 27 : 23,
+                fallback: item.fallback,
+                fallbackColor: accent,
+              )
+            else
+              Icon(item.fallback, color: accent, size: selected ? 27 : 23),
+            const SizedBox(height: 3),
+            Text(
+              item.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: accent,
+                fontSize: 10.5,
+                fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _OldNavigationPlaceholder extends StatelessWidget {
+  const _OldNavigationPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      destinations: const [
+        NavigationDestination(
+          icon: FocusAppIcon(
+            kind: FocusAppIconKind.focus,
+            size: 24,
+            fallback: Icons.dashboard_outlined,
+          ),
+          selectedIcon: FocusAppIcon(
+            kind: FocusAppIconKind.focus,
+            size: 28,
+            fallback: Icons.dashboard_rounded,
+          ),
+          label: 'Inicio',
+        ),
+        NavigationDestination(
+          icon: FocusAppIcon(
+            kind: FocusAppIconKind.pomodoro,
+            size: 24,
+            fallback: Icons.timer_outlined,
+          ),
+          selectedIcon: FocusAppIcon(
+            kind: FocusAppIconKind.pomodoro,
+            size: 28,
+            fallback: Icons.timer_rounded,
+          ),
+          label: 'Pomodoro',
+        ),
+        NavigationDestination(
+          icon: FocusAppIcon(
+            kind: FocusAppIconKind.subjects,
+            size: 24,
+            fallback: Icons.menu_book_outlined,
+          ),
+          selectedIcon: FocusAppIcon(
+            kind: FocusAppIconKind.subjects,
+            size: 28,
+            fallback: Icons.menu_book_rounded,
+          ),
+          label: 'Materias',
+        ),
+        NavigationDestination(
+          icon: FocusAppIcon(
+            kind: FocusAppIconKind.habits,
+            size: 24,
+            fallback: Icons.check_circle_outline_rounded,
+          ),
+          selectedIcon: FocusAppIcon(
+            kind: FocusAppIconKind.habits,
+            size: 28,
+            fallback: Icons.check_circle_rounded,
+          ),
+          label: 'Hábitos',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings_rounded),
+          label: 'Ajustes',
+        ),
+      ],
     );
   }
 }

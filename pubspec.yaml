@@ -55,6 +55,7 @@ flutter:
     - assets/medals/silver.png
     - assets/medals/bronze.png
     - assets/metrics/focus_points.png
+    - assets/focus_icons/
     - android/app/src/main/res/drawable-nodpi/focus_streak_fire.png
     - assets/profile_icons/
     - assets/badges/

@@ -13,6 +13,14 @@ class FocusPalette {
   static const coral = Color(0xFFFF7A59);
   static const danger = Color(0xFFEF4444);
 
+  // Dirección visual Focus: académico + gamificado + calmado.
+  // Azul: enfoque/acción. Teal: estudio/progreso. Mint: calma/éxito.
+  // Amber: puntos/logros. Coral/danger: solo alerta o error.
+  static const academic = primary;
+  static const study = teal;
+  static const calmGame = mint;
+  static const reward = amber;
+
   static const action = primary;
   static const progress = teal;
   static const calm = mint;
@@ -36,6 +44,7 @@ class FocusPalette {
   static const darkInk = Color(0xFF020617);
   static const darkSurface = Color(0xFF050816);
   static const darkCard = Color(0xFF09111F);
+  static const darkCard2 = Color(0xFF0D1B2E);
   static const darkBorder = Color(0xFF1E293B);
 
   static const focusGradient = [primaryDeep, primary, cyan];
@@ -44,6 +53,19 @@ class FocusPalette {
   static const examGradient = [coral, primary];
   static const calmGradient = [primary, teal];
   static const warmGradient = [amber, mint];
+  static const heroGradient = [primaryDeep, primary, teal];
+  static const socialGradient = [primaryDeep, cyan, mint];
+  static const rewardGradient = [amber, mint];
+  static const lightBackgroundGradient = [
+    Color(0xFFF6F8FC),
+    Color(0xFFEFF6FF),
+    Color(0xFFF0FDFA),
+  ];
+  static const darkBackgroundGradient = [
+    Color(0xFF050816),
+    Color(0xFF081226),
+    Color(0xFF061B1A),
+  ];
 
   static const coreAccents = [
     primary,

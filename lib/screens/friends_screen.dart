@@ -17,6 +17,7 @@ import '../utils/badge_assets.dart';
 import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
@@ -1546,6 +1547,7 @@ class _SocialSummaryCard extends StatelessWidget {
         children: [
           FocusSectionHeader(
             icon: Icons.insights_rounded,
+            iconKind: FocusAppIconKind.friends,
             title: 'Resumen',
             accent: FocusPalette.teal,
           ),

@@ -13,6 +13,7 @@ import '../services/notification_service.dart';
 import '../services/polytechnic_cache_service.dart';
 import '../services/polytechnic_import_service.dart';
 import '../utils/app_utils.dart';
+import '../utils/focus_palette.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
 import 'grade_calculator_screen.dart';
@@ -1111,18 +1112,19 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0A0A0A) : Colors.white,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? const Color(0xFF222222) : const Color(0xFFE2E8F0),
+          color: isDark ? FocusPalette.darkBorder : FocusPalette.border,
         ),
         boxShadow: [
           if (!isDark)
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: FocusPalette.ink.withValues(alpha: 0.05),
               blurRadius: 24,
               offset: const Offset(0, 14),
             ),

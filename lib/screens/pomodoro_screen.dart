@@ -19,7 +19,9 @@ import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
+import '../widgets/focus_feedback.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -63,6 +65,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   int? _lastWidgetSyncBucket;
   String? _lastPomodoroNotificationSignature;
   bool _showingDistractionPrompt = false;
+  bool _focusPermissionWarningShown = false;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -158,6 +161,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<bool> _refreshFocusModePermissionState() async {
     final granted = await FocusModeService.hasCorePermissions();
+    if (granted) {
+      _focusPermissionWarningShown = false;
+    }
     if (!mounted) {
       _focusModePermissionGranted = granted;
       return granted;
@@ -294,25 +300,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!restored) {
       _persistState();
       if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: FocusActionSnackContent(
-                icon: _mode == 'focus'
-                    ? Icons.self_improvement_rounded
-                    : Icons.self_improvement_rounded,
-                message: _mode == 'focus'
-                    ? 'Sesión de enfoque iniciada.'
-                    : 'Descanso iniciado.',
-                color: _mode == 'focus'
-                    ? FocusPalette.primary
-                    : _themePalette().accent,
-              ),
-              duration: const Duration(seconds: 2),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+        showFocusFeedback(
+          context,
+          message: _mode == 'focus'
+              ? 'Sesión de enfoque iniciada.'
+              : 'Descanso iniciado.',
+          type: FocusFeedbackType.info,
+          icon: _mode == 'focus'
+              ? Icons.self_improvement_rounded
+              : Icons.spa_rounded,
+          celebration: _mode == 'focus',
+        );
       }
     }
     unawaited(_showPomodoroNotification(provider));
@@ -518,10 +516,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _startTimer(restored: true);
     await _persistState();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Restauramos tu Pomodoro según el tiempo real pasado.'),
-        ),
+      showFocusFeedback(
+        context,
+        message: 'Restauramos tu Pomodoro según el tiempo real pasado.',
+        type: FocusFeedbackType.info,
       );
     }
   }
@@ -622,12 +620,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         );
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
+          showFocusFeedback(
+            context,
+            message:
                 'Enfoque completado. Empieza ${nextMode == 'longBreak' ? 'el descanso largo' : 'el descanso corto'}.',
-              ),
-            ),
+            type: FocusFeedbackType.success,
+            icon: Icons.emoji_events_rounded,
+            celebration: true,
           );
         }
       } else {
@@ -647,10 +646,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         await _persistState();
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Descanso completado. Volvemos al enfoque.'),
-            ),
+          showFocusFeedback(
+            context,
+            message: 'Descanso completado. Volvemos al enfoque.',
+            type: FocusFeedbackType.info,
+            icon: Icons.self_improvement_rounded,
           );
         }
       }
@@ -722,13 +722,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     final permissionGranted = await _refreshFocusModePermissionState();
     if (!permissionGranted) {
-      await _showFocusModePermissionSheet();
-      if (mounted) {
+      if (mounted && !_focusPermissionWarningShown) {
+        _focusPermissionWarningShown = true;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: FocusActionSnackContent(
               icon: Icons.lock_open_rounded,
-              message: 'Activa Accesibilidad, superposición y acceso de uso.',
+              message:
+                  'El Pomodoro sigue. Activa permisos solo si quieres bloquear apps.',
               color: FocusPalette.amber,
             ),
             behavior: SnackBarBehavior.floating,
@@ -823,7 +824,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         final opened = await _showFocusModePermissionSheet();
         if (!opened) return;
         permissionGranted = await _refreshFocusModePermissionState();
-        if (!permissionGranted) return;
+        if (!permissionGranted) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: FocusActionSnackContent(
+                icon: Icons.info_rounded,
+                message:
+                    'Focus no detecta todos los permisos todavía. Puedes seguir usando Pomodoro normal.',
+                color: FocusPalette.amber,
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
       }
     }
     final newConfig =
@@ -885,13 +900,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   title: 'Superposición',
                   subtitle: 'Muestra la pantalla de bloqueo.',
                   onTap: FocusModeService.openOverlaySettings,
-                ),
-                const SizedBox(height: 10),
-                _FocusModePermissionAction(
-                  icon: Icons.manage_search_rounded,
-                  title: 'Acceso de uso',
-                  subtitle: 'Reconoce qué app está abierta.',
-                  onTap: FocusModeService.openUsageAccessSettings,
                 ),
                 const SizedBox(height: 16),
                 SizedBox(
@@ -1238,27 +1246,37 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             _glassCard(
               context,
               padding: FocusInsets.panel,
+              immersive: _isRunning,
               child: Column(
                 children: [
                   Row(
                     children: [
-                      Icon(
-                        _mode == 'focus'
-                            ? Icons.self_improvement_rounded
-                            : Icons.spa_rounded,
-                        color: _mode == 'focus'
-                            ? FocusPalette.primary
-                            : themePalette.accent,
-                        size: 24,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        child: Icon(
+                          _isRunning
+                              ? Icons.center_focus_strong_rounded
+                              : _mode == 'focus'
+                                  ? Icons.self_improvement_rounded
+                                  : Icons.spa_rounded,
+                          key: ValueKey(
+                              'pomodoro-title-icon-$_isRunning-$_mode'),
+                          color: _mode == 'focus'
+                              ? FocusPalette.primary
+                              : themePalette.accent,
+                          size: 24,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _mode == 'focus'
-                              ? 'Concentrarse ahora'
-                              : _mode == 'shortBreak'
-                                  ? 'Descanso breve'
-                                  : 'Descanso largo',
+                          _isRunning
+                              ? 'Modo sesión'
+                              : _mode == 'focus'
+                                  ? 'Concentrarse ahora'
+                                  : _mode == 'shortBreak'
+                                      ? 'Descanso breve'
+                                      : 'Descanso largo',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
@@ -1267,25 +1285,42 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Ajustes de Pomodoro',
-                        onPressed: () => _showPomodoroSettingsSheet(provider),
-                        icon: const Icon(Icons.tune_rounded),
-                      ),
+                      if (!_isRunning)
+                        IconButton(
+                          tooltip: 'Ajustes de Pomodoro',
+                          onPressed: () => _showPomodoroSettingsSheet(provider),
+                          icon: const Icon(Icons.tune_rounded),
+                        ),
                     ],
                   ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 240),
                     child: _isRunning
-                        ? _ActiveSessionStrip(
-                            subject: _selectedSubject.trim().isEmpty
-                                ? 'General'
-                                : _selectedSubject.trim(),
-                            blockedApps: _focusModeConfig.enabled
-                                ? _focusModeConfig.blockedApps.length
-                                : 0,
-                            shieldActive: _focusModeStatus.active,
-                            accent: themePalette.accent,
+                        ? Column(
+                            key: const ValueKey('active-session-mode'),
+                            children: [
+                              _ActiveSessionStrip(
+                                subject: _selectedSubject.trim().isEmpty
+                                    ? 'General'
+                                    : _selectedSubject.trim(),
+                                blockedApps: _focusModeConfig.enabled
+                                    ? _focusModeConfig.blockedApps.length
+                                    : 0,
+                                shieldActive: _focusModeStatus.active,
+                                accent: themePalette.accent,
+                              ),
+                              FocusGap.sm,
+                              _ImmersiveSessionBrief(
+                                mode: _mode,
+                                subject: _selectedSubject.trim().isEmpty
+                                    ? 'General'
+                                    : _selectedSubject.trim(),
+                                blockedAttempts:
+                                    _focusModeStatus.blockedAttempts,
+                                shieldActive: _focusModeStatus.active,
+                                accent: themePalette.accent,
+                              ),
+                            ],
                           )
                         : Wrap(
                             key: const ValueKey('mode-picker'),
@@ -1509,35 +1544,51 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.sm,
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    alignment: WrapAlignment.center,
-                    children: [
-                      if (!_isRunning)
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 14,
-                            ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _isRunning
+                        ? FocusPill(
+                            key: const ValueKey('active-focus-pill'),
+                            icon: _focusModeStatus.active
+                                ? Icons.shield_rounded
+                                : Icons.timer_rounded,
+                            label: _focusModeStatus.active
+                                ? 'Bloqueo activo'
+                                : 'Sesión en curso',
+                            color: themePalette.accent,
+                          )
+                        : Wrap(
+                            key: const ValueKey('idle-actions'),
+                            spacing: 12,
+                            runSpacing: 12,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: _resetTimer,
+                                icon: const Icon(Icons.refresh_rounded),
+                                label: const Text('Reiniciar'),
+                              ),
+                              FilledButton.tonalIcon(
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 18,
+                                    vertical: 14,
+                                  ),
+                                ),
+                                onPressed: _toggleHorizontalFocusMode,
+                                icon: const Icon(
+                                  Icons.stay_current_landscape_rounded,
+                                ),
+                                label: const Text('Horizontal'),
+                              ),
+                            ],
                           ),
-                          onPressed: _resetTimer,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Reiniciar'),
-                        ),
-                      FilledButton.tonalIcon(
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                        ),
-                        onPressed: _toggleHorizontalFocusMode,
-                        icon: const Icon(Icons.stay_current_landscape_rounded),
-                        label: const Text('Horizontal'),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -1552,6 +1603,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   children: [
                     FocusSectionHeader(
                       icon: Icons.today_rounded,
+                      iconKind: FocusAppIconKind.pomodoro,
                       title: 'Sesiones de hoy',
                       subtitle:
                           'Se guardan automáticamente al completar el enfoque.',
@@ -1690,26 +1742,50 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     BuildContext context, {
     required Widget child,
     EdgeInsetsGeometry padding = FocusInsets.card,
+    bool immersive = false,
   }) {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: immersive ? null : theme.cardColor,
+        gradient: immersive
+            ? LinearGradient(
+                colors: [
+                  FocusPalette.primaryDeep.withValues(alpha: 0.92),
+                  FocusPalette.primary.withValues(alpha: 0.72),
+                  FocusPalette.teal.withValues(alpha: 0.78),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              )
+            : null,
         borderRadius: BorderRadius.circular(FocusRadii.panel),
         border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.24),
+          color: immersive
+              ? Colors.white.withValues(alpha: 0.18)
+              : theme.colorScheme.outlineVariant.withValues(alpha: 0.24),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 16,
+            color: immersive
+                ? FocusPalette.primaryDeep.withValues(alpha: 0.22)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: immersive ? 26 : 16,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: Padding(
         padding: padding,
-        child: child,
+        child: immersive
+            ? IconTheme.merge(
+                data: const IconThemeData(color: Colors.white),
+                child: DefaultTextStyle.merge(
+                  style: const TextStyle(color: Colors.white),
+                  child: child,
+                ),
+              )
+            : child,
       ),
     );
   }
@@ -1938,6 +2014,75 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
         );
       },
+    );
+  }
+}
+
+class _ImmersiveSessionBrief extends StatelessWidget {
+  final String mode;
+  final String subject;
+  final int blockedAttempts;
+  final bool shieldActive;
+  final Color accent;
+
+  const _ImmersiveSessionBrief({
+    required this.mode,
+    required this.subject,
+    required this.blockedAttempts,
+    required this.shieldActive,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isFocus = mode == 'focus';
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      radius: FocusRadii.card,
+      accent: accent,
+      elevated: false,
+      child: Row(
+        children: [
+          FocusIconBadge(
+            icon: isFocus ? Icons.psychology_alt_rounded : Icons.spa_rounded,
+            color: accent,
+            size: 38,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isFocus ? 'Protegiendo tu enfoque' : 'Recuperando energía',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isFocus
+                      ? '$subject · $blockedAttempts intentos evitados'
+                      : 'Descanso activo · vuelve suave al foco',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FocusTypography.helper(context),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          FocusPill(
+            icon: shieldActive ? Icons.shield_rounded : Icons.timer_rounded,
+            label: shieldActive ? 'Blindado' : 'Activo',
+            color: shieldActive ? FocusPalette.teal : accent,
+            selected: true,
+          ),
+        ],
+      ),
     );
   }
 }

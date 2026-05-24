@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../models/resource_link.dart';
 import '../providers/app_provider.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
@@ -330,108 +331,112 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
       body: SafeArea(
         top: false,
         bottom: true,
-        child: Consumer<AppProvider>(
-          builder: (context, provider, _) {
-            final filteredResources = _sortResourcesForDisplay([
-              ...provider.resourcesByCategory('playlist'),
-              ...provider.resourcesByCategory('course'),
-              ...provider.resourcesByCategory('social'),
-              ...provider.resourcesByCategory('tool'),
-            ]
-                .where((item) => _matchesSearch(item) && _matchesFilter(item))
-                .toList());
-            final showGroupedBySubject =
-                _selectedFilter == 'all' || _selectedFilter == 'subject';
-            final generalResources = _sortResourcesForDisplay(filteredResources
-                .where((item) => item.subjectId == null)
-                .toList());
-            final subjectResourceIds = {
-              for (final item
-                  in filteredResources.where((item) => item.subjectId != null))
-                item.subjectId!: true
-            };
-            final singleSectionTitle = switch (_selectedFilter) {
-              'playlist' => 'Playlists',
-              'course' => 'Cursos',
-              'tool' => 'Herramientas',
-              'social' => 'Redes y perfiles',
-              'subject' => 'Recursos por materia',
-              _ => 'Biblioteca general',
-            };
+        child: FocusPageBackground(
+          child: Consumer<AppProvider>(
+            builder: (context, provider, _) {
+              final filteredResources = _sortResourcesForDisplay([
+                ...provider.resourcesByCategory('playlist'),
+                ...provider.resourcesByCategory('course'),
+                ...provider.resourcesByCategory('social'),
+                ...provider.resourcesByCategory('tool'),
+              ]
+                  .where((item) => _matchesSearch(item) && _matchesFilter(item))
+                  .toList());
+              final showGroupedBySubject =
+                  _selectedFilter == 'all' || _selectedFilter == 'subject';
+              final generalResources = _sortResourcesForDisplay(
+                  filteredResources
+                      .where((item) => item.subjectId == null)
+                      .toList());
+              final subjectResourceIds = {
+                for (final item in filteredResources
+                    .where((item) => item.subjectId != null))
+                  item.subjectId!: true
+              };
+              final singleSectionTitle = switch (_selectedFilter) {
+                'playlist' => 'Playlists',
+                'course' => 'Cursos',
+                'tool' => 'Herramientas',
+                'social' => 'Redes y perfiles',
+                'subject' => 'Recursos por materia',
+                _ => 'Biblioteca general',
+              };
 
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
-              children: [
-                _ResourceIntroCard(totalResources: filteredResources.length),
-                const SizedBox(height: 16),
-                _ResourceToolsCard(
-                  expanded: _toolsExpanded,
-                  searchController: _searchController,
-                  selectedFilter: _selectedFilter,
-                  onExpansionChanged: (value) =>
-                      setState(() => _toolsExpanded = value),
-                  onSearchChanged: (_) => setState(() {}),
-                  onFilterChanged: (value) => setState(
-                    () => _selectedFilter = value ?? 'all',
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
+                children: [
+                  _ResourceIntroCard(totalResources: filteredResources.length),
+                  const SizedBox(height: 16),
+                  _ResourceToolsCard(
+                    expanded: _toolsExpanded,
+                    searchController: _searchController,
+                    selectedFilter: _selectedFilter,
+                    onExpansionChanged: (value) =>
+                        setState(() => _toolsExpanded = value),
+                    onSearchChanged: (_) => setState(() {}),
+                    onFilterChanged: (value) => setState(
+                      () => _selectedFilter = value ?? 'all',
+                    ),
+                    onSuggestResource: _suggestResource,
                   ),
-                  onSuggestResource: _suggestResource,
-                ),
-                const SizedBox(height: 16),
-                if (filteredResources.isEmpty)
-                  FocusProfileEmptyState(
-                    icon: Icons.library_books_rounded,
-                    accent: FocusPalette.teal,
-                    title: 'Tu biblioteca está vacía',
-                    message: 'Guarda enlaces útiles para estudiar.',
-                  )
-                else ...[
-                  if (!showGroupedBySubject)
-                    _ResourceSection(
-                      title: singleSectionTitle,
-                      icon: _sectionIcon(_selectedFilter),
-                      items: filteredResources,
-                      onOpen: _openLink,
-                      onDelete: _deleteResource,
-                      accent: _sectionAccent(_selectedFilter),
+                  const SizedBox(height: 16),
+                  if (filteredResources.isEmpty)
+                    FocusProfileEmptyState(
+                      icon: Icons.public_rounded,
+                      accent: FocusPalette.teal,
+                      title: 'Tu biblioteca está esperando',
+                      message:
+                          'Guarda un enlace útil y déjalo bonito para estudiar.',
                     )
                   else ...[
-                    if (generalResources.isNotEmpty) ...[
+                    if (!showGroupedBySubject)
                       _ResourceSection(
-                        title: 'Biblioteca general',
-                        icon: Icons.collections_bookmark_rounded,
-                        items: generalResources,
+                        title: singleSectionTitle,
+                        icon: _sectionIcon(_selectedFilter),
+                        items: filteredResources,
                         onOpen: _openLink,
                         onDelete: _deleteResource,
-                        accent: FocusPalette.primary,
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                    ...provider.subjects.where((subject) {
-                      final subjectId = subject.id;
-                      return subjectId != null &&
-                          subjectResourceIds.containsKey(subjectId);
-                    }).map((subject) {
-                      final subjectItems = _sortResourcesForDisplay(
-                          filteredResources
-                              .where((item) => item.subjectId == subject.id)
-                              .toList());
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _ResourceSection(
-                          title: subject.name,
-                          icon: Icons.menu_book_rounded,
-                          items: subjectItems,
+                        accent: _sectionAccent(_selectedFilter),
+                      )
+                    else ...[
+                      if (generalResources.isNotEmpty) ...[
+                        _ResourceSection(
+                          title: 'Biblioteca general',
+                          icon: Icons.collections_bookmark_rounded,
+                          items: generalResources,
                           onOpen: _openLink,
                           onDelete: _deleteResource,
-                          accent: FocusPalette.primaryDeep,
+                          accent: FocusPalette.primary,
                         ),
-                      );
-                    }),
+                        const SizedBox(height: 16),
+                      ],
+                      ...provider.subjects.where((subject) {
+                        final subjectId = subject.id;
+                        return subjectId != null &&
+                            subjectResourceIds.containsKey(subjectId);
+                      }).map((subject) {
+                        final subjectItems = _sortResourcesForDisplay(
+                            filteredResources
+                                .where((item) => item.subjectId == subject.id)
+                                .toList());
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _ResourceSection(
+                            title: subject.name,
+                            icon: Icons.menu_book_rounded,
+                            items: subjectItems,
+                            onOpen: _openLink,
+                            onDelete: _deleteResource,
+                            accent: FocusPalette.primaryDeep,
+                          ),
+                        );
+                      }),
+                    ],
                   ],
                 ],
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -470,24 +475,35 @@ class _ResourceIntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
-          colors: FocusPalette.focusGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+    return FocusSurfaceCard(
+      padding: FocusInsets.cardRelaxed,
+      accent: FocusPalette.primary,
+      gradient: const LinearGradient(
+        colors: FocusPalette.focusGradient,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Recursos Focus',
-            style: TextStyle(color: Colors.white70),
+          const Row(
+            children: [
+              FocusAssetBadge(
+                kind: FocusAppIconKind.resources,
+                fallback: Icons.public_rounded,
+                color: Colors.white,
+                size: 44,
+                iconSize: 28,
+              ),
+              SizedBox(width: 10),
+              FocusPill(
+                icon: Icons.public_rounded,
+                label: 'Recursos Focus',
+                color: Colors.white,
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 10),
           const Text(
             'Enlaces clave para estudiar mejor.',
             style: TextStyle(
@@ -497,19 +513,10 @@ class _ResourceIntroCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white.withValues(alpha: 0.12),
-            ),
-            child: Text(
-              '$totalResources recursos visibles',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          FocusPill(
+            icon: Icons.filter_alt_rounded,
+            label: '$totalResources visibles',
+            color: Colors.white,
           ),
         ],
       ),
@@ -550,69 +557,70 @@ class _ResourceToolsCard extends StatelessWidget {
     final summary =
         query.isEmpty ? 'Filtro: $filterLabel' : '$filterLabel · $query';
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        initiallyExpanded: expanded,
-        onExpansionChanged: onExpansionChanged,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        leading: Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: FocusPalette.primary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(15),
+    return FocusSurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: FocusRadii.panel,
+      accent: FocusPalette.primary,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
+        child: ExpansionTile(
+          initiallyExpanded: expanded,
+          onExpansionChanged: onExpansionChanged,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          leading: const FocusAssetBadge(
+            kind: FocusAppIconKind.resources,
+            fallback: Icons.tune_rounded,
+            color: FocusPalette.primary,
           ),
-          child: const Icon(Icons.tune_rounded, color: FocusPalette.primary),
-        ),
-        title: const Text(
-          'Buscar y filtrar',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        subtitle: Text(
-          summary,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        children: [
-          TextField(
-            controller: searchController,
-            onChanged: onSearchChanged,
-            decoration: const InputDecoration(
-              labelText: 'Buscar recurso',
-              hintText: 'Curso, playlist, herramienta...',
-              prefixIcon: Icon(Icons.search_rounded),
+          title: const Text(
+            'Buscar y filtrar',
+            style: TextStyle(fontWeight: FontWeight.w900),
+          ),
+          subtitle: Text(
+            summary,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          children: [
+            TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: const InputDecoration(
+                labelText: 'Buscar recurso',
+                hintText: 'Curso, playlist, herramienta...',
+                prefixIcon: Icon(Icons.search_rounded),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: selectedFilter,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Filtrar',
-              prefixIcon: Icon(Icons.tune_rounded),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: selectedFilter,
+              isExpanded: true,
+              decoration: const InputDecoration(
+                labelText: 'Filtrar',
+                prefixIcon: Icon(Icons.tune_rounded),
+              ),
+              items: const [
+                DropdownMenuItem(value: 'all', child: Text('Todos')),
+                DropdownMenuItem(value: 'subject', child: Text('Por materia')),
+                DropdownMenuItem(value: 'playlist', child: Text('Playlists')),
+                DropdownMenuItem(value: 'course', child: Text('Cursos')),
+                DropdownMenuItem(value: 'tool', child: Text('Herramientas')),
+                DropdownMenuItem(value: 'social', child: Text('Redes')),
+              ],
+              onChanged: onFilterChanged,
             ),
-            items: const [
-              DropdownMenuItem(value: 'all', child: Text('Todos')),
-              DropdownMenuItem(value: 'subject', child: Text('Por materia')),
-              DropdownMenuItem(value: 'playlist', child: Text('Playlists')),
-              DropdownMenuItem(value: 'course', child: Text('Cursos')),
-              DropdownMenuItem(value: 'tool', child: Text('Herramientas')),
-              DropdownMenuItem(value: 'social', child: Text('Redes')),
-            ],
-            onChanged: onFilterChanged,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: onSuggestResource,
-              icon: const Icon(Icons.lightbulb_outline_rounded),
-              label: const Text('Sugerir recurso'),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onSuggestResource,
+                icon: const Icon(Icons.lightbulb_outline_rounded),
+                label: const Text('Sugerir recurso'),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -637,111 +645,104 @@ class _ResourceSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: accent.withValues(alpha: 0.12),
-                  ),
-                  child: Icon(icon, color: accent),
+    return FocusSurfaceCard(
+      padding: FocusInsets.card,
+      radius: FocusRadii.panel,
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              FocusAssetBadge(
+                kind: _resourceIconKind(title, ''),
+                fallback: icon,
+                color: accent,
+              ),
+              const SizedBox(width: FocusSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FocusTypography.sectionTitle(context),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0, end: 1),
-                duration: Duration(milliseconds: 240 + (index * 70)),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) => Transform.translate(
-                  offset: Offset(0, 10 * (1 - value)),
-                  child: Opacity(opacity: value, child: child),
-                ),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: Material(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .surfaceContainerHighest
-                        .withValues(alpha: 0.2),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...items.asMap().entries.map((entry) {
+            final index = entry.key;
+            final item = entry.value;
+            return TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: Duration(milliseconds: 240 + (index * 70)),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Transform.translate(
+                offset: Offset(0, 10 * (1 - value)),
+                child: Opacity(opacity: value, child: child),
+              ),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Material(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => onOpen(item.url),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: item.isDefault
-                                  ? accent.withValues(alpha: 0.16)
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .secondary
-                                      .withValues(alpha: 0.18),
-                              child: Icon(
-                                item.isDefault
-                                    ? Icons.push_pin_rounded
-                                    : _resourceIcon(item.category),
-                                color: accent,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w800,
-                                    ),
+                    onTap: () => onOpen(item.url),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          FocusAssetBadge(
+                            kind: item.isDefault
+                                ? FocusAppIconKind.resources
+                                : _resourceIconKind('', item.category),
+                            fallback: item.isDefault
+                                ? Icons.push_pin_rounded
+                                : _resourceIcon(item.category),
+                            color: accent,
+                            size: 40,
+                            iconSize: 26,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.url,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.url,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
                             ),
-                            if (!item.isDefault)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded),
-                                onPressed: () => onDelete(item),
-                              ),
-                          ],
-                        ),
+                          ),
+                          if (!item.isDefault)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              onPressed: () => onDelete(item),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                 ),
-              );
-            }),
-          ],
-        ),
+              ),
+            );
+          }),
+        ],
       ),
     );
   }
@@ -753,5 +754,16 @@ class _ResourceSection extends StatelessWidget {
       'social' => Icons.public_rounded,
       _ => Icons.build_circle_rounded,
     };
+  }
+
+  FocusAppIconKind _resourceIconKind(String title, String category) {
+    final normalized = '$title $category'.toLowerCase();
+    if (normalized.contains('course') || normalized.contains('curso')) {
+      return FocusAppIconKind.subjects;
+    }
+    if (normalized.contains('social') || normalized.contains('red')) {
+      return FocusAppIconKind.friends;
+    }
+    return FocusAppIconKind.resources;
   }
 }

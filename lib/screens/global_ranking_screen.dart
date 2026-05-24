@@ -255,13 +255,15 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
               ),
             );
           }
-          return RefreshIndicator(
-            onRefresh: () async => _refresh(),
-            child: _RankingBody(
-              profile: profile,
-              leaderboardFuture: _leaderboardFuture,
-              onRefresh: _refresh,
-              onOpenProfile: _openRankingProfile,
+          return FocusPageBackground(
+            child: RefreshIndicator(
+              onRefresh: () async => _refresh(),
+              child: _RankingBody(
+                profile: profile,
+                leaderboardFuture: _leaderboardFuture,
+                onRefresh: _refresh,
+                onOpenProfile: _openRankingProfile,
+              ),
             ),
           );
         },
@@ -309,6 +311,8 @@ class _RankingBody extends StatelessWidget {
               position: myPosition,
               participantCount: participantCount,
             ),
+            FocusGap.section,
+            const _RankingRulesCard(),
             FocusGap.section,
             const _SectionLabel(
               icon: Icons.emoji_events_rounded,
@@ -408,6 +412,49 @@ class _RankingBody extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _RankingRulesCard extends StatelessWidget {
+  const _RankingRulesCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      radius: FocusRadii.card,
+      accent: FocusPalette.amber,
+      elevated: false,
+      child: Row(
+        children: [
+          const FocusIconBadge(
+            icon: Icons.verified_user_rounded,
+            color: FocusPalette.amber,
+            size: 38,
+            iconSize: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ranking justo',
+                  style: FocusTypography.sectionTitle(context),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Solo cuentan pomodoros válidos de 25 min o más y hábitos reales.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: FocusTypography.helper(context),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

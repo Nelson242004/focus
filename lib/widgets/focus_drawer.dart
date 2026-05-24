@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/ranking_profile.dart';
@@ -12,6 +12,8 @@ import '../screens/main_navigation_screen.dart';
 import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
 import '../screens/study_tasks_screen.dart';
+import '../utils/focus_palette.dart';
+import 'focus_app_icon.dart';
 
 class FocusDrawer extends StatelessWidget {
   final int? selectedMainIndex;
@@ -30,7 +32,13 @@ class FocusDrawer extends StatelessWidget {
     return Drawer(
       child: Container(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF020617) : const Color(0xFFF8FAFC),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? FocusPalette.darkBackgroundGradient
+                : FocusPalette.lightBackgroundGradient,
+          ),
         ),
         child: Column(
           children: [
@@ -44,6 +52,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.dashboard,
+                    iconKind: FocusAppIconKind.focus,
                     label: 'Dashboard',
                     selected: selectedMainIndex == 0,
                     onTap: () => _goToMain(context, 0),
@@ -52,6 +61,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.timer,
+                    iconKind: FocusAppIconKind.pomodoro,
                     label: 'Pomodoro',
                     selected: selectedMainIndex == 1,
                     onTap: () => _goToMain(context, 1),
@@ -60,6 +70,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.book,
+                    iconKind: FocusAppIconKind.subjects,
                     label: 'Materias',
                     selected: selectedMainIndex == 2,
                     onTap: () => _goToMain(context, 2),
@@ -68,6 +79,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.check_circle,
+                    iconKind: FocusAppIconKind.habits,
                     label: 'Hábitos',
                     selected: selectedMainIndex == 3,
                     onTap: () => _goToMain(context, 3),
@@ -76,6 +88,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.assignment,
+                    iconKind: FocusAppIconKind.exams,
                     label: 'Exámenes',
                     selected: selectedRoute == 'exams',
                     onTap: () => _replace(context, const ExamsScreen()),
@@ -84,6 +97,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.task_alt_rounded,
+                    iconKind: FocusAppIconKind.tasks,
                     label: 'Tareas',
                     selected: selectedRoute == 'tasks',
                     onTap: () => _replace(context, const StudyTasksScreen()),
@@ -92,6 +106,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.school_rounded,
+                    iconKind: FocusAppIconKind.polytechnic,
                     label: 'Politécnica',
                     selected: selectedRoute == 'polytechnic',
                     onTap: () => _replace(context, const PolytechnicScreen()),
@@ -100,6 +115,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.link_rounded,
+                    iconKind: FocusAppIconKind.resources,
                     label: 'Recursos',
                     selected: selectedRoute == 'resources',
                     onTap: () => _replace(context, const ResourcesScreen()),
@@ -109,6 +125,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.public_rounded,
+                    iconKind: FocusAppIconKind.ranking,
                     label: 'Ranking global',
                     selected: selectedRoute == 'ranking',
                     onTap: () => _replace(context, const GlobalRankingScreen()),
@@ -117,6 +134,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.people_alt_rounded,
+                    iconKind: FocusAppIconKind.friends,
                     label: 'Perfil',
                     selected: selectedRoute == 'friends',
                     onTap: () => _replace(context, const FriendsScreen()),
@@ -125,6 +143,7 @@ class FocusDrawer extends StatelessWidget {
                     context,
                     duration: duration,
                     icon: Icons.military_tech_rounded,
+                    iconKind: FocusAppIconKind.achievements,
                     label: 'Logros',
                     selected: selectedRoute == 'achievements',
                     onTap: () => _replace(context, const AchievementsScreen()),
@@ -147,6 +166,7 @@ class FocusDrawer extends StatelessWidget {
                       context,
                       duration: duration,
                       icon: Icons.settings,
+                      iconKind: FocusAppIconKind.settings,
                       label: 'Configuración',
                       selected: selectedMainIndex == 4,
                       onTap: () => _goToMain(context, 4),
@@ -163,6 +183,7 @@ class FocusDrawer extends StatelessWidget {
 
   Widget _sectionLabel(BuildContext context, String label) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 14, 24, 4),
       child: Text(
@@ -171,7 +192,7 @@ class FocusDrawer extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w900,
           letterSpacing: 0.8,
-          color: isDark ? Colors.white38 : const Color(0xFF64748B),
+          color: muted.withValues(alpha: isDark ? 0.70 : 0.85),
         ),
       ),
     );
@@ -181,37 +202,49 @@ class FocusDrawer extends StatelessWidget {
     BuildContext context, {
     required Duration duration,
     required IconData icon,
+    FocusAppIconKind? iconKind,
     required String label,
     bool selected = false,
     required VoidCallback onTap,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.primary;
+    final normalColor = theme.colorScheme.onSurfaceVariant;
     return AnimatedContainer(
       duration: duration,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         color: selected
-            ? (isDark ? Colors.white12 : Colors.white.withValues(alpha: 0.92))
+            ? selectedColor.withValues(alpha: isDark ? 0.15 : 0.10)
             : Colors.transparent,
+        border: selected
+            ? Border.all(
+                color: selectedColor.withValues(alpha: isDark ? 0.18 : 0.12),
+              )
+            : null,
       ),
       child: ListTile(
         dense: true,
         visualDensity: VisualDensity.compact,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        leading: Icon(
-          icon,
-          color: selected
-              ? Theme.of(context).colorScheme.primary
-              : (isDark ? Colors.white70 : const Color(0xFF334155)),
-        ),
+        leading: iconKind == null
+            ? Icon(
+                icon,
+                color: selected ? selectedColor : normalColor,
+              )
+            : FocusAppIcon(
+                kind: iconKind,
+                size: selected ? 30 : 27,
+                fallback: icon,
+                fallbackColor: selected ? selectedColor : normalColor,
+              ),
         title: Text(
           label,
           style: TextStyle(
             fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-            color: selected
-                ? Theme.of(context).colorScheme.primary
-                : (isDark ? Colors.white70 : const Color(0xFF334155)),
+            color: selected ? selectedColor : normalColor,
           ),
         ),
         onTap: onTap,
@@ -292,23 +325,29 @@ class _DrawerHeaderContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasPhoto = photoUrl != null && photoUrl!.trim().isNotEmpty;
+    final theme = Theme.of(context);
+    final surface = theme.colorScheme.surface;
+    final textColor = theme.colorScheme.onSurface;
+    final subTextColor = theme.colorScheme.onSurfaceVariant;
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 14, 14, 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.white.withValues(alpha: 0.92),
+            ? surface.withValues(alpha: 0.74)
+            : surface.withValues(alpha: 0.92),
         border: Border.all(
-          color: isDark ? Colors.white12 : const Color(0xFFD6E0EC),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : FocusPalette.border,
         ),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 25,
-            backgroundColor: Theme.of(context).colorScheme.primary,
+            backgroundColor: theme.colorScheme.primary,
             backgroundImage: hasPhoto ? NetworkImage(photoUrl!) : null,
             child: hasPhoto
                 ? null
@@ -329,7 +368,7 @@ class _DrawerHeaderContent extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -338,7 +377,7 @@ class _DrawerHeaderContent extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                    color: subTextColor,
                   ),
                 ),
               ],

@@ -449,11 +449,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: SafeArea(
         top: false,
         bottom: true,
-        child: ListView(
-          padding: FocusInsets.page,
-          children: [
-            _SettingsHero(provider: provider),
-            FocusGap.md,
+        child: FocusPageBackground(
+          child: ListView(
+            padding: FocusInsets.page,
+            children: [
+              _SettingsHero(provider: provider),
+              FocusGap.md,
             _SettingsSection(
               title: 'Cuenta',
               subtitle: RankingService.currentUser == null
@@ -859,7 +860,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1623,7 +1625,7 @@ class _FocusDiagnosticData {
     required this.pendingNotifications,
   });
 
-  bool get focusReady => accessibility && overlay && usageAccess;
+  bool get focusReady => accessibility && overlay;
 }
 
 class _DiagnosticPanel extends StatefulWidget {
@@ -1823,8 +1825,8 @@ class _DiagnosticPanelState extends State<_DiagnosticPanel> {
                   title: 'Uso de apps',
                   ok: data.usageAccess,
                   detail: data.usageAccess
-                      ? 'Focus puede verificar apps recientes.'
-                      : 'Actívalo para mejorar la detección.',
+                      ? 'Diagnóstico adicional activo.'
+                      : 'Opcional para diagnóstico avanzado.',
                   onFix: data.usageAccess
                       ? null
                       : FocusModeService.openUsageAccessSettings,

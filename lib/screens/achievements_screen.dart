@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/badge_assets.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_help_button.dart';
@@ -80,28 +81,30 @@ class AchievementsScreen extends StatelessWidget {
               ),
             ],
           ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _AchievementsHero(
-                points: points,
-                level: level,
-                progress: provider.levelProgress,
-                remaining: remaining,
-                rewardTitle: provider.streakRewardTitle,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Insignias',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              ...achievements
-                  .map((achievement) => _AchievementTile(data: achievement)),
-            ],
+          body: FocusPageBackground(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _AchievementsHero(
+                  points: points,
+                  level: level,
+                  progress: provider.levelProgress,
+                  remaining: remaining,
+                  rewardTitle: provider.streakRewardTitle,
+                ),
+                const SizedBox(height: 16),
+                const FocusSectionHeader(
+                  icon: Icons.workspace_premium_rounded,
+                  iconKind: FocusAppIconKind.achievements,
+                  title: 'Insignias',
+                  subtitle: 'Tus logros desbloqueados en Focus.',
+                  accent: FocusPalette.amber,
+                ),
+                const SizedBox(height: 10),
+                ...achievements
+                    .map((achievement) => _AchievementTile(data: achievement)),
+              ],
+            ),
           ),
         );
       },
@@ -126,22 +129,14 @@ class _AchievementsHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return FocusSurfaceCard(
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(
-          colors: FocusPalette.studyGradient,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: FocusPalette.primaryDeep.withValues(alpha: 0.2),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+      radius: FocusRadii.panel,
+      accent: FocusPalette.amber,
+      gradient: const LinearGradient(
+        colors: FocusPalette.studyGradient,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
       child: Column(
         children: [
@@ -151,8 +146,23 @@ class _AchievementsHero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Tu progreso gamificado',
-                        style: TextStyle(color: Colors.white70)),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FocusAssetBadge(
+                          kind: FocusAppIconKind.achievements,
+                          fallback: Icons.workspace_premium_rounded,
+                          color: Colors.white,
+                          size: 34,
+                          iconSize: 22,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Tu progreso gamificado',
+                          style: TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       'Nivel $level de ${AppProvider.maxLevel}',

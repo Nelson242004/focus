@@ -25,11 +25,9 @@ class FocusEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accent ?? Theme.of(context).colorScheme.primary;
-    return FocusSurfaceCard(
+    return FocusCuteCard(
       padding: FocusInsets.panel,
-      radius: FocusRadii.panel,
       accent: color,
-      elevated: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -38,9 +36,16 @@ class FocusEmptyState extends StatelessWidget {
             height: 112,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(FocusRadii.panel),
-              border: Border.all(color: color.withValues(alpha: 0.12)),
+              color: Colors.white.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: color.withValues(alpha: 0.16)),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.13),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Stack(
               alignment: Alignment.center,
@@ -65,18 +70,13 @@ class FocusEmptyState extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
+            style: FocusTypography.sectionTitle(context),
           ),
           FocusGap.xs,
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.25,
-                ),
+            style: FocusTypography.helper(context),
           ),
           if (action != null) ...[
             FocusGap.md,

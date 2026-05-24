@@ -4,8 +4,11 @@ import 'package:provider/provider.dart';
 import '../models/exam.dart';
 import '../models/schedule.dart';
 import '../providers/app_provider.dart';
+import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../utils/profile_icon_access.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_metric_icon.dart';
 
@@ -16,25 +19,150 @@ class DashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, _) {
-        return ListView(
-          padding: FocusInsets.pageCompact,
-          children: [
-            if (provider.lastLoadError != null) ...[
-              const _LoadErrorBanner(),
+        return FocusPageBackground(
+          child: ListView(
+            padding: FocusInsets.pageCompact,
+            children: [
+              if (provider.lastLoadError != null) ...[
+                const _LoadErrorBanner(),
+                FocusGap.md,
+              ],
+              FocusStaggeredItem(
+                index: 0,
+                child: _DashboardGreeting(provider: provider),
+              ),
               FocusGap.md,
+              FocusStaggeredItem(
+                index: 1,
+                child: _MetricGrid(provider: provider),
+              ),
+              FocusGap.section,
+              FocusStaggeredItem(
+                index: 2,
+                child: _NextEventsCard(provider: provider),
+              ),
             ],
-            FocusStaggeredItem(
-              index: 0,
-              child: _NextEventsCard(provider: provider),
-            ),
-            FocusGap.section,
-            FocusStaggeredItem(
-              index: 1,
-              child: _MetricGrid(provider: provider),
-            ),
-          ],
+          ),
         );
       },
+    );
+  }
+}
+
+class _DashboardGreeting extends StatelessWidget {
+  final AppProvider provider;
+
+  const _DashboardGreeting({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    if (RankingService.currentUser != null) {
+      return StreamBuilder(
+        stream: RankingService.profileStream(),
+        builder: (context, snapshot) {
+          final profile = snapshot.data;
+          final profileName = profile?.name.trim() ?? '';
+          final name = profileName.isNotEmpty
+              ? profileName
+              : _fallbackDashboardName(provider);
+          final asset = profileIconAssetFromIndex(
+            profile?.stats['socialMascotIndex'],
+            email: RankingService.currentUser?.email,
+            enforceAccess: true,
+          );
+          return _DashboardGreetingLayout(name: name, avatarAsset: asset);
+        },
+      );
+    }
+
+    return _DashboardGreetingLayout(
+      name: _fallbackDashboardName(provider),
+      avatarAsset: defaultProfileIconAsset,
+    );
+  }
+
+  String _fallbackDashboardName(AppProvider provider) {
+    final localName = provider.settings.userName.trim();
+    final authName = RankingService.currentUser?.displayName?.trim() ?? '';
+    final emailName = RankingService.currentUser?.email?.split('@').first ?? '';
+    final name = localName.isNotEmpty
+        ? localName
+        : authName.isNotEmpty
+            ? authName
+            : emailName.isNotEmpty
+                ? emailName
+                : 'Estudiante';
+    return name.split(' ').first;
+  }
+}
+
+class _DashboardGreetingLayout extends StatelessWidget {
+  final String name;
+  final String avatarAsset;
+
+  const _DashboardGreetingLayout({
+    required this.name,
+    required this.avatarAsset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusCuteCard(
+      accent: FocusPalette.primary,
+      padding: const EdgeInsets.fromLTRB(20, 18, 4, 4),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 122),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 118, bottom: 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Hola, $name 👋',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
+                        ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'Organiza tu día con calma.',
+                    style: FocusTypography.helper(context),
+                  ),
+                  const SizedBox(height: 12),
+                  const FocusPill(
+                    icon: Icons.auto_awesome_rounded,
+                    label: 'Pequeños pasos, gran enfoque',
+                    color: FocusPalette.amber,
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              right: -6,
+              bottom: -4,
+              child: Image.asset(
+                avatarAsset,
+                width: 132,
+                height: 132,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Image.asset(
+                  defaultProfileIconAsset,
+                  width: 132,
+                  height: 132,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -44,25 +172,237 @@ class _LoadErrorBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return FocusSurfaceCard(
       padding: FocusInsets.card,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.errorContainer,
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-      ),
+      accent: FocusPalette.danger,
+      elevated: false,
       child: Row(
         children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            color: Theme.of(context).colorScheme.onErrorContainer,
+          const FocusIconBadge(
+            icon: Icons.warning_amber_rounded,
+            color: FocusPalette.danger,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Algunos datos no se cargaron bien. Revisa Ajustes o crea un backup.',
               style: TextStyle(
-                color: Theme.of(context).colorScheme.onErrorContainer,
-                fontWeight: FontWeight.w700,
+                color: Theme.of(context).colorScheme.onSurface,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _LevelOverviewCard extends StatelessWidget {
+  final AppProvider provider;
+
+  const _LevelOverviewCard({required this.provider});
+
+  @override
+  Widget build(BuildContext context) {
+    final points = provider.gamifiedPoints;
+    final level = provider.level;
+    final remaining =
+        level >= AppProvider.maxLevel ? 0 : provider.nextLevelTarget - points;
+
+    return FocusCuteCard(
+      accent: FocusPalette.primary,
+      padding: FocusInsets.panel,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 390;
+          final circle = _LevelCircle(
+            level: level,
+            progress: provider.levelProgress,
+            size: compact ? 142 : 128,
+            onHero: false,
+          );
+          final copy = _LevelCopy(
+            points: points,
+            level: level,
+            remaining: remaining,
+            progress: provider.levelProgress,
+          );
+          if (compact) {
+            return Column(
+              children: [
+                circle,
+                FocusGap.md,
+                copy,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: copy),
+              const SizedBox(width: 18),
+              circle,
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LevelCopy extends StatelessWidget {
+  final int points;
+  final int level;
+  final int remaining;
+  final double progress;
+
+  const _LevelCopy({
+    required this.points,
+    required this.level,
+    required this.remaining,
+    required this.progress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final compact = MediaQuery.of(context).size.width < 390;
+    return Column(
+      crossAxisAlignment:
+          compact ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      children: [
+        const FocusPill(
+          icon: Icons.auto_graph_rounded,
+          label: 'Progreso Focus',
+          color: FocusPalette.primary,
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Nivel $level',
+          textAlign: compact ? TextAlign.center : TextAlign.start,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.8,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const FocusMetricIcon.points(size: 22),
+            const SizedBox(width: 7),
+            Flexible(
+              child: Text(
+                '$points puntos',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: progress.clamp(0, 1),
+            minHeight: 8,
+            backgroundColor: FocusPalette.primary.withValues(alpha: 0.10),
+            valueColor: const AlwaysStoppedAnimation(FocusPalette.mint),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          level >= AppProvider.maxLevel
+              ? 'Nivel máximo alcanzado.'
+              : '$remaining puntos para subir.',
+          textAlign: compact ? TextAlign.center : TextAlign.start,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LevelCircle extends StatelessWidget {
+  final int level;
+  final double progress;
+  final double size;
+  final bool onHero;
+
+  const _LevelCircle({
+    required this.level,
+    required this.progress,
+    required this.size,
+    this.onHero = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            strokeWidth: 13,
+            strokeCap: StrokeCap.round,
+            backgroundColor: onHero
+                ? Colors.white.withValues(alpha: 0.18)
+                : FocusPalette.primary.withValues(alpha: 0.10),
+            valueColor: AlwaysStoppedAnimation(
+              onHero ? FocusPalette.mint : FocusPalette.primary,
+            ),
+          ),
+          Center(
+            child: Container(
+              width: size * 0.68,
+              height: size * 0.68,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: FocusPalette.socialGradient,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: FocusPalette.primary.withValues(alpha: 0.22),
+                    blurRadius: 20,
+                    offset: const Offset(0, 9),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Nivel',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    '$level',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: size * 0.25,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -95,53 +435,24 @@ class _NextEventsCard extends StatelessWidget {
       padding: FocusInsets.cardRelaxed,
       radius: FocusRadii.panel,
       accent: FocusPalette.primary,
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           FocusSectionHeader(
-            icon: Icons.bolt_rounded,
+            icon: Icons.event_note_rounded,
+            iconKind: FocusAppIconKind.calendar,
             title: 'Próximo',
-            subtitle: _summary(nextClassAt, nextExamAt),
+            subtitle: 'Clase y examen',
             iconSize: 42,
           ),
           FocusGap.md,
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: FocusPalette.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: FocusPalette.primary.withValues(alpha: 0.12),
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: FocusPalette.primary,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _priorityText(nextClass, nextExam, nextExamAt),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          FocusGap.sm,
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 560;
               final classCard = _EventCard(
-                icon: Icons.event_available_rounded,
+                iconKind: FocusAppIconKind.subjects,
+                fallbackIcon: Icons.event_available_rounded,
                 color: FocusPalette.cyan,
                 eyebrow: 'Clase',
                 title: nextClass == null
@@ -153,7 +464,8 @@ class _NextEventsCard extends StatelessWidget {
                     : _relativeDayLabel(nextClassAt),
               );
               final examCard = _EventCard(
-                icon: Icons.assignment_late_rounded,
+                iconKind: FocusAppIconKind.exams,
+                fallbackIcon: Icons.assignment_late_rounded,
                 color: FocusPalette.amber,
                 eyebrow: 'Examen',
                 title: nextExam == null
@@ -187,40 +499,6 @@ class _NextEventsCard extends StatelessWidget {
     );
   }
 
-  String _summary(DateTime? classAt, DateTime? examAt) {
-    if (classAt == null && examAt == null) {
-      return 'Carga clase y examen para ordenar tu día';
-    }
-    if (classAt != null && examAt == null) {
-      return 'Primero: clase ${_relativeDayLabel(classAt)}';
-    }
-    if (classAt == null && examAt != null) {
-      return 'Primero: examen ${_relativeDayLabel(examAt)}';
-    }
-    if (classAt!.isBefore(examAt!)) {
-      return 'Primero: clase ${_relativeDayLabel(classAt)}';
-    }
-    return 'Primero: examen ${_relativeDayLabel(examAt)}';
-  }
-
-  String _priorityText(
-    UpcomingScheduleEntry? nextClass,
-    Exam? nextExam,
-    DateTime? examAt,
-  ) {
-    if (nextClass == null && nextExam == null) {
-      return 'Cuando agregues tus datos, Focus te muestra qué viene primero.';
-    }
-    if (nextClass != null &&
-        (examAt == null || nextClass.startsAt.isBefore(examAt))) {
-      return 'Tu próxima clase es ${nextClass.subject.name}.';
-    }
-    if (nextExam != null) {
-      return 'Tu próximo examen es ${provider.subjectNameForExam(nextExam)}.';
-    }
-    return 'Revisa tu clase más cercana antes de seguir.';
-  }
-
   String _examDetail(Exam exam) {
     final parts = [
       exam.displayType,
@@ -233,7 +511,8 @@ class _NextEventsCard extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  final IconData icon;
+  final FocusAppIconKind iconKind;
+  final IconData fallbackIcon;
   final Color color;
   final String eyebrow;
   final String title;
@@ -241,7 +520,8 @@ class _EventCard extends StatelessWidget {
   final String badge;
 
   const _EventCard({
-    required this.icon,
+    required this.iconKind,
+    required this.fallbackIcon,
     required this.color,
     required this.eyebrow,
     required this.title,
@@ -252,7 +532,7 @@ class _EventCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: FocusInsets.card,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(FocusRadii.card),
@@ -260,14 +540,12 @@ class _EventCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Icon(icon, color: color, size: 25),
+          FocusAssetBadge(
+            kind: iconKind,
+            fallback: fallbackIcon,
+            color: color,
+            size: 50,
+            iconSize: 32,
           ),
           const SizedBox(width: 13),
           Expanded(
@@ -307,23 +585,7 @@ class _EventCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              badge,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
+          FocusPill(label: badge, color: color),
         ],
       ),
     );
@@ -333,7 +595,9 @@ class _EventCard extends StatelessWidget {
 class _MetricGrid extends StatelessWidget {
   final AppProvider provider;
 
-  const _MetricGrid({required this.provider});
+  const _MetricGrid({
+    required this.provider,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -352,39 +616,39 @@ class _MetricGrid extends StatelessWidget {
       ),
       _MetricData(
         icon: Icons.schedule_rounded,
+        iconKind: FocusAppIconKind.pomodoro,
         value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
         label: 'Semana',
         color: FocusPalette.mint,
       ),
       _MetricData(
         icon: Icons.emoji_events_rounded,
+        iconKind: FocusAppIconKind.achievements,
         value: '${provider.unlockedAchievementCount}',
         label: 'Logros',
         color: FocusPalette.teal,
       ),
     ];
 
-    return FocusSurfaceCard(
-      padding: const EdgeInsets.all(12),
-      radius: FocusRadii.card,
-      elevated: false,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth < 380 ? 2 : 4;
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: metrics.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: columns == 2 ? 2.45 : 1.65,
-            ),
-            itemBuilder: (context, index) => _MetricCard(data: metrics[index]),
-          );
-        },
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth < 380 ? 2 : 4;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: metrics.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            mainAxisSpacing: 8,
+            crossAxisSpacing: 8,
+            childAspectRatio: columns == 2 ? 2.45 : 1.65,
+          ),
+          itemBuilder: (context, index) => FocusStaggeredItem(
+            index: index,
+            child: _MetricCard(data: metrics[index]),
+          ),
+        );
+      },
     );
   }
 }
@@ -392,7 +656,9 @@ class _MetricGrid extends StatelessWidget {
 class _MetricCard extends StatelessWidget {
   final _MetricData data;
 
-  const _MetricCard({required this.data});
+  const _MetricCard({
+    required this.data,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -401,7 +667,9 @@ class _MetricCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: data.color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: data.color.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: data.color.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -411,6 +679,13 @@ class _MetricCard extends StatelessWidget {
               kind: data.metricIcon!,
               size: 22,
               color: data.color,
+            )
+          else if (data.iconKind != null)
+            FocusAppIcon(
+              kind: data.iconKind!,
+              size: 24,
+              fallback: data.icon ?? Icons.auto_awesome_rounded,
+              fallbackColor: data.color,
             )
           else
             Icon(data.icon, color: data.color, size: 22),
@@ -451,6 +726,7 @@ class _MetricCard extends StatelessWidget {
 
 class _MetricData {
   final IconData? icon;
+  final FocusAppIconKind? iconKind;
   final FocusMetricIconKind? metricIcon;
   final String value;
   final String label;
@@ -458,6 +734,7 @@ class _MetricData {
 
   const _MetricData({
     this.icon,
+    this.iconKind,
     this.metricIcon,
     required this.value,
     required this.label,

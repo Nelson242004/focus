@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/focus_palette.dart';
+import 'focus_app_icon.dart';
 
 class FocusRadii {
   FocusRadii._();
@@ -41,6 +42,65 @@ class FocusGap {
   static const Widget section = SizedBox(height: 16);
 }
 
+enum FocusCardVariant { hero, normal, compact }
+
+class FocusTypography {
+  FocusTypography._();
+
+  static TextStyle? screenTitle(BuildContext context) =>
+      Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.7,
+            height: 1.05,
+          );
+
+  static TextStyle? sectionTitle(BuildContext context) =>
+      Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.25,
+          );
+
+  static TextStyle? compactLabel(BuildContext context, {Color? color}) =>
+      Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.15,
+          );
+
+  static TextStyle? helper(BuildContext context) =>
+      Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          );
+}
+
+class FocusPageBackground extends StatelessWidget {
+  final Widget child;
+
+  const FocusPageBackground({
+    super.key,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? FocusPalette.darkBackgroundGradient
+              : FocusPalette.lightBackgroundGradient,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
 class FocusSurfaceCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -48,6 +108,7 @@ class FocusSurfaceCard extends StatelessWidget {
   final double radius;
   final bool elevated;
   final Gradient? gradient;
+  final FocusCardVariant variant;
 
   const FocusSurfaceCard({
     super.key,
@@ -57,6 +118,7 @@ class FocusSurfaceCard extends StatelessWidget {
     this.radius = FocusRadii.panel,
     this.elevated = true,
     this.gradient,
+    this.variant = FocusCardVariant.normal,
   });
 
   @override
@@ -64,23 +126,52 @@ class FocusSurfaceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final color = accent ?? theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
+    final effectivePadding = switch (variant) {
+      FocusCardVariant.hero => FocusInsets.panel,
+      FocusCardVariant.compact => FocusInsets.card,
+      FocusCardVariant.normal => padding,
+    };
+    final effectiveRadius = switch (variant) {
+      FocusCardVariant.hero => FocusRadii.panel,
+      FocusCardVariant.compact => FocusRadii.card,
+      FocusCardVariant.normal => radius,
+    };
+    final effectiveGradient = gradient ??
+        switch (variant) {
+          FocusCardVariant.hero => const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: FocusPalette.heroGradient,
+            ),
+          FocusCardVariant.normal || FocusCardVariant.compact => null,
+        };
     return Container(
       width: double.infinity,
-      padding: padding,
+      padding: effectivePadding,
       decoration: BoxDecoration(
-        color: gradient == null ? theme.cardColor : null,
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(radius),
+        color: effectiveGradient == null ? theme.cardColor : null,
+        gradient: effectiveGradient,
+        borderRadius: BorderRadius.circular(effectiveRadius),
         border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.18 : 0.13),
+          color: variant == FocusCardVariant.hero
+              ? Colors.white.withValues(alpha: isDark ? 0.12 : 0.18)
+              : color.withValues(alpha: isDark ? 0.18 : 0.13),
         ),
         boxShadow: elevated
             ? [
                 BoxShadow(
-                  color: (isDark ? Colors.black : FocusPalette.ink)
-                      .withValues(alpha: isDark ? 0.22 : 0.06),
-                  blurRadius: isDark ? 18 : 20,
-                  offset: const Offset(0, 10),
+                  color: (variant == FocusCardVariant.hero
+                          ? color
+                          : (isDark ? Colors.black : FocusPalette.ink))
+                      .withValues(
+                    alpha: variant == FocusCardVariant.hero
+                        ? (isDark ? 0.20 : 0.13)
+                        : (isDark ? 0.22 : 0.06),
+                  ),
+                  blurRadius: variant == FocusCardVariant.hero
+                      ? 26
+                      : (isDark ? 18 : 20),
+                  offset: Offset(0, variant == FocusCardVariant.hero ? 14 : 10),
                 ),
               ]
             : null,
@@ -90,8 +181,167 @@ class FocusSurfaceCard extends StatelessWidget {
   }
 }
 
+class FocusHeroCard extends StatelessWidget {
+  final Widget child;
+  final Color? accent;
+  final Gradient? gradient;
+
+  const FocusHeroCard({
+    super.key,
+    required this.child,
+    this.accent,
+    this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      variant: FocusCardVariant.hero,
+      accent: accent,
+      gradient: gradient,
+      child: child,
+    );
+  }
+}
+
+class FocusCompactCard extends StatelessWidget {
+  final Widget child;
+  final Color? accent;
+  final bool elevated;
+
+  const FocusCompactCard({
+    super.key,
+    required this.child,
+    this.accent,
+    this.elevated = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FocusSurfaceCard(
+      variant: FocusCardVariant.compact,
+      accent: accent,
+      elevated: elevated,
+      child: child,
+    );
+  }
+}
+
+class FocusCuteCard extends StatelessWidget {
+  final Widget child;
+  final Color accent;
+  final EdgeInsetsGeometry padding;
+  final bool showSparkles;
+
+  const FocusCuteCard({
+    super.key,
+    required this.child,
+    this.accent = FocusPalette.primary,
+    this.padding = FocusInsets.panel,
+    this.showSparkles = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  FocusPalette.darkCard2,
+                  Color.lerp(FocusPalette.darkCard2, accent, 0.24)!,
+                  FocusPalette.darkCard,
+                ]
+              : [
+                  Colors.white,
+                  Color.lerp(Colors.white, accent, 0.10)!,
+                  Color.lerp(
+                      FocusPalette.primarySoft, FocusPalette.mint, 0.16)!,
+                ],
+        ),
+        border:
+            Border.all(color: accent.withValues(alpha: isDark ? 0.20 : 0.14)),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: isDark ? 0.16 : 0.10),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          if (showSparkles) ...[
+            Positioned(
+              top: -34,
+              right: -24,
+              child: _CuteBubble(size: 104, color: accent),
+            ),
+            Positioned(
+              bottom: -22,
+              left: -18,
+              child: _CuteBubble(size: 70, color: FocusPalette.mint),
+            ),
+            Positioned(
+              top: 18,
+              right: 86,
+              child: _CuteDot(color: FocusPalette.amber),
+            ),
+          ],
+          Padding(padding: padding, child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _CuteBubble extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _CuteBubble({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color.withValues(alpha: 0.08)),
+      ),
+    );
+  }
+}
+
+class _CuteDot extends StatelessWidget {
+  final Color color;
+
+  const _CuteDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 9,
+      height: 9,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withValues(alpha: 0.55),
+      ),
+    );
+  }
+}
+
 class FocusSectionHeader extends StatelessWidget {
   final IconData icon;
+  final FocusAppIconKind? iconKind;
   final String title;
   final String subtitle;
   final Widget? action;
@@ -101,6 +351,7 @@ class FocusSectionHeader extends StatelessWidget {
   const FocusSectionHeader({
     super.key,
     required this.icon,
+    this.iconKind,
     required this.title,
     this.subtitle = '',
     this.action,
@@ -113,15 +364,23 @@ class FocusSectionHeader extends StatelessWidget {
     final color = accent ?? Theme.of(context).colorScheme.primary;
     return Row(
       children: [
-        Container(
-          width: iconSize,
-          height: iconSize,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(iconSize * 0.36),
-            color: color.withValues(alpha: 0.11),
-          ),
-          child: Icon(icon, color: color, size: iconSize * 0.52),
-        ),
+        iconKind == null
+            ? Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(iconSize * 0.36),
+                  color: color.withValues(alpha: 0.11),
+                ),
+                child: Icon(icon, color: color, size: iconSize * 0.52),
+              )
+            : FocusAssetBadge(
+                kind: iconKind!,
+                color: color,
+                size: iconSize,
+                iconSize: iconSize * 0.74,
+                fallback: icon,
+              ),
         const SizedBox(width: FocusSpacing.sm),
         Expanded(
           child: Column(
@@ -131,10 +390,7 @@ class FocusSectionHeader extends StatelessWidget {
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.2,
-                    ),
+                style: FocusTypography.sectionTitle(context),
               ),
               if (subtitle.trim().isNotEmpty) ...[
                 const SizedBox(height: 2),
@@ -142,9 +398,7 @@ class FocusSectionHeader extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                  style: FocusTypography.helper(context),
                 ),
               ],
             ],
@@ -200,6 +454,76 @@ class FocusInlineState extends StatelessWidget {
   }
 }
 
+class FocusIconBadge extends StatelessWidget {
+  final IconData icon;
+  final Color? color;
+  final double size;
+  final double iconSize;
+
+  const FocusIconBadge({
+    super.key,
+    required this.icon,
+    this.color,
+    this.size = 42,
+    this.iconSize = 22,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = color ?? Theme.of(context).colorScheme.primary;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(size * 0.36),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Icon(icon, color: accent, size: iconSize),
+    );
+  }
+}
+
+class FocusAssetBadge extends StatelessWidget {
+  final FocusAppIconKind kind;
+  final Color? color;
+  final double size;
+  final double iconSize;
+  final IconData fallback;
+
+  const FocusAssetBadge({
+    super.key,
+    required this.kind,
+    this.color,
+    this.size = 42,
+    this.iconSize = 28,
+    this.fallback = Icons.center_focus_strong_rounded,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = color ?? Theme.of(context).colorScheme.primary;
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(size * 0.12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(size * 0.36),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Center(
+        child: FocusAppIcon(
+          kind: kind,
+          size: iconSize,
+          fallback: fallback,
+          fallbackColor: accent,
+        ),
+      ),
+    );
+  }
+}
+
 class FocusPill extends StatelessWidget {
   final IconData? icon;
   final String label;
@@ -245,6 +569,24 @@ class FocusPill extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class FocusActionRow extends StatelessWidget {
+  final List<Widget> children;
+
+  const FocusActionRow({
+    super.key,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: FocusSpacing.sm,
+      runSpacing: FocusSpacing.sm,
+      children: children,
     );
   }
 }

@@ -6,6 +6,7 @@ import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/schedule_board.dart';
@@ -408,28 +409,29 @@ class _SubjectsScreenState extends State<SubjectsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: const Text('Materias'),
       ),
       body: SafeArea(
         top: false,
         bottom: true,
-        child: Consumer<AppProvider>(
-          builder: (context, provider, _) {
-            final subjects = provider.subjects;
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 108),
-              children: [
-                _SubjectsPanel(
-                  provider: provider,
-                  subjects: subjects,
-                  onEdit: (subject) => _showSubjectDialog(subject: subject),
-                  onDelete: _deleteSubject,
-                ),
-              ],
-            );
-          },
+        child: FocusPageBackground(
+          child: Consumer<AppProvider>(
+            builder: (context, provider, _) {
+              final subjects = provider.subjects;
+              return ListView(
+                padding: const EdgeInsets.only(bottom: 108),
+                children: [
+                  _SubjectsPanel(
+                    provider: provider,
+                    subjects: subjects,
+                    onEdit: (subject) => _showSubjectDialog(subject: subject),
+                    onDelete: _deleteSubject,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -464,7 +466,7 @@ class _SubjectsPanel extends StatelessWidget {
         child: FocusProfileEmptyState(
           icon: Icons.menu_book_rounded,
           accent: const Color(0xFF0EA5E9),
-          title: 'Carga tu primera materia',
+          title: 'Tu primera materia te espera',
           message: 'Empieza con el nombre y suma detalles luego.',
         ),
       );
@@ -567,17 +569,12 @@ class _SubjectsDetailsPanel extends StatelessWidget {
           tilePadding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
           childrenPadding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           initiallyExpanded: false,
-          leading: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: const Color(0xFF0EA5E9).withValues(alpha: 0.12),
-            ),
-            child: const Icon(
-              Icons.menu_book_rounded,
-              color: Color(0xFF0EA5E9),
-            ),
+          leading: const FocusAssetBadge(
+            kind: FocusAppIconKind.subjects,
+            fallback: Icons.menu_book_rounded,
+            color: Color(0xFF0EA5E9),
+            size: 42,
+            iconSize: 27,
           ),
           title: Text(
             'Tus materias y detalles',

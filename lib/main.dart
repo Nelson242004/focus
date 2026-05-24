@@ -11,7 +11,7 @@ import 'providers/app_provider.dart';
 import 'screens/app_tutorial_screen.dart';
 import 'screens/auth_gate_screen.dart';
 import 'screens/friends_screen.dart';
-import 'screens/required_permissions_screen.dart';
+import 'screens/main_navigation_screen.dart';
 import 'screens/web_focus_screen.dart';
 import 'services/deep_link_service.dart';
 import 'services/notification_service.dart';
@@ -159,6 +159,10 @@ class MyApp extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
@@ -169,12 +173,19 @@ class MyApp extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: accent,
-                textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             iconButtonTheme: IconButtonThemeData(
@@ -245,7 +256,8 @@ class MyApp extends StatelessWidget {
                   borderRadius: BorderRadius.circular(999)),
               side: BorderSide(color: accent.withValues(alpha: 0.12)),
               labelStyle: TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.1,
                 color: accent,
               ),
             ),
@@ -422,6 +434,10 @@ class MyApp extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
@@ -432,12 +448,19 @@ class MyApp extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16)),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             textButtonTheme: TextButtonThemeData(
               style: TextButton.styleFrom(
                 foregroundColor: accent,
-                textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
             iconButtonTheme: IconButtonThemeData(
@@ -508,7 +531,10 @@ class MyApp extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(999)),
               side: BorderSide(color: accent.withValues(alpha: 0.18)),
-              labelStyle: const TextStyle(fontWeight: FontWeight.w600),
+              labelStyle: const TextStyle(
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.1,
+              ),
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
@@ -630,7 +656,7 @@ class MyApp extends StatelessWidget {
                         requireAccount: false,
                         child: kIsWeb
                             ? const WebFocusScreen()
-                            : const RequiredPermissionsGate(),
+                            : const MainNavigationScreen(),
                       )
                     : OnboardingScreen(
                         onComplete: () => provider.completeOnboarding(),

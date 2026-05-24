@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
+import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import 'main_navigation_screen.dart';
 
@@ -19,15 +21,10 @@ class RequiredPermissionsGate extends StatefulWidget {
   static Future<bool> shouldSkipSetup() async {
     final completed = await isSetupCompleted();
     if (completed) return true;
-    final notificationsGranted = await NotificationService.hasPermissions();
     final accessibilityGranted =
         await FocusModeService.hasAccessibilityPermission();
     final overlayGranted = await FocusModeService.hasOverlayPermission();
-    final usageGranted = await FocusModeService.hasUsageAccessPermission();
-    final allGranted = notificationsGranted &&
-        accessibilityGranted &&
-        overlayGranted &&
-        usageGranted;
+    final allGranted = accessibilityGranted && overlayGranted;
     if (allGranted) {
       await markSetupCompleted();
     }
@@ -87,11 +84,7 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
   bool _usageGranted = false;
   bool _batteryGranted = false;
 
-  bool get _allGranted =>
-      _notificationsGranted &&
-      _accessibilityGranted &&
-      _overlayGranted &&
-      _usageGranted;
+  bool get _allGranted => _accessibilityGranted && _overlayGranted;
 
   @override
   void initState() {
@@ -169,11 +162,8 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
   Future<void> _requestAll() async {
     setState(() => _requesting = true);
     try {
-      if (!_notificationsGranted) await _requestNotifications();
       if (!_accessibilityGranted) await _requestAccessibility();
       if (!_overlayGranted) await _requestOverlay();
-      if (!_usageGranted) await _requestUsageAccess();
-      if (!_batteryGranted) await _requestBattery();
     } finally {
       if (mounted) setState(() => _requesting = false);
     }
@@ -191,117 +181,126 @@ class _RequiredPermissionsScreenState extends State<RequiredPermissionsScreen>
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 10),
-              Text(
-                'Permisos de Focus',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Puedes omitirlos ahora. Te los pediremos cuando actives recordatorios o bloqueo de apps.',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 22),
-              Expanded(
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    _PermissionStatusCard(
-                      icon: Icons.notifications_active_rounded,
-                      title: 'Notificaciones',
-                      subtitle: 'Pomodoro y recordatorios.',
-                      granted: _notificationsGranted,
-                      onTap: _requestNotifications,
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionStatusCard(
-                      icon: Icons.accessibility_new_rounded,
-                      title: 'Accesibilidad',
-                      subtitle: 'Detecta apps bloqueadas.',
-                      granted: _accessibilityGranted,
-                      onTap: _requestAccessibility,
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionStatusCard(
-                      icon: Icons.layers_rounded,
-                      title: 'Superposición',
-                      subtitle: 'Muestra el bloqueo.',
-                      granted: _overlayGranted,
-                      onTap: _requestOverlay,
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionStatusCard(
-                      icon: Icons.manage_search_rounded,
-                      title: 'Acceso de uso',
-                      subtitle: 'Reconoce la app abierta.',
-                      granted: _usageGranted,
-                      onTap: _requestUsageAccess,
-                    ),
-                    const SizedBox(height: 12),
-                    _PermissionStatusCard(
-                      icon: Icons.battery_charging_full_rounded,
-                      title: 'Batería',
-                      subtitle: 'Mejora la persistencia.',
-                      granted: _batteryGranted,
-                      onTap: _requestBattery,
-                      required: false,
-                    ),
-                  ],
+        child: FocusPageBackground(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 10),
+                const FocusAssetBadge(
+                  kind: FocusAppIconKind.permissions,
+                  fallback: Icons.security_rounded,
+                  color: FocusPalette.primary,
+                  size: 58,
+                  iconSize: 38,
                 ),
-              ),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _requesting ? null : _requestAll,
-                  icon: _requesting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.security_rounded),
-                  label: Text(
-                    _requesting ? 'Revisando permisos...' : 'Activar permisos',
+                const SizedBox(height: 14),
+                Text(
+                  'Permisos de Focus',
+                  style: FocusTypography.screenTitle(context),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Puedes omitirlos ahora. Te los pediremos cuando actives recordatorios o bloqueo de apps.',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 22),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _PermissionStatusCard(
+                        icon: Icons.notifications_active_rounded,
+                        title: 'Notificaciones',
+                        subtitle: 'Pomodoro y recordatorios.',
+                        granted: _notificationsGranted,
+                        onTap: _requestNotifications,
+                        required: false,
+                      ),
+                      const SizedBox(height: 12),
+                      _PermissionStatusCard(
+                        icon: Icons.accessibility_new_rounded,
+                        title: 'Accesibilidad',
+                        subtitle: 'Detecta apps bloqueadas.',
+                        granted: _accessibilityGranted,
+                        onTap: _requestAccessibility,
+                      ),
+                      const SizedBox(height: 12),
+                      _PermissionStatusCard(
+                        icon: Icons.layers_rounded,
+                        title: 'Superposición',
+                        subtitle: 'Muestra el bloqueo.',
+                        granted: _overlayGranted,
+                        onTap: _requestOverlay,
+                      ),
+                      const SizedBox(height: 12),
+                      _PermissionStatusCard(
+                        icon: Icons.manage_search_rounded,
+                        title: 'Acceso de uso',
+                        subtitle: 'Ayuda al diagnóstico.',
+                        granted: _usageGranted,
+                        onTap: _requestUsageAccess,
+                        required: false,
+                      ),
+                      const SizedBox(height: 12),
+                      _PermissionStatusCard(
+                        icon: Icons.battery_charging_full_rounded,
+                        title: 'Batería',
+                        subtitle: 'Mejora la persistencia.',
+                        granted: _batteryGranted,
+                        onTap: _requestBattery,
+                        required: false,
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _requesting ? null : _refreshStatus,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Volver a comprobar'),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _requesting ? null : _requestAll,
+                    icon: _requesting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.security_rounded),
+                    label: Text(
+                      _requesting ? 'Revisando permisos...' : 'Activar bloqueo',
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: _requesting
-                      ? null
-                      : () async {
-                          await RequiredPermissionsGate.markSetupCompleted();
-                          if (!context.mounted) return;
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (_) => const MainNavigationScreen(),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.arrow_forward_rounded),
-                  label: const Text('Omitir por ahora'),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _requesting ? null : _refreshStatus,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Volver a comprobar'),
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: _requesting
+                        ? null
+                        : () async {
+                            await RequiredPermissionsGate.markSetupCompleted();
+                            if (!context.mounted) return;
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (_) => const MainNavigationScreen(),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.arrow_forward_rounded),
+                    label: const Text('Omitir por ahora'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -10,6 +10,7 @@ void showFocusFeedback(
   required String message,
   FocusFeedbackType type = FocusFeedbackType.success,
   IconData? icon,
+  bool celebration = false,
 }) {
   final config = switch (type) {
     FocusFeedbackType.success => (
@@ -36,10 +37,12 @@ void showFocusFeedback(
       SnackBar(
         content: FocusActionSnackContent(
           icon: icon ?? config.icon,
-          message: message,
+          message: celebration ? '✨ $message' : message,
           color: config.color,
         ),
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
       ),
     );
 }

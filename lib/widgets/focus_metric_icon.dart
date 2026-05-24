@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'focus_app_icon.dart';
+
 enum FocusMetricIconKind { points, streak }
 
 class FocusMetricIcon extends StatelessWidget {
@@ -31,12 +33,18 @@ class FocusMetricIcon extends StatelessWidget {
     final iconColor = color ?? Theme.of(context).colorScheme.primary;
     switch (kind) {
       case FocusMetricIconKind.points:
-        return Icon(Icons.stars_rounded, size: size, color: iconColor);
-      case FocusMetricIconKind.streak:
-        return Icon(
-          Icons.local_fire_department_rounded,
+        return FocusAppIcon(
+          kind: FocusAppIconKind.points,
           size: size,
-          color: iconColor,
+          fallback: Icons.stars_rounded,
+          fallbackColor: iconColor,
+        );
+      case FocusMetricIconKind.streak:
+        return FocusAppIcon(
+          kind: FocusAppIconKind.streak,
+          size: size,
+          fallback: Icons.local_fire_department_rounded,
+          fallbackColor: iconColor,
         );
     }
   }

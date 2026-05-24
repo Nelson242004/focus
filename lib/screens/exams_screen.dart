@@ -5,6 +5,7 @@ import '../models/exam.dart';
 import '../providers/app_provider.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_drawer.dart';
 import '../widgets/focus_empty_state.dart';
@@ -391,481 +392,487 @@ class _ExamsScreenState extends State<ExamsScreen> {
       body: SafeArea(
         top: false,
         bottom: true,
-        child: Consumer<AppProvider>(
-          builder: (context, provider, _) {
-            if (provider.subjects.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: FocusProfileEmptyState(
-                    icon: Icons.assignment_late_rounded,
-                    accent: FocusPalette.softAlert,
-                    title: 'Primero crea una materia',
-                    message: 'Los exámenes necesitan una materia.',
-                  ),
-                ),
-              );
-            }
-
-            final exams = _filteredExams(provider);
-            final nextExam = _nextUpcomingExam(exams);
-            final monthDays = _buildMonthDays(_focusedMonth);
-            final selectedDayExams =
-                _examsForDate(exams, _selectedCalendarDate);
-
-            return ListView(
-              padding: const EdgeInsets.only(bottom: 36),
-              children: [
-                Card(
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: FocusPageBackground(
+          child: Consumer<AppProvider>(
+            builder: (context, provider, _) {
+              if (provider.subjects.isEmpty) {
+                return Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(26),
-                            gradient: LinearGradient(
-                              colors: Theme.of(context).brightness ==
-                                      Brightness.dark
-                                  ? const [Color(0xFF0F172A), Color(0xFF312E81)]
-                                  : const [
-                                      Color(0xFFF8FAFC),
-                                      Color(0xFFEDE9FE)
+                    padding: const EdgeInsets.all(24),
+                    child: FocusProfileEmptyState(
+                      icon: Icons.assignment_late_rounded,
+                      accent: FocusPalette.softAlert,
+                      title: 'Primero una materia',
+                      message: 'Así tu examen queda conectado a tu plan.',
+                    ),
+                  ),
+                );
+              }
+
+              final exams = _filteredExams(provider);
+              final nextExam = _nextUpcomingExam(exams);
+              final monthDays = _buildMonthDays(_focusedMonth);
+              final selectedDayExams =
+                  _examsForDate(exams, _selectedCalendarDate);
+
+              return ListView(
+                padding: const EdgeInsets.only(bottom: 36),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: FocusSurfaceCard(
+                      padding: FocusInsets.card,
+                      radius: FocusRadii.panel,
+                      accent: FocusPalette.softAlert,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(26),
+                              gradient: LinearGradient(
+                                colors: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? const [
+                                        Color(0xFF0F172A),
+                                        Color(0xFF312E81)
+                                      ]
+                                    : const [
+                                        Color(0xFFF8FAFC),
+                                        Color(0xFFEDE9FE)
+                                      ],
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const FocusAssetBadge(
+                                  kind: FocusAppIconKind.exams,
+                                  fallback: Icons.assignment_late_rounded,
+                                  color: FocusPalette.softAlert,
+                                  size: 54,
+                                  iconSize: 34,
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        nextExam == null
+                                            ? 'Sin exámenes'
+                                            : _countdownLabel(nextExam),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .headlineSmall
+                                            ?.copyWith(
+                                                fontWeight: FontWeight.w900),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        nextExam == null
+                                            ? 'Agrega tu próximo parcial o final.'
+                                            : '${provider.subjectNameForExam(nextExam)} · ${nextExam.displayType} · ${formatDate(nextExam.date)}${nextExam.startTime.trim().isEmpty ? '' : ' · ${nextExam.startTime}'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium,
+                                      ),
                                     ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
+                          const SizedBox(height: 16),
+                          Row(
                             children: [
-                              Container(
-                                width: 54,
-                                height: 54,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                  color: FocusPalette.softAlert
-                                      .withValues(alpha: 0.14),
-                                ),
-                                child: const Icon(
-                                  Icons.assignment_late_rounded,
-                                  color: FocusPalette.softAlert,
+                              Expanded(
+                                child: Text(
+                                  'Calendario de exámenes',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w800),
                                 ),
                               ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      nextExam == null
-                                          ? 'Sin exámenes'
-                                          : _countdownLabel(nextExam),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .headlineSmall
-                                          ?.copyWith(
-                                              fontWeight: FontWeight.w900),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      nextExam == null
-                                          ? 'Agrega tu próximo parcial o final.'
-                                          : '${provider.subjectNameForExam(nextExam)} · ${nextExam.displayType} · ${formatDate(nextExam.date)}${nextExam.startTime.trim().isEmpty ? '' : ' · ${nextExam.startTime}'}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                    ),
-                                  ],
-                                ),
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  _focusedMonth = DateTime(
+                                    _focusedMonth.year,
+                                    _focusedMonth.month - 1,
+                                  );
+                                }),
+                                icon: const Icon(Icons.chevron_left_rounded),
+                              ),
+                              Text(
+                                _monthLabel(_focusedMonth),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  _focusedMonth = DateTime(
+                                    _focusedMonth.year,
+                                    _focusedMonth.month + 1,
+                                  );
+                                }),
+                                icon: const Icon(Icons.chevron_right_rounded),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Calendario de exámenes',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleLarge
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () => setState(() {
-                                _focusedMonth = DateTime(
-                                  _focusedMonth.year,
-                                  _focusedMonth.month - 1,
-                                );
-                              }),
-                              icon: const Icon(Icons.chevron_left_rounded),
-                            ),
-                            Text(
-                              _monthLabel(_focusedMonth),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w700),
-                            ),
-                            IconButton(
-                              onPressed: () => setState(() {
-                                _focusedMonth = DateTime(
-                                  _focusedMonth.year,
-                                  _focusedMonth.month + 1,
-                                );
-                              }),
-                              icon: const Icon(Icons.chevron_right_rounded),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        const Row(
-                          children: [
-                            _WeekdayHeader('L'),
-                            _WeekdayHeader('M'),
-                            _WeekdayHeader('M'),
-                            _WeekdayHeader('J'),
-                            _WeekdayHeader('V'),
-                            _WeekdayHeader('S'),
-                            _WeekdayHeader('D'),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: monthDays.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 7,
-                            mainAxisSpacing: 8,
-                            crossAxisSpacing: 8,
-                            childAspectRatio: 1.15,
+                          const SizedBox(height: 8),
+                          const Row(
+                            children: [
+                              _WeekdayHeader('L'),
+                              _WeekdayHeader('M'),
+                              _WeekdayHeader('M'),
+                              _WeekdayHeader('J'),
+                              _WeekdayHeader('V'),
+                              _WeekdayHeader('S'),
+                              _WeekdayHeader('D'),
+                            ],
                           ),
-                          itemBuilder: (context, index) {
-                            final day = monthDays[index];
-                            final isSelected =
-                                DateUtils.isSameDay(day, _selectedCalendarDate);
-                            final isToday =
-                                DateUtils.isSameDay(day, DateTime.now());
-                            final isCurrentMonth =
-                                day.month == _focusedMonth.month;
-                            final dayExams = _examsForDate(exams, day);
-                            final hasFinal =
-                                dayExams.any((exam) => exam.isFinal);
-                            final hasExam = dayExams.isNotEmpty;
-                            final colorScheme = Theme.of(context).colorScheme;
-                            final accent = hasFinal
-                                ? FocusPalette.softAlert
-                                : FocusPalette.primary;
+                          const SizedBox(height: 8),
+                          GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: monthDays.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 7,
+                              mainAxisSpacing: 8,
+                              crossAxisSpacing: 8,
+                              childAspectRatio: 1.15,
+                            ),
+                            itemBuilder: (context, index) {
+                              final day = monthDays[index];
+                              final isSelected = DateUtils.isSameDay(
+                                  day, _selectedCalendarDate);
+                              final isToday =
+                                  DateUtils.isSameDay(day, DateTime.now());
+                              final isCurrentMonth =
+                                  day.month == _focusedMonth.month;
+                              final dayExams = _examsForDate(exams, day);
+                              final hasFinal =
+                                  dayExams.any((exam) => exam.isFinal);
+                              final hasExam = dayExams.isNotEmpty;
+                              final colorScheme = Theme.of(context).colorScheme;
+                              final accent = hasFinal
+                                  ? FocusPalette.softAlert
+                                  : FocusPalette.primary;
 
-                            return GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedCalendarDate = day),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 180),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(18),
-                                  color: isSelected
-                                      ? colorScheme.tertiary
-                                          .withValues(alpha: 0.2)
-                                      : isToday
-                                          ? colorScheme.primary
-                                              .withValues(alpha: 0.16)
-                                          : hasExam
-                                              ? accent.withValues(alpha: 0.14)
-                                              : colorScheme
-                                                  .surfaceContainerHighest
-                                                  .withValues(
-                                                  alpha: isCurrentMonth
-                                                      ? 0.24
-                                                      : 0.12,
-                                                ),
-                                  border: Border.all(
+                              return GestureDetector(
+                                onTap: () =>
+                                    setState(() => _selectedCalendarDate = day),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 180),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(18),
                                     color: isSelected
                                         ? colorScheme.tertiary
+                                            .withValues(alpha: 0.2)
                                         : isToday
                                             ? colorScheme.primary
+                                                .withValues(alpha: 0.16)
                                             : hasExam
-                                                ? accent
-                                                : colorScheme.outlineVariant
+                                                ? accent.withValues(alpha: 0.14)
+                                                : colorScheme
+                                                    .surfaceContainerHighest
                                                     .withValues(
                                                     alpha: isCurrentMonth
-                                                        ? 0.2
-                                                        : 0.08,
+                                                        ? 0.24
+                                                        : 0.12,
                                                   ),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${day.day}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                    border: Border.all(
                                       color: isSelected
                                           ? colorScheme.tertiary
                                           : isToday
                                               ? colorScheme.primary
                                               : hasExam
                                                   ? accent
-                                                  : isCurrentMonth
-                                                      ? null
-                                                      : colorScheme
-                                                          .onSurfaceVariant,
+                                                  : colorScheme.outlineVariant
+                                                      .withValues(
+                                                      alpha: isCurrentMonth
+                                                          ? 0.2
+                                                          : 0.08,
+                                                    ),
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '${day.day}',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: isSelected
+                                            ? colorScheme.tertiary
+                                            : isToday
+                                                ? colorScheme.primary
+                                                : hasExam
+                                                    ? accent
+                                                    : isCurrentMonth
+                                                        ? null
+                                                        : colorScheme
+                                                            .onSurfaceVariant,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          child: selectedDayExams.isEmpty
-                              ? FocusInlineState(
-                                  key: ValueKey(
-                                    'empty-${_selectedCalendarDate.toIso8601String()}',
-                                  ),
-                                  icon: Icons.event_busy_rounded,
-                                  text:
-                                      'Sin exámenes el ${formatDate(_selectedCalendarDate)}.',
-                                  accent: FocusPalette.amber,
-                                )
-                              : Column(
-                                  key: ValueKey(
-                                    'day-${_selectedCalendarDate.toIso8601String()}',
-                                  ),
-                                  children: selectedDayExams
-                                      .map(
-                                        (exam) => Padding(
-                                          padding:
-                                              const EdgeInsets.only(bottom: 10),
-                                          child: _ExamCalendarChip(
-                                            exam: exam,
-                                            subjectName: provider
-                                                .subjectNameForExam(exam),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 220),
+                            child: selectedDayExams.isEmpty
+                                ? FocusInlineState(
+                                    key: ValueKey(
+                                      'empty-${_selectedCalendarDate.toIso8601String()}',
+                                    ),
+                                    icon: Icons.event_busy_rounded,
+                                    text:
+                                        'Sin exámenes el ${formatDate(_selectedCalendarDate)}.',
+                                    accent: FocusPalette.amber,
+                                  )
+                                : Column(
+                                    key: ValueKey(
+                                      'day-${_selectedCalendarDate.toIso8601String()}',
+                                    ),
+                                    children: selectedDayExams
+                                        .map(
+                                          (exam) => Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: 10),
+                                            child: _ExamCalendarChip(
+                                              exam: exam,
+                                              subjectName: provider
+                                                  .subjectNameForExam(exam),
+                                            ),
                                           ),
-                                        ),
-                                      )
-                                      .toList(),
-                                ),
-                        ),
-                      ],
+                                        )
+                                        .toList(),
+                                  ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Card(
-                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: ExpansionTile(
-                    initiallyExpanded: false,
-                    title: Text(
-                      'Exámenes',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleLarge
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text('${exams.length} visibles'),
-                    childrenPadding: const EdgeInsets.only(bottom: 12),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Parciales y finales',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                            ),
-                          ],
-                        ),
+                  Card(
+                    margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: ExpansionTile(
+                      initiallyExpanded: false,
+                      title: Text(
+                        'Exámenes',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: SegmentedButton<String>(
-                          segments: const [
-                            ButtonSegment(value: 'all', label: Text('Todos')),
-                            ButtonSegment(
-                                value: 'partial', label: Text('Parciales')),
-                            ButtonSegment(
-                                value: 'final', label: Text('Finales')),
-                          ],
-                          selected: {_selectedExamType},
-                          onSelectionChanged: (value) =>
-                              setState(() => _selectedExamType = value.first),
-                        ),
-                      ),
-                      if (exams.isEmpty)
+                      subtitle: Text('${exams.length} visibles'),
+                      childrenPadding: const EdgeInsets.only(bottom: 12),
+                      children: [
                         Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: FocusProfileEmptyState(
-                            icon: Icons.event_busy_rounded,
-                            accent: FocusPalette.softAlert,
-                            title: provider.exams.isEmpty
-                                ? 'Carga tu primer examen'
-                                : 'Sin resultados',
-                            message: provider.exams.isEmpty
-                                ? 'Agrega un parcial o final.'
-                                : 'Cambia el filtro o crea uno nuevo.',
-                          ),
-                        )
-                      else
-                        ...exams.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final exam = entry.value;
-                          final subjectName = provider.subjectNameForExam(exam);
-                          final accent = exam.isFinal
-                              ? FocusPalette.softAlert
-                              : FocusPalette.primary;
-                          final isUpcoming =
-                              combineDateAndTime(exam.date, exam.startTime)
-                                  .isAfter(DateTime.now());
-                          return TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0, end: 1),
-                            duration: Duration(
-                              milliseconds: 320 + (index * 90),
-                            ),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) =>
-                                Transform.translate(
-                              offset: Offset(0, 12 * (1 - value)),
-                              child: Opacity(opacity: value, child: child),
-                            ),
-                            child: Card(
-                              margin: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Parciales y finales',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 48,
-                                          height: 48,
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(16),
-                                            color:
-                                                accent.withValues(alpha: 0.14),
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              exam.isFinal ? 'F' : 'P',
-                                              style: TextStyle(
-                                                color: accent,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 20,
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                          child: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(value: 'all', label: Text('Todos')),
+                              ButtonSegment(
+                                  value: 'partial', label: Text('Parciales')),
+                              ButtonSegment(
+                                  value: 'final', label: Text('Finales')),
+                            ],
+                            selected: {_selectedExamType},
+                            onSelectionChanged: (value) =>
+                                setState(() => _selectedExamType = value.first),
+                          ),
+                        ),
+                        if (exams.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: FocusProfileEmptyState(
+                              icon: Icons.event_busy_rounded,
+                              accent: FocusPalette.softAlert,
+                              title: provider.exams.isEmpty
+                                  ? 'Tu primer examen te espera'
+                                  : 'Sin resultados',
+                              message: provider.exams.isEmpty
+                                  ? 'Agrega un parcial o final y Focus lo recuerda.'
+                                  : 'Cambia el filtro o crea uno nuevo.',
+                            ),
+                          )
+                        else
+                          ...exams.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final exam = entry.value;
+                            final subjectName =
+                                provider.subjectNameForExam(exam);
+                            final accent = exam.isFinal
+                                ? FocusPalette.softAlert
+                                : FocusPalette.primary;
+                            final isUpcoming =
+                                combineDateAndTime(exam.date, exam.startTime)
+                                    .isAfter(DateTime.now());
+                            return TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: 1),
+                              duration: Duration(
+                                milliseconds: 320 + (index * 90),
+                              ),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) =>
+                                  Transform.translate(
+                                offset: Offset(0, 12 * (1 - value)),
+                                child: Opacity(opacity: value, child: child),
+                              ),
+                              child: Card(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Container(
+                                            width: 48,
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              color: accent.withValues(
+                                                  alpha: 0.14),
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                exam.isFinal ? 'F' : 'P',
+                                                style: TextStyle(
+                                                  color: accent,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 20,
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                subjectName,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .titleLarge
-                                                    ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                    ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  subjectName,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .titleLarge
+                                                      ?.copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  _countdownLabel(exam),
+                                                  style: TextStyle(
+                                                    color: accent,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            tooltip: 'Más acciones',
+                                            onSelected: (value) {
+                                              if (value == 'edit') {
+                                                _showExamDialog(exam: exam);
+                                              } else if (value == 'delete') {
+                                                _deleteExam(exam.id!);
+                                              }
+                                            },
+                                            itemBuilder: (context) => const [
+                                              PopupMenuItem(
+                                                value: 'edit',
+                                                child: ListTile(
+                                                  leading: Icon(Icons.edit),
+                                                  title: Text('Editar'),
+                                                ),
                                               ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                _countdownLabel(exam),
-                                                style: TextStyle(
-                                                  color: accent,
-                                                  fontWeight: FontWeight.w700,
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: ListTile(
+                                                  leading: Icon(Icons.delete),
+                                                  title: Text('Eliminar'),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ),
-                                        PopupMenuButton<String>(
-                                          tooltip: 'Más acciones',
-                                          onSelected: (value) {
-                                            if (value == 'edit') {
-                                              _showExamDialog(exam: exam);
-                                            } else if (value == 'delete') {
-                                              _deleteExam(exam.id!);
-                                            }
-                                          },
-                                          itemBuilder: (context) => const [
-                                            PopupMenuItem(
-                                              value: 'edit',
-                                              child: ListTile(
-                                                leading: Icon(Icons.edit),
-                                                title: Text('Editar'),
-                                              ),
-                                            ),
-                                            PopupMenuItem(
-                                              value: 'delete',
-                                              child: ListTile(
-                                                leading: Icon(Icons.delete),
-                                                title: Text('Eliminar'),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 14),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        _InfoChip(
-                                          label: exam.displayType,
-                                          color: accent.withValues(alpha: 0.16),
-                                        ),
-                                        _InfoChip(label: formatDate(exam.date)),
-                                        if (exam.startTime.trim().isNotEmpty)
-                                          _InfoChip(label: exam.startTime),
-                                        if (exam.classroom.trim().isNotEmpty)
+                                        ],
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: [
                                           _InfoChip(
-                                            label: 'Aula ${exam.classroom}',
+                                            label: exam.displayType,
+                                            color:
+                                                accent.withValues(alpha: 0.16),
                                           ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      isUpcoming
-                                          ? _examReminderLabel(provider, exam)
-                                          : 'Este examen ya forma parte de tu historial académico.',
-                                    ),
-                                  ],
+                                          _InfoChip(
+                                              label: formatDate(exam.date)),
+                                          if (exam.startTime.trim().isNotEmpty)
+                                            _InfoChip(label: exam.startTime),
+                                          if (exam.classroom.trim().isNotEmpty)
+                                            _InfoChip(
+                                              label: 'Aula ${exam.classroom}',
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        isUpcoming
+                                            ? _examReminderLabel(provider, exam)
+                                            : 'Este examen ya forma parte de tu historial académico.',
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          );
-                        }),
-                    ],
+                            );
+                          }),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: Consumer<AppProvider>(
