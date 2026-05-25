@@ -15,6 +15,7 @@ import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_main_navigation_scope.dart';
 import '../widgets/focus_metric_icon.dart';
+import '../widgets/focus_profile_icon_image.dart';
 import '../widgets/focus_social_components.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -97,15 +98,22 @@ class _DashboardGreeting extends StatelessWidget {
         stream: RankingService.profileStream(),
         builder: (context, snapshot) {
           final profile = snapshot.data;
+          if (profile == null &&
+              snapshot.connectionState == ConnectionState.waiting) {
+            return _DashboardGreetingLayout(
+              name: _fallbackDashboardName(provider),
+              avatarAsset: defaultProfileIconAsset,
+              phrase: phrase,
+              loadingAvatar: true,
+            );
+          }
           final profileName = profile?.name.trim() ?? '';
           final name = profileName.isNotEmpty
               ? profileName
               : _fallbackDashboardName(provider);
-          final asset = profileIconAssetFromIndex(
-            profile?.stats['socialMascotIndex'],
-            email: RankingService.currentUser?.email,
-            enforceAccess: true,
-          );
+          final asset = profile == null
+              ? defaultProfileIconAsset
+              : _dashboardProfileIconAsset(profile);
           return _DashboardGreetingLayout(
             name: name,
             avatarAsset: asset,
@@ -135,17 +143,35 @@ class _DashboardGreeting extends StatelessWidget {
                 : 'Estudiante';
     return name.split(' ').first;
   }
+
+  String _dashboardProfileIconAsset(RankingProfile profile) {
+    final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}'.trim();
+    if (rawAsset.isNotEmpty) {
+      return normalizeProfileIconAsset(
+        rawAsset,
+        email: RankingService.currentUser?.email,
+        enforceAccess: true,
+      );
+    }
+    return profileIconAssetFromIndex(
+      profile.stats['socialMascotIndex'],
+      email: RankingService.currentUser?.email,
+      enforceAccess: true,
+    );
+  }
 }
 
 class _DashboardGreetingLayout extends StatelessWidget {
   final String name;
   final String avatarAsset;
   final String phrase;
+  final bool loadingAvatar;
 
   const _DashboardGreetingLayout({
     required this.name,
     required this.avatarAsset,
     required this.phrase,
+    this.loadingAvatar = false,
   });
 
   @override
@@ -196,18 +222,14 @@ class _DashboardGreetingLayout extends StatelessWidget {
               Positioned(
                 right: -8,
                 bottom: -4,
-                child: Image.asset(
-                  avatarAsset,
-                  width: 154,
-                  height: 154,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    defaultProfileIconAsset,
-                    width: 154,
-                    height: 154,
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                child: loadingAvatar
+                    ? const SizedBox(width: 154, height: 154)
+                    : FocusProfileIconImage(
+                        asset: avatarAsset,
+                        width: 154,
+                        height: 154,
+                        fit: BoxFit.contain,
+                      ),
               ),
             ],
           ),

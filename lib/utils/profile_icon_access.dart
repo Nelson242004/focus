@@ -2,6 +2,7 @@ const String defaultProfileIconAsset = 'assets/profile_icons/focus_scholar.png';
 const String darkProfileIconAsset = 'assets/profile_icons/focus_dark.png';
 const String darkFemaleProfileIconAsset =
     'assets/profile_icons/focus_dark_female.png';
+const String customProfileIconAsset = 'custom_profile_icon://local';
 
 const List<String> profileIconAssets = [
   defaultProfileIconAsset,
@@ -75,6 +76,7 @@ String normalizeProfileIconAsset(
   String? email,
   bool enforceAccess = false,
 }) {
+  if (asset == customProfileIconAsset) return customProfileIconAsset;
   if (!profileIconAssets.contains(asset)) return defaultProfileIconAsset;
   if (!enforceAccess) return asset;
   return allowedProfileIconAssetOrDefault(asset, email);

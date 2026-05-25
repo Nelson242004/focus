@@ -113,7 +113,9 @@ class FriendsService {
             .where(FieldPath.documentId, whereIn: chunk)
             .get();
         profiles.addAll(
-          users.docs.map((doc) => RankingProfile.fromMap(doc.id, doc.data())),
+          users.docs
+              .where((doc) => RankingService.isUserDataActive(doc.data()))
+              .map((doc) => RankingProfile.fromMap(doc.id, doc.data())),
         );
       }
       profiles.sort(
@@ -189,12 +191,13 @@ class FriendsService {
         final friendDoc =
             await _firestore.collection('users').doc(friendUid).get();
         final friendData = friendDoc.data();
-        if (friendData == null) continue;
+        if (!RankingService.isUserDataActive(friendData)) continue;
+        final activeFriendData = friendData!;
         streaks.add(
           FriendStreak(
             id: doc.id,
             members: members,
-            friend: RankingProfile.fromMap(friendUid, friendData),
+            friend: RankingProfile.fromMap(friendUid, activeFriendData),
             startedAt:
                 (data['startedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
           ),
@@ -222,7 +225,9 @@ class FriendsService {
           .limit(8)
           .get();
       var exactMatches = byNormalizedCode.docs
-          .where((doc) => doc.id != currentUid)
+          .where((doc) =>
+              doc.id != currentUid &&
+              RankingService.isUserDataActive(doc.data()))
           .map((doc) => RankingProfile.fromMap(doc.id, doc.data()))
           .toList();
       if (exactMatches.isEmpty) {
@@ -232,7 +237,9 @@ class FriendsService {
             .limit(8)
             .get();
         exactMatches = bySearchKey.docs
-            .where((doc) => doc.id != currentUid)
+            .where((doc) =>
+                doc.id != currentUid &&
+                RankingService.isUserDataActive(doc.data()))
             .map((doc) => RankingProfile.fromMap(doc.id, doc.data()))
             .toList();
       }
@@ -243,6 +250,7 @@ class FriendsService {
     return snapshot.docs
         .where((doc) {
           final data = doc.data();
+          if (!RankingService.isUserDataActive(data)) return false;
           final friendCode = '${data['friendCode'] ?? ''}'.toLowerCase();
           final friendCodeNormalized =
               '${data['friendCodeNormalized'] ?? friendCode.replaceAll('-', '')}'
@@ -301,6 +309,11 @@ class FriendsService {
     if (target.uid == user.uid) {
       throw StateError('No puedes enviarte una solicitud a ti mismo.');
     }
+    final targetDoc =
+        await _firestore.collection('users').doc(target.uid).get();
+    if (!RankingService.isUserDataActive(targetDoc.data())) {
+      throw StateError('Esta cuenta ya no está disponible.');
+    }
 
     final friendshipId = _friendshipId(user.uid, target.uid);
     final friendshipRef =
@@ -347,6 +360,11 @@ class FriendsService {
     if (me == null) throw StateError('Completa tu perfil primero.');
     if (target.uid == user.uid) {
       throw StateError('No puedes iniciar una racha contigo mismo.');
+    }
+    final targetDoc =
+        await _firestore.collection('users').doc(target.uid).get();
+    if (!RankingService.isUserDataActive(targetDoc.data())) {
+      throw StateError('Esta cuenta ya no está disponible.');
     }
 
     final active = await _firestore

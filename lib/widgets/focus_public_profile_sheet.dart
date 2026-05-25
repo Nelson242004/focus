@@ -7,6 +7,7 @@ import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import 'focus_design_system.dart';
 import 'focus_metric_icon.dart';
+import 'focus_profile_icon_image.dart';
 import 'focus_social_components.dart';
 
 class FocusPublicProfileSheet extends StatefulWidget {
@@ -142,7 +143,11 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
                   Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      _PublicProfileAvatar(profile: profile, size: 116),
+                      _PublicProfileAvatar(
+                        profile: profile,
+                        size: 116,
+                        allowCustomIcon: widget.isMe,
+                      ),
                       Positioned(
                         right: -4,
                         bottom: -4,
@@ -367,15 +372,17 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
 class _PublicProfileAvatar extends StatelessWidget {
   final RankingProfile profile;
   final double size;
+  final bool allowCustomIcon;
 
   const _PublicProfileAvatar({
     required this.profile,
     required this.size,
+    this.allowCustomIcon = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final asset = _profileIconAsset(profile);
+    final asset = _profileIconAsset(profile, allowCustomIcon: allowCustomIcon);
     return SizedBox(
       width: size,
       height: size,
@@ -395,8 +402,8 @@ class _PublicProfileAvatar extends StatelessWidget {
             ),
             child: const SizedBox.expand(),
           ),
-          Image.asset(
-            asset,
+          FocusProfileIconImage(
+            asset: asset,
             width: size,
             height: size,
             fit: BoxFit.contain,
@@ -616,11 +623,22 @@ String _careerLabel(String career) {
 String focusPublicProfileIconAsset(RankingProfile profile) {
   final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
   if (rawAsset.trim().isNotEmpty) {
-    return normalizeProfileIconAsset(rawAsset);
+    final normalized = normalizeProfileIconAsset(rawAsset);
+    if (normalized == customProfileIconAsset) {
+      return profileIconAssetFromIndex(profile.stats['socialMascotIndex']);
+    }
+    return normalized;
   }
   return profileIconAssetFromIndex(profile.stats['socialMascotIndex']);
 }
 
-String _profileIconAsset(RankingProfile profile) {
+String _profileIconAsset(
+  RankingProfile profile, {
+  bool allowCustomIcon = false,
+}) {
+  final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
+  if (allowCustomIcon && rawAsset == customProfileIconAsset) {
+    return customProfileIconAsset;
+  }
   return focusPublicProfileIconAsset(profile);
 }

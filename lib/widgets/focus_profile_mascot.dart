@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'focus_layered_avatar.dart';
+import 'focus_profile_icon_image.dart';
 
 enum FocusMascotState {
   idle,
@@ -131,8 +132,8 @@ class _FocusProfileMascotState extends State<FocusProfileMascot>
                             ),
                           );
                         },
-                        child: Image.asset(
-                          asset,
+                        child: FocusProfileIconImage(
+                          asset: asset,
                           key: ValueKey(asset),
                           width: widget.size * 0.92,
                           height: widget.size * 0.92,

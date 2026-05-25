@@ -68,6 +68,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _showingDistractionPrompt = false;
   bool _focusPermissionWarningShown = false;
   bool _isTogglingFocusMode = false;
+  VoidCallback? _refreshPomodoroSettingsSheet;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -832,6 +833,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _toggleFocusModeEnabled(bool value) async {
     if (_isTogglingFocusMode) return;
     setState(() => _isTogglingFocusMode = true);
+    _refreshPomodoroSettingsSheet?.call();
     try {
       var nextBlockedApps = _focusModeConfig.blockedApps;
       if (value && nextBlockedApps.isEmpty) {
@@ -882,6 +884,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       await FocusModeService.saveConfig(newConfig);
       if (!mounted) return;
       setState(() => _focusModeConfig = newConfig);
+      _refreshPomodoroSettingsSheet?.call();
       final provider = Provider.of<AppProvider>(context, listen: false);
       if (!value) {
         await _stopFocusModeShield();
@@ -898,6 +901,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } finally {
       if (mounted) {
         setState(() => _isTogglingFocusMode = false);
+        _refreshPomodoroSettingsSheet?.call();
       } else {
         _isTogglingFocusMode = false;
       }
@@ -1006,6 +1010,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     await FocusModeService.saveConfig(newConfig);
     if (!mounted) return;
     setState(() => _focusModeConfig = newConfig);
+    _refreshPomodoroSettingsSheet?.call();
     if (_isRunning && _mode == 'focus' && newConfig.enabled) {
       unawaited(_syncFocusModeShield(
         Provider.of<AppProvider>(context, listen: false),
@@ -1651,120 +1656,131 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _showPomodoroSettingsSheet(AppProvider provider) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return Consumer<AppProvider>(
-          builder: (context, sheetProvider, _) {
-            return Padding(
-              padding: EdgeInsets.fromLTRB(
-                18,
-                0,
-                18,
-                MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ajustes de Pomodoro',
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w900),
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, refreshSheet) {
+              _refreshPomodoroSettingsSheet = () => refreshSheet(() {});
+              return Consumer<AppProvider>(
+                builder: (context, sheetProvider, _) {
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      18,
+                      0,
+                      18,
+                      MediaQuery.of(sheetContext).viewInsets.bottom + 20,
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Tiempos, sonido, descanso automático y bloqueo de apps.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    FocusGap.lg,
-                    _TimerSlider(
-                      label: 'Enfoque',
-                      value: sheetProvider.settings.focusTime,
-                      min: 5,
-                      max: 90,
-                      color: FocusPalette.primary,
-                      onChanged: (value) =>
-                          _updatePomodoroSettings(focusTime: value),
-                    ),
-                    _TimerSlider(
-                      label: 'Descanso corto',
-                      value: sheetProvider.settings.shortBreakTime,
-                      min: 1,
-                      max: 30,
-                      color: FocusPalette.mint,
-                      onChanged: (value) =>
-                          _updatePomodoroSettings(shortBreakTime: value),
-                    ),
-                    _TimerSlider(
-                      label: 'Descanso largo',
-                      value: sheetProvider.settings.longBreakTime,
-                      min: 5,
-                      max: 60,
-                      color: FocusPalette.amber,
-                      onChanged: (value) =>
-                          _updatePomodoroSettings(longBreakTime: value),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: sheetProvider.settings.sound,
-                      decoration: const InputDecoration(
-                        labelText: 'Sonido al terminar',
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ajustes de Pomodoro',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Tiempos, sonido, descanso automático y bloqueo de apps.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          FocusGap.lg,
+                          _TimerSlider(
+                            label: 'Enfoque',
+                            value: sheetProvider.settings.focusTime,
+                            min: 5,
+                            max: 90,
+                            color: FocusPalette.primary,
+                            onChanged: (value) =>
+                                _updatePomodoroSettings(focusTime: value),
+                          ),
+                          _TimerSlider(
+                            label: 'Descanso corto',
+                            value: sheetProvider.settings.shortBreakTime,
+                            min: 1,
+                            max: 30,
+                            color: FocusPalette.mint,
+                            onChanged: (value) =>
+                                _updatePomodoroSettings(shortBreakTime: value),
+                          ),
+                          _TimerSlider(
+                            label: 'Descanso largo',
+                            value: sheetProvider.settings.longBreakTime,
+                            min: 5,
+                            max: 60,
+                            color: FocusPalette.amber,
+                            onChanged: (value) =>
+                                _updatePomodoroSettings(longBreakTime: value),
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<String>(
+                            initialValue: sheetProvider.settings.sound,
+                            decoration: const InputDecoration(
+                              labelText: 'Sonido al terminar',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'chime',
+                                child: Text('Campana'),
+                              ),
+                              DropdownMenuItem(
+                                  value: 'bell', child: Text('Timbre')),
+                              DropdownMenuItem(
+                                value: 'none',
+                                child: Text('Sin sonido'),
+                              ),
+                            ],
+                            onChanged: (value) =>
+                                _updatePomodoroSettings(sound: value ?? 'none'),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue:
+                                sheetProvider.settings.breakAfterFocus,
+                            decoration: const InputDecoration(
+                              labelText: 'Después del enfoque',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'auto',
+                                child: Text('Automático cada 4 ciclos'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'shortBreak',
+                                child: Text('Siempre descanso corto'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'longBreak',
+                                child: Text('Siempre descanso largo'),
+                              ),
+                            ],
+                            onChanged: (value) => _updatePomodoroSettings(
+                              breakAfterFocus: value ?? 'auto',
+                            ),
+                          ),
+                          FocusGap.lg,
+                          _buildFocusModeTotalCard(sheetProvider),
+                        ],
                       ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'chime',
-                          child: Text('Campana'),
-                        ),
-                        DropdownMenuItem(value: 'bell', child: Text('Timbre')),
-                        DropdownMenuItem(
-                          value: 'none',
-                          child: Text('Sin sonido'),
-                        ),
-                      ],
-                      onChanged: (value) =>
-                          _updatePomodoroSettings(sound: value ?? 'none'),
                     ),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: sheetProvider.settings.breakAfterFocus,
-                      decoration: const InputDecoration(
-                        labelText: 'Después del enfoque',
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'auto',
-                          child: Text('Automático cada 4 ciclos'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'shortBreak',
-                          child: Text('Siempre descanso corto'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'longBreak',
-                          child: Text('Siempre descanso largo'),
-                        ),
-                      ],
-                      onChanged: (value) => _updatePomodoroSettings(
-                        breakAfterFocus: value ?? 'auto',
-                      ),
-                    ),
-                    FocusGap.lg,
-                    _buildFocusModeTotalCard(sheetProvider),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _refreshPomodoroSettingsSheet = null;
+    }
   }
 
   Widget _glassCard(

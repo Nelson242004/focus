@@ -9,7 +9,6 @@ import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
-import '../widgets/focus_metric_icon.dart';
 
 class HabitsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -423,64 +422,30 @@ class _HabitsHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = totalHabits == 0 ? 0.0 : completedToday / totalHabits;
     final theme = Theme.of(context);
-    final foreground = Colors.white;
     return FocusSurfaceCard(
       padding: FocusInsets.panel,
       accent: FocusPalette.primary,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: FocusPalette.studyGradient,
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const FocusAssetBadge(
+                kind: FocusAppIconKind.habits,
+                fallback: Icons.checklist_rounded,
+                color: FocusPalette.primary,
+                size: 54,
+                iconSize: 34,
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const FocusAssetBadge(
-                          kind: FocusAppIconKind.habits,
-                          fallback: Icons.checklist_rounded,
-                          color: Colors.white,
-                          size: 36,
-                          iconSize: 23,
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.18),
-                            ),
-                          ),
-                          child: Text(
-                            'Hábitos Focus',
-                            style: TextStyle(
-                              color: foreground,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
                     Text(
-                      '1% mejor hoy',
+                      'Hábitos de hoy',
                       style: theme.textTheme.headlineSmall?.copyWith(
-                        color: foreground,
                         fontWeight: FontWeight.w900,
                         height: 1.05,
                       ),
@@ -489,7 +454,7 @@ class _HabitsHero extends StatelessWidget {
                     Text(
                       '$completedToday de $totalHabits hábitos completados',
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: foreground.withValues(alpha: 0.78),
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -497,15 +462,16 @@ class _HabitsHero extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 96,
-                height: 96,
+                width: 74,
+                height: 74,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 10,
-                      backgroundColor: Colors.white.withValues(alpha: 0.16),
+                      strokeWidth: 8,
+                      backgroundColor: theme.colorScheme.outlineVariant
+                          .withValues(alpha: 0.42),
                       valueColor:
                           const AlwaysStoppedAnimation(FocusPalette.mint),
                     ),
@@ -513,8 +479,8 @@ class _HabitsHero extends StatelessWidget {
                       child: Text(
                         '${(progress * 100).round()}%',
                         style: TextStyle(
-                          color: foreground,
-                          fontSize: 22,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 17,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -524,7 +490,18 @@ class _HabitsHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 8,
+              backgroundColor:
+                  theme.colorScheme.outlineVariant.withValues(alpha: 0.42),
+              valueColor: const AlwaysStoppedAnimation(FocusPalette.mint),
+            ),
+          ),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -559,7 +536,6 @@ class _HabitsHero extends StatelessWidget {
                   label: 'Mejor racha',
                   value: '$bestStreak días',
                   icon: Icons.local_fire_department_rounded,
-                  compactOnDark: true,
                 ),
               ),
               const SizedBox(width: 10),
@@ -568,7 +544,6 @@ class _HabitsHero extends StatelessWidget {
                   label: 'Constancia',
                   value: '${(averageConsistency * 100).round()}%',
                   icon: Icons.insights_rounded,
-                  compactOnDark: true,
                 ),
               ),
             ],
@@ -593,9 +568,9 @@ class _AtomicLawChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
+        color: color.withValues(alpha: 0.09),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: color.withValues(alpha: 0.14)),
       ),
@@ -622,45 +597,36 @@ class _HeroMetric extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
-  final bool compactOnDark;
 
   const _HeroMetric({
     required this.label,
     required this.value,
     required this.icon,
-    this.compactOnDark = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final onGradient = compactOnDark;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: onGradient
-            ? Colors.white.withValues(alpha: 0.11)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.58),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
         border: Border.all(
-          color: onGradient
-              ? Colors.white.withValues(alpha: 0.14)
-              : colorScheme.outlineVariant,
+          color: colorScheme.outlineVariant,
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon,
-              color: onGradient ? FocusPalette.mint : colorScheme.primary,
-              size: 20),
-          const SizedBox(height: 8),
+          Icon(icon, color: colorScheme.primary, size: 19),
+          const SizedBox(height: 7),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: onGradient ? Colors.white : colorScheme.onSurface,
+              color: colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -671,9 +637,7 @@ class _HeroMetric extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: onGradient
-                  ? Colors.white.withValues(alpha: 0.72)
-                  : colorScheme.onSurfaceVariant,
+              color: colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -758,185 +722,200 @@ class _HabitCard extends StatelessWidget {
     final last7Days = List.generate(
         7, (index) => DateTime.now().subtract(Duration(days: 6 - index)));
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.035),
-            blurRadius: 14,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FocusMicroPop(
-                    trigger: 'check-${habit.id}-$doneToday',
-                    fromScale: doneToday ? 0.86 : 0.98,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: onToggle,
-                      child: Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(
-                            color: accent.withValues(alpha: 0.22),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: FocusSurfaceCard(
+        padding: EdgeInsets.zero,
+        radius: 22,
+        accent: accent,
+        elevated: false,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onEdit,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    FocusMicroPop(
+                      trigger: 'check-${habit.id}-$doneToday',
+                      fromScale: doneToday ? 0.86 : 0.98,
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: onToggle,
+                        child: Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: doneToday
+                                ? accent
+                                : accent.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: accent.withValues(alpha: 0.34),
+                              width: 1.4,
+                            ),
+                          ),
+                          child: Icon(
+                            doneToday
+                                ? Icons.check_rounded
+                                : Icons.circle_outlined,
+                            color: doneToday ? Colors.white : accent,
+                            size: doneToday ? 20 : 15,
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            habit.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  height: 1.05,
+                                ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            doneToday
+                                ? 'Registrado hoy · ${habit.identity}'
+                                : 'Acción mínima · ${habit.identity}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _HabitStatusRail(
+                      done: doneToday,
+                      color: accent,
+                    ),
+                    PopupMenuButton<String>(
+                      tooltip: 'Opciones',
+                      iconSize: 20,
+                      padding: EdgeInsets.zero,
+                      onSelected: (value) {
+                        if (value == 'edit') onEdit();
+                        if (value == 'delete') onDelete();
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: Text('Editar'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: Text('Eliminar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _HabitChain(last7Days: last7Days, history: habit.history),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _HabitSystemPill(
+                      icon: Icons.local_fire_department_rounded,
+                      label: 'Racha',
+                      value: '${habit.currentStreak}',
+                      color: FocusPalette.primary,
+                    ),
+                    _HabitSystemPill(
+                      icon: Icons.insights_rounded,
+                      label: '30 días',
+                      value: '$monthlyScore%',
+                      color: FocusPalette.mint,
+                    ),
+                    _HabitSystemPill(
+                      icon: Icons.emoji_events_rounded,
+                      label: 'Hoy',
+                      value: doneToday ? 'Hecho' : '+racha',
+                      color: FocusPalette.amber,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FocusMicroPop(
+                  trigger: 'habit-${habit.id}-$doneToday',
+                  fromScale: doneToday ? 0.96 : 0.99,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: onToggle,
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 220),
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(scale: animation, child: child),
                         child: Icon(
                           doneToday
                               ? Icons.check_circle_rounded
                               : Icons.radio_button_unchecked_rounded,
-                          color: accent,
-                          size: 25,
+                          key: ValueKey(doneToday),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          doneToday ? 'Repetición registrada' : 'Acción mínima',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: accent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          habit.name,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          habit.identity,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'edit') onEdit();
-                      if (value == 'delete') onDelete();
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Editar'),
+                      label: Text(
+                        doneToday ? 'Completado hoy' : 'Cumplir ahora',
                       ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Eliminar'),
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(42),
+                        backgroundColor: doneToday
+                            ? FocusPalette.mint
+                            : FocusPalette.primary,
+                        foregroundColor: Colors.white,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _HabitSystemPill(
-                    icon: Icons.visibility_rounded,
-                    label: 'Señal',
-                    value: 'Hoy',
-                    color: FocusPalette.primary,
-                  ),
-                  _HabitSystemPill(
-                    icon: Icons.touch_app_rounded,
-                    label: 'Fácil',
-                    value: '1 vez',
-                    color: FocusPalette.mint,
-                  ),
-                  _HabitSystemPill(
-                    icon: Icons.emoji_events_rounded,
-                    label: 'Recompensa',
-                    value: doneToday ? 'Hecho' : '+racha',
-                    color: FocusPalette.amber,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _MiniStat(
-                      icon: Icons.local_fire_department_rounded,
-                      metricIcon: FocusMetricIconKind.streak,
-                      label: 'Racha',
-                      value: '${habit.currentStreak}'),
-                  const SizedBox(width: 10),
-                  _MiniStat(
-                      icon: Icons.insights_rounded,
-                      label: '30 días',
-                      value: '$monthlyScore%'),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _HabitChain(last7Days: last7Days, history: habit.history),
-              const SizedBox(height: 16),
-              FocusMicroPop(
-                trigger: 'habit-${habit.id}-$doneToday',
-                fromScale: doneToday ? 0.96 : 0.99,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: onToggle,
-                    icon: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      transitionBuilder: (child, animation) =>
-                          ScaleTransition(scale: animation, child: child),
-                      child: Icon(
-                        doneToday
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        key: ValueKey(doneToday),
-                      ),
-                    ),
-                    label: Text(
-                      doneToday ? 'Completado hoy' : 'Cumplir ahora',
-                    ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor:
-                          doneToday ? FocusPalette.mint : FocusPalette.primary,
-                      foregroundColor: Colors.white,
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HabitStatusRail extends StatelessWidget {
+  final bool done;
+  final Color color;
+
+  const _HabitStatusRail({
+    required this.done,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: done ? 'Completado hoy' : 'Pendiente hoy',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 8,
+        height: 36,
+        margin: const EdgeInsets.only(left: 8, right: 4),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: done ? 0.85 : 0.36),
+          borderRadius: BorderRadius.circular(999),
         ),
       ),
     );
@@ -1072,75 +1051,6 @@ class _HabitChain extends StatelessWidget {
                 ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MiniStat extends StatelessWidget {
-  final IconData icon;
-  final FocusMetricIconKind? metricIcon;
-  final String label;
-  final String value;
-
-  const _MiniStat({
-    required this.icon,
-    this.metricIcon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          color: Theme.of(context)
-              .colorScheme
-              .surfaceContainerHighest
-              .withValues(alpha: 0.5),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (metricIcon != null)
-              FocusMetricIcon(
-                kind: metricIcon!,
-                size: 20,
-                color: colorScheme.primary,
-              )
-            else
-              Icon(
-                icon,
-                size: 18,
-                color: colorScheme.primary,
-              ),
-            const SizedBox(height: 8),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colorScheme.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ],
-        ),
       ),
     );
   }

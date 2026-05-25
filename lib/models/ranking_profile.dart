@@ -47,6 +47,8 @@ class RankingProfile {
     stats['totalHabitCompletions'] ??= map['habitCompletions'] ?? 0;
     stats['weeklyMissionCompleted'] ??= false;
     stats['level'] ??= 1;
+    stats['socialMascotIndex'] ??= map['socialMascotIndex'] ?? 0;
+    stats['profileIconAsset'] ??= map['profileIconAsset'] ?? '';
     final favoriteBadge =
         '${map['favoriteBadge'] ?? stats['favoriteBadge'] ?? ''}';
     final featuredBadges = _featuredBadgesFromMap(map, stats, favoriteBadge);

@@ -60,6 +60,18 @@ class RankingService {
   static User? get currentUser => _auth.currentUser;
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  static bool isUserDataActive(Map<String, dynamic>? data) {
+    if (data == null) return false;
+    final status =
+        '${data['accountStatus'] ?? data['status'] ?? ''}'.trim().toLowerCase();
+    return data['isActive'] != false &&
+        data['deletedAt'] == null &&
+        data['disabledAt'] == null &&
+        status != 'disabled' &&
+        status != 'deleted' &&
+        status != 'inactive';
+  }
+
   static Future<void> initializeGoogleSignIn() async {
     if (_googleReady) return;
     debugPrint('[FocusRanking] Inicializando Google Sign-In');
@@ -135,8 +147,8 @@ class RankingService {
     if (uid == null) return Stream.value(null);
     return _firestore.collection('users').doc(uid).snapshots().map((snapshot) {
       final data = snapshot.data();
-      if (data == null) return null;
-      return RankingProfile.fromMap(uid, data);
+      if (!isUserDataActive(data)) return null;
+      return RankingProfile.fromMap(uid, data!);
     });
   }
 
@@ -145,23 +157,42 @@ class RankingService {
     if (uid == null) return null;
     final snapshot = await _firestore.collection('users').doc(uid).get();
     final data = snapshot.data();
-    return data == null ? null : RankingProfile.fromMap(uid, data);
+    return isUserDataActive(data) ? RankingProfile.fromMap(uid, data!) : null;
   }
 
   static Future<RankingProfile?> fetchProfileByUid(String uid) async {
     if (uid.trim().isEmpty) return null;
     final snapshot = await _firestore.collection('users').doc(uid).get();
     final data = snapshot.data();
-    return data == null ? null : RankingProfile.fromMap(uid, data);
+    return isUserDataActive(data) ? RankingProfile.fromMap(uid, data!) : null;
   }
 
   static Future<RankingProfile?> ensureProfile() async {
     final user = currentUser;
     if (user == null) return null;
-    final existing = await fetchProfile();
-    if (existing != null) return existing;
+    try {
+      await user.reload();
+    } on FirebaseAuthException catch (error) {
+      await signOut();
+      throw StateError(
+        error.code == 'user-disabled'
+            ? 'Esta cuenta fue desactivada.'
+            : 'Esta cuenta ya no está disponible.',
+      );
+    }
+    final refreshedUser = currentUser;
+    if (refreshedUser == null) return null;
+
+    final snapshot =
+        await _firestore.collection('users').doc(refreshedUser.uid).get();
+    final data = snapshot.data();
+    if (snapshot.exists && !isUserDataActive(data)) {
+      await signOut();
+      throw StateError('Esta cuenta fue desactivada.');
+    }
+    if (data != null) return RankingProfile.fromMap(refreshedUser.uid, data);
     await saveProfile(
-      name: user.displayName ?? _nameFromEmail(user.email),
+      name: refreshedUser.displayName ?? _nameFromEmail(refreshedUser.email),
       career: 'Sin carrera',
     );
     return fetchProfile();
@@ -187,7 +218,12 @@ class RankingService {
     final currentPoints = await currentWeekPoints(user.uid);
     final rank = rankForPoints(currentPoints);
     final userRef = _firestore.collection('users').doc(user.uid);
-    final exists = (await userRef.get()).exists;
+    final currentSnapshot = await userRef.get();
+    final exists = currentSnapshot.exists;
+    if (exists && !isUserDataActive(currentSnapshot.data())) {
+      await signOut();
+      throw StateError('Esta cuenta fue desactivada.');
+    }
     final friendCode = friendCodeForUid(user.uid);
     await _firestore.collection('users').doc(user.uid).set({
       'name': cleanedName,
@@ -206,6 +242,8 @@ class RankingService {
           .toLowerCase(),
       'university': university,
       'updatedAt': FieldValue.serverTimestamp(),
+      if (!exists) 'isActive': true,
+      if (!exists) 'accountStatus': 'active',
       if (!exists) 'createdAt': FieldValue.serverTimestamp(),
       if (!exists) 'joinedAt': FieldValue.serverTimestamp(),
       'weeklyWeekId': currentWeekId(),
@@ -230,12 +268,26 @@ class RankingService {
     }
     if (mascotIndex != null) {
       payload['stats.socialMascotIndex'] = mascotIndex;
-      final asset = profileIconAsset ?? profileIconAssetFromIndex(mascotIndex);
+    }
+    if (profileIconAsset != null) {
+      final asset = normalizeProfileIconAsset(
+        profileIconAsset,
+        email: user.email,
+        enforceAccess: true,
+      );
+      payload['profileIconAsset'] = asset;
+      payload['stats.profileIconAsset'] = asset;
+    } else if (mascotIndex != null) {
+      final asset = profileIconAssetFromIndex(
+        mascotIndex,
+        email: user.email,
+        enforceAccess: true,
+      );
       payload['profileIconAsset'] = asset;
       payload['stats.profileIconAsset'] = asset;
     }
     await _firestore.collection('users').doc(user.uid).update(payload);
-    if (mascotIndex != null) {
+    if (mascotIndex != null || profileIconAsset != null) {
       try {
         await ensureCurrentWeekScore();
       } catch (error) {
@@ -371,12 +423,18 @@ class RankingService {
     final profileDoc = await _firestore.collection('users').doc(user.uid).get();
     final profile = profileDoc.data();
     if (profile == null) return;
+    if (!isUserDataActive(profile)) {
+      await _currentScoresCollection().doc(user.uid).delete();
+      return;
+    }
     final normalized = _normalizedWeeklyState(profile);
     final currentPoints = normalized.points;
     final currentRank = rankForPoints(currentPoints);
     await _currentScoresCollection().doc(user.uid).set({
       'uid': user.uid,
       'weekId': currentWeekId(),
+      'isActive': true,
+      'accountStatus': 'active',
       'name': profile['name'] ?? user.displayName ?? 'Estudiante Focus',
       'career': profile['career'] ?? 'Sin carrera',
       'university': profile['university'],
@@ -694,7 +752,8 @@ class RankingService {
       final snapshot =
           limit > 0 ? await query.limit(limit).get() : await query.get();
       int position = 0;
-      final entries = snapshot.docs.map((doc) {
+      final entries =
+          snapshot.docs.where((doc) => isUserDataActive(doc.data())).map((doc) {
         position++;
         return RankingEntry.fromMap(
           '${doc.data()['uid'] ?? doc.id}',
@@ -715,6 +774,7 @@ class RankingService {
         limit > 0 ? await query.limit(limit).get() : await query.get();
     int position = 0;
     final entries = snapshot.docs
+        .where((doc) => isUserDataActive(doc.data()))
         .map((doc) => RankingEntry.fromMap(
               doc.id,
               _userMapAsWeeklyScore(doc.data(), doc.id),
@@ -764,7 +824,9 @@ class RankingService {
         .snapshots()
         .map((snapshot) {
       int position = 0;
-      return snapshot.docs.map((doc) {
+      return snapshot.docs
+          .where((doc) => isUserDataActive(doc.data()))
+          .map((doc) {
         position++;
         return RankingEntry.fromMap(
           '${doc.data()['uid'] ?? doc.id}',
@@ -785,7 +847,9 @@ class RankingService {
         .limit(limit)
         .get();
     int position = 0;
-    return snapshot.docs.map((doc) {
+    return snapshot.docs
+        .where((doc) => isUserDataActive(doc.data()))
+        .map((doc) {
       position++;
       return RankingEntry.fromMap(
         '${doc.data()['uid'] ?? doc.id}',
@@ -806,7 +870,9 @@ class RankingService {
         .snapshots()
         .map((snapshot) {
       int position = 0;
-      return snapshot.docs.map((doc) {
+      return snapshot.docs
+          .where((doc) => isUserDataActive(doc.data()))
+          .map((doc) {
         position++;
         return RankingEntry.fromMap(
           '${doc.data()['uid'] ?? doc.id}',
@@ -827,7 +893,9 @@ class RankingService {
         .limit(limit)
         .get();
     int position = 0;
-    return snapshot.docs.map((doc) {
+    return snapshot.docs
+        .where((doc) => isUserDataActive(doc.data()))
+        .map((doc) {
       position++;
       return RankingEntry.fromMap(
         '${doc.data()['uid'] ?? doc.id}',
@@ -849,7 +917,9 @@ class RankingService {
         .snapshots()
         .map((snapshot) {
       int position = 0;
-      return snapshot.docs.map((doc) {
+      return snapshot.docs
+          .where((doc) => isUserDataActive(doc.data()))
+          .map((doc) {
         position++;
         return RankingEntry.fromMap(
           '${doc.data()['uid'] ?? doc.id}',
@@ -885,7 +955,8 @@ class RankingService {
           .collection('users')
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
-      entries.addAll(snapshot.docs.map((doc) {
+      entries.addAll(
+          snapshot.docs.where((doc) => isUserDataActive(doc.data())).map((doc) {
         return RankingEntry.fromMap(
           doc.id,
           _userMapAsWeeklyScore(doc.data(), doc.id),
@@ -1125,6 +1196,8 @@ class RankingService {
     return {
       'uid': uid,
       'weekId': currentWeekId(),
+      'isActive': true,
+      'accountStatus': 'active',
       'name': profile['name'] ?? 'Estudiante Focus',
       'career': profile['career'] ?? 'Sin carrera',
       'university': profile['university'],
@@ -1176,11 +1249,12 @@ class RankingService {
         final profile =
             await _firestore.collection('users').doc(entry.uid).get();
         final data = profile.data();
-        if (data == null) return entry;
-        final stats = data['stats'];
+        if (!isUserDataActive(data)) return null;
+        final activeData = data!;
+        final stats = activeData['stats'];
         final rawIndex = stats is Map
-            ? data['socialMascotIndex'] ?? stats['socialMascotIndex']
-            : data['socialMascotIndex'];
+            ? activeData['socialMascotIndex'] ?? stats['socialMascotIndex']
+            : activeData['socialMascotIndex'];
         return RankingEntry(
           uid: entry.uid,
           name: entry.name,
@@ -1192,7 +1266,7 @@ class RankingService {
           socialMascotIndex:
               int.tryParse('${rawIndex ?? entry.socialMascotIndex}') ??
                   entry.socialMascotIndex,
-          profileIconAsset: _profileIconAssetFromProfile(data),
+          profileIconAsset: _profileIconAssetFromProfile(activeData),
           position: entry.position,
           trend: entry.trend,
           photoUrl: entry.photoUrl,
@@ -1204,7 +1278,7 @@ class RankingService {
           lastPointEvent: entry.lastPointEvent,
         );
       }));
-      return hydrated;
+      return hydrated.whereType<RankingEntry>().toList();
     } catch (error) {
       debugPrint('[FocusRanking] No se pudieron refrescar iconos: $error');
       return entries;

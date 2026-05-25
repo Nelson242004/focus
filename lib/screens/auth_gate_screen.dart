@@ -85,6 +85,9 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const FocusSkeletonScaffold();
             }
+            if (profileSnapshot.hasError) {
+              return widget.requireAccount ? const LoginScreen() : widget.child;
+            }
             return widget.child;
           },
         );

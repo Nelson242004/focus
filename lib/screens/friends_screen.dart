@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
+import '../services/custom_profile_icon_service.dart';
 import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
@@ -24,6 +25,7 @@ import '../widgets/focus_help_button.dart';
 import '../widgets/focus_layered_avatar.dart';
 import '../widgets/focus_metric_icon.dart';
 import '../widgets/focus_profile_mascot.dart';
+import '../widgets/focus_profile_icon_image.dart';
 import '../widgets/focus_public_profile_sheet.dart';
 import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
@@ -44,7 +46,6 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen> {
   final _searchController = TextEditingController();
-  Future<List<RankingProfile>>? _searchFuture;
   late Future<RankingProfile?> _profileFuture;
   Stream<List<RankingProfile>>? _friendsStream;
   int? _lastSyncedLocalStreak;
@@ -60,9 +61,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
     final initialCode = widget.initialFriendCode?.trim();
     if (initialCode != null && initialCode.isNotEmpty) {
       _searchController.text = initialCode;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _search();
-      });
     }
   }
 
@@ -70,12 +68,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _search() {
-    setState(() {
-      _searchFuture = FriendsService.searchUsers(_searchController.text);
-    });
   }
 
   void _syncLocalStatsToProfile(
@@ -259,15 +251,13 @@ class _FriendsScreenState extends State<FriendsScreen> {
                               friends: friends,
                               search: _SearchCard(
                                 controller: _searchController,
-                                searchFuture: _searchFuture,
                                 friends: friends,
-                                onSearch: _search,
                                 onViewProfile: _showFriendProfile,
                                 onPreviewProfile: _showCandidateProfile,
                               ),
                               requests: _RequestsCard(
                                 compact: true,
-                                onChanged: () => setState(() {}),
+                                onChanged: () {},
                               ),
                               list: _FriendsList(
                                 friends: friends,
@@ -372,7 +362,6 @@ class _FriendsScreenState extends State<FriendsScreen> {
       HapticFeedback.selectionClick();
       await FriendsService.sendRequest(profile);
       if (!mounted) return true;
-      setState(() => _searchFuture = null);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: FocusActionSnackContent(
@@ -678,6 +667,11 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                     ),
                     _ProfileIconBadge(
                       option: _profileIcons[_profileIconIndex],
+                      assetOverride: _profileAssetForProfile(
+                        widget.profile,
+                        fallbackIndex: _profileIconIndex,
+                        allowCurrentUserCustom: true,
+                      ),
                       colors: theme.colors,
                       onTap: () => _showProfileIconPicker(context),
                     ),
@@ -730,6 +724,12 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () => _uploadCustomProfileIcon(context),
+                icon: const Icon(Icons.upload_file_rounded),
+                label: const Text('Cargar mi PNG'),
+              ),
+              const SizedBox(height: 14),
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -791,6 +791,28 @@ class _SocialProfileHeaderState extends State<_SocialProfileHeader> {
       ),
     );
   }
+
+  Future<void> _uploadCustomProfileIcon(BuildContext sheetContext) async {
+    try {
+      final bytes = await CustomProfileIconService.pickAndSavePng();
+      if (bytes == null) return;
+      if (!sheetContext.mounted) return;
+      Navigator.pop(sheetContext);
+      await RankingService.updateSocialStyle(
+        profileIconAsset: customProfileIconAsset,
+      );
+      await WidgetSyncService.syncProfileIconAsset(defaultProfileIconAsset);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PNG personalizado guardado.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      );
+    }
+  }
 }
 
 class _DuolingoFriendsHeader extends StatefulWidget {
@@ -831,6 +853,11 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
     final profile = widget.profile;
     final code = RankingService.friendCodeForUid(profile.uid);
     final theme = _socialThemes[_themeIndex];
+    final profileIconAsset = _profileAssetForProfile(
+      profile,
+      fallbackIndex: _profileIconIndex,
+      allowCurrentUserCustom: true,
+    );
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 520),
@@ -932,6 +959,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
                 children: [
                   _ProfileIconBadge(
                     option: _profileIcons[_profileIconIndex],
+                    assetOverride: profileIconAsset,
                     colors: theme.colors,
                     size: 226,
                     onTap: () => _showAvatarBuilder(context),
@@ -1014,6 +1042,22 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
       builder: (context) => _ProfileIconPickerSheet(
         selectedIndex: _profileIconIndex,
         selectedThemeIndex: _themeIndex,
+        onCustomSelected: (themeIndex) async {
+          final previousThemeIndex = _themeIndex;
+          setState(() => _themeIndex = themeIndex);
+          try {
+            await RankingService.updateSocialStyle(
+              themeIndex: themeIndex,
+              profileIconAsset: customProfileIconAsset,
+            );
+            await WidgetSyncService.syncProfileIconAsset(
+                defaultProfileIconAsset);
+          } catch (error) {
+            if (!mounted) return;
+            setState(() => _themeIndex = previousThemeIndex);
+            rethrow;
+          }
+        },
         onSelected: (index, themeIndex) async {
           if (!_isProfileIconAllowed(_profileIcons[index].asset)) {
             ScaffoldMessenger.of(this.context).showSnackBar(
@@ -1727,12 +1771,14 @@ class _SummaryMetric extends StatelessWidget {
 
 class _ProfileIconBadge extends StatelessWidget {
   final _ProfileIconOption option;
+  final String? assetOverride;
   final List<Color> colors;
   final double size;
   final VoidCallback onTap;
 
   const _ProfileIconBadge({
     required this.option,
+    this.assetOverride,
     required this.colors,
     this.size = 118,
     required this.onTap,
@@ -1791,7 +1837,7 @@ class _ProfileIconBadge extends StatelessWidget {
                     ],
                   ),
                   child: _ProfileIconArtwork(
-                    asset: option.asset,
+                    asset: assetOverride ?? option.asset,
                     size: size,
                     animate: true,
                     celebrate: true,
@@ -1921,11 +1967,13 @@ class _ProfileIconPickerSheet extends StatefulWidget {
   final int selectedIndex;
   final int selectedThemeIndex;
   final Future<void> Function(int index, int themeIndex) onSelected;
+  final Future<void> Function(int themeIndex) onCustomSelected;
 
   const _ProfileIconPickerSheet({
     required this.selectedIndex,
     required this.selectedThemeIndex,
     required this.onSelected,
+    required this.onCustomSelected,
   });
 
   @override
@@ -2039,6 +2087,34 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
               ],
             ),
             const SizedBox(height: 14),
+            OutlinedButton.icon(
+              onPressed: _saving
+                  ? null
+                  : () async {
+                      try {
+                        final bytes =
+                            await CustomProfileIconService.pickAndSavePng();
+                        if (bytes == null) return;
+                        setState(() => _saving = true);
+                        await widget.onCustomSelected(_selectedThemeIndex);
+                        if (!context.mounted) return;
+                        Navigator.pop(context);
+                      } catch (error) {
+                        if (!context.mounted) return;
+                        setState(() => _saving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              RankingService.friendlyRankingError(error),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.upload_file_rounded),
+              label: const Text('Cargar PNG propio'),
+            ),
+            const SizedBox(height: 12),
             Container(
               height: 236,
               decoration: BoxDecoration(
@@ -2339,15 +2415,12 @@ class _ProfileIconArtworkState extends State<_ProfileIconArtwork>
                 scale: scale,
                 child: Padding(
                   padding: EdgeInsets.all(widget.size * 0.05),
-                  child: Image.asset(
-                    widget.asset,
+                  child: FocusProfileIconImage(
+                    asset: widget.asset,
+                    width: widget.size,
+                    height: widget.size,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.image_not_supported_rounded,
-                      size: widget.size * 0.36,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
                   ),
                 ),
               ),
@@ -2689,6 +2762,30 @@ List<int> _availableProfileIconIndexes() {
 String _profileIconAssetForDisplay(int index) {
   final safeIndex = _safeIndex(index, _profileIcons.length);
   return _profileIcons[safeIndex].asset;
+}
+
+String _profileAssetForProfile(
+  RankingProfile profile, {
+  int? fallbackIndex,
+  bool allowCurrentUserCustom = false,
+}) {
+  final fallback = _profileIconAssetForDisplay(
+    fallbackIndex ??
+        _safeIndex(profile.stats['socialMascotIndex'], _profileIcons.length),
+  );
+  final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}'.trim();
+  if (rawAsset.isEmpty) return fallback;
+
+  final isCurrentUser = profile.uid == RankingService.currentUser?.uid;
+  final normalized = normalizeProfileIconAsset(
+    rawAsset,
+    email: isCurrentUser ? RankingService.currentUser?.email : null,
+    enforceAccess: isCurrentUser,
+  );
+  if (normalized == customProfileIconAsset) {
+    return allowCurrentUserCustom && isCurrentUser ? normalized : fallback;
+  }
+  return normalized;
 }
 
 Color _profileIconAccent(String asset) {
@@ -3367,38 +3464,64 @@ class _FriendsHubDuoState extends State<_FriendsHubDuo> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               curve: Curves.easeOutCubic,
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: _expanded
-                      ? FocusPalette.primary.withValues(alpha: 0.65)
-                      : FocusPalette.muted.withValues(alpha: 0.35),
-                  width: 2,
+                      ? FocusPalette.primary.withValues(alpha: 0.34)
+                      : Theme.of(context).dividerColor.withValues(alpha: 0.55),
                 ),
                 color: _expanded
                     ? FocusPalette.primary.withValues(alpha: 0.08)
-                    : Colors.transparent,
+                    : Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withValues(alpha: 0.22),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_add_alt_1_rounded, size: 25),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Text(
-                      'AGREGA AMIGOS',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.7,
-                          ),
+                  FocusAssetBadge(
+                    kind: FocusAppIconKind.friends,
+                    fallback: Icons.group_add_rounded,
+                    color: _expanded ? FocusPalette.primary : FocusPalette.teal,
+                    size: 42,
+                    iconSize: 25,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mis amigos',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.friends.isEmpty
+                              ? 'Busca y gestiona solicitudes'
+                              : '${widget.friends.length} amigos agregados',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ],
                     ),
                   ),
                   if (widget.friends.isNotEmpty) ...[
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -3418,6 +3541,12 @@ class _FriendsHubDuoState extends State<_FriendsHubDuo> {
                       ),
                     ),
                   ],
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(Icons.keyboard_arrow_down_rounded),
+                  ),
                 ],
               ),
             ),
@@ -3724,7 +3853,11 @@ class _ProfileIconAvatar extends StatelessWidget {
       profile.stats['socialMascotIndex'],
       _profileIcons.length,
     );
-    final asset = _profileIconAssetForDisplay(index);
+    final asset = _profileAssetForProfile(
+      profile,
+      fallbackIndex: index,
+      allowCurrentUserCustom: true,
+    );
     return SizedBox(
       width: size,
       height: size,
@@ -5296,6 +5429,7 @@ class _RequestTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayName = outgoing ? request.toName : request.fromName;
+    final targetUid = outgoing ? request.toUid : request.fromUid;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () => _openRequestProfile(context),
@@ -5311,7 +5445,7 @@ class _RequestTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            _InitialAvatar(name: displayName),
+            _RequestAvatar(uid: targetUid, fallbackName: displayName),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -5442,6 +5576,30 @@ class _RequestTile extends StatelessWidget {
   }
 }
 
+class _RequestAvatar extends StatelessWidget {
+  final String uid;
+  final String fallbackName;
+
+  const _RequestAvatar({
+    required this.uid,
+    required this.fallbackName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<RankingProfile?>(
+      future: RankingService.fetchProfileByUid(uid),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        if (profile == null) {
+          return _InitialAvatar(name: fallbackName, size: 46);
+        }
+        return _ProfileIconAvatar(profile: profile, size: 46);
+      },
+    );
+  }
+}
+
 class _RequestTabs extends StatelessWidget {
   final bool selectedSent;
   final int incomingCount;
@@ -5556,29 +5714,65 @@ class _RequestTabButton extends StatelessWidget {
   }
 }
 
-class _SearchCard extends StatelessWidget {
+class _SearchCard extends StatefulWidget {
   final TextEditingController controller;
-  final Future<List<RankingProfile>>? searchFuture;
   final List<RankingProfile> friends;
-  final VoidCallback onSearch;
   final Future<void> Function(RankingProfile) onViewProfile;
   final Future<void> Function(RankingProfile, List<RankingProfile>)
       onPreviewProfile;
 
   const _SearchCard({
     required this.controller,
-    required this.searchFuture,
     required this.friends,
-    required this.onSearch,
     required this.onViewProfile,
     required this.onPreviewProfile,
   });
+
+  @override
+  State<_SearchCard> createState() => _SearchCardState();
+}
+
+class _SearchCardState extends State<_SearchCard> {
+  Future<List<RankingProfile>>? _searchFuture;
+  String _lastQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    final initialQuery = widget.controller.text.trim();
+    if (initialQuery.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
+    }
+  }
+
+  void _search() {
+    final query = widget.controller.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _lastQuery = '';
+        _searchFuture = null;
+      });
+      return;
+    }
+    setState(() {
+      _lastQuery = query;
+      _searchFuture = FriendsService.searchUsers(query);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const _PanelTitle(
+          icon: Icons.person_add_alt_1_rounded,
+          title: 'Agregar amigos',
+          subtitle: 'Busca por código, nombre o correo.',
+        ),
+        const SizedBox(height: 12),
         Container(
           padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
           decoration: BoxDecoration(
@@ -5592,7 +5786,7 @@ class _SearchCard extends StatelessWidget {
             children: [
               Expanded(
                 child: TextField(
-                  controller: controller,
+                  controller: widget.controller,
                   textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
                     labelText: 'Código o nombre',
@@ -5603,26 +5797,29 @@ class _SearchCard extends StatelessWidget {
                     focusedBorder: InputBorder.none,
                     isDense: true,
                   ),
-                  onSubmitted: (_) => onSearch(),
+                  onSubmitted: (_) => _search(),
                 ),
               ),
               IconButton.filled(
                 tooltip: 'Buscar',
-                onPressed: onSearch,
+                onPressed: _search,
                 icon: const Icon(Icons.arrow_forward_rounded),
               ),
             ],
           ),
         ),
-        if (searchFuture != null) ...[
+        if (_searchFuture != null) ...[
           const SizedBox(height: 8),
           FutureBuilder<List<RankingProfile>>(
-            future: searchFuture,
+            future: _searchFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const FocusSkeletonColumn(
-                  heights: [64, 64],
-                  spacing: 8,
+                return const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: FocusSkeletonColumn(
+                    heights: [68, 68],
+                    spacing: 8,
+                  ),
                 );
               }
               if (snapshot.hasError) {
@@ -5633,26 +5830,31 @@ class _SearchCard extends StatelessWidget {
               }
               final results = snapshot.data ?? const <RankingProfile>[];
               if (results.isEmpty) {
-                return const _EmptyInline(
+                return _EmptyInline(
                   icon: Icons.person_search_rounded,
-                  text: 'No encontramos ese perfil. Revisa el código.',
+                  text:
+                      'No encontramos "$_lastQuery". Revisa el código o nombre.',
                 );
               }
               return Column(
                 children: results.asMap().entries.map((item) {
                   final profile = item.value;
                   final isFriend =
-                      friends.any((friend) => friend.uid == profile.uid);
+                      widget.friends.any((friend) => friend.uid == profile.uid);
                   return _ProfileReveal(
                     index: item.key,
                     child: _ProfileTile(
                       profile: profile,
-                      onTap: () => onPreviewProfile(profile, friends),
+                      onTap: () =>
+                          widget.onPreviewProfile(profile, widget.friends),
                       trailing: IconButton.filledTonal(
                         tooltip: isFriend ? 'Ver perfil' : 'Ver y agregar',
                         onPressed: () => isFriend
-                            ? onViewProfile(profile)
-                            : onPreviewProfile(profile, friends),
+                            ? widget.onViewProfile(profile)
+                            : widget.onPreviewProfile(
+                                profile,
+                                widget.friends,
+                              ),
                         icon: Icon(
                           isFriend
                               ? Icons.chevron_right_rounded

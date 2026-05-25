@@ -12,6 +12,7 @@ import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
+import '../widgets/focus_profile_icon_image.dart';
 import '../widgets/focus_public_profile_sheet.dart';
 import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
@@ -1482,8 +1483,10 @@ class _RankingProfileIcon extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.all(size * 0.08),
-        child: Image.asset(
-          asset,
+        child: FocusProfileIconImage(
+          width: size,
+          height: size,
+          asset: asset,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
         ),
@@ -1633,11 +1636,16 @@ String _careerLabel(String career) {
 
 String _entryProfileIconAsset(RankingEntry entry) {
   if (entry.profileIconAsset.trim().isNotEmpty) {
-    return normalizeProfileIconAsset(
+    final normalized = normalizeProfileIconAsset(
       entry.profileIconAsset,
       email: RankingService.currentUser?.email,
-      enforceAccess: true,
+      enforceAccess: entry.uid == RankingService.currentUser?.uid,
     );
+    if (normalized == customProfileIconAsset &&
+        entry.uid != RankingService.currentUser?.uid) {
+      return profileIconAssetFromIndex(entry.socialMascotIndex);
+    }
+    return normalized;
   }
   return profileIconAssetFromIndex(
     entry.socialMascotIndex,
@@ -1649,11 +1657,16 @@ String _entryProfileIconAsset(RankingEntry entry) {
 String _profileIconAsset(RankingProfile profile) {
   final rawAsset = '${profile.stats['profileIconAsset'] ?? ''}';
   if (rawAsset.trim().isNotEmpty) {
-    return normalizeProfileIconAsset(
+    final normalized = normalizeProfileIconAsset(
       rawAsset,
       email: RankingService.currentUser?.email,
-      enforceAccess: true,
+      enforceAccess: profile.uid == RankingService.currentUser?.uid,
     );
+    if (normalized == customProfileIconAsset &&
+        profile.uid != RankingService.currentUser?.uid) {
+      return profileIconAssetFromIndex(profile.stats['socialMascotIndex']);
+    }
+    return normalized;
   }
   return profileIconAssetFromIndex(
     profile.stats['socialMascotIndex'],

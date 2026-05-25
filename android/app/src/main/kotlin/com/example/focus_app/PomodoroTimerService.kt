@@ -8,9 +8,9 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
+import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import java.util.concurrent.Executors
@@ -112,12 +112,15 @@ class PomodoroTimerService : Service() {
                 .coerceIn(0, 100)
         }
 
+        val contentView = buildContentView(modeLabel, body, remainingSeconds, progress)
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
-            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setContentTitle("$modeLabel · ${formatTime(remainingSeconds)}")
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setCustomContentView(contentView)
+            .setCustomBigContentView(contentView)
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
             .setSubText(body)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -129,6 +132,35 @@ class PomodoroTimerService : Service() {
             .setProgress(100, progress, false)
             .setColor(if (mode == "focus") 0xFF2563EB.toInt() else 0xFF10B981.toInt())
             .build()
+    }
+
+    private fun buildContentView(
+        modeLabel: String,
+        body: String,
+        remainingSeconds: Int,
+        progress: Int,
+    ): RemoteViews {
+        val compactModeLabel = when (mode) {
+            "longBreak" -> "Largo"
+            "shortBreak" -> "Corto"
+            else -> "Focus"
+        }
+        val modeIcon = when (mode) {
+            "longBreak" -> R.drawable.focus_mascot_break
+            "shortBreak" -> R.drawable.focus_mascot_break
+            else -> R.drawable.focus_mascot_pomodoro
+        }
+        val accentColor = if (mode == "focus") 0xFF2563EB.toInt() else 0xFF10B981.toInt()
+
+        return RemoteViews(packageName, R.layout.notification_pomodoro_timer).apply {
+            setImageViewResource(R.id.pomodoroFocusIcon, R.mipmap.ic_launcher)
+            setTextViewText(R.id.pomodoroTitle, "$modeLabel · ${formatTime(remainingSeconds)}")
+            setTextViewText(R.id.pomodoroBody, body)
+            setProgressBar(R.id.pomodoroProgress, 100, progress, false)
+            setImageViewResource(R.id.pomodoroModeIcon, modeIcon)
+            setTextViewText(R.id.pomodoroModeLabel, compactModeLabel)
+            setTextColor(R.id.pomodoroModeLabel, accentColor)
+        }
     }
 
     private fun createNotificationChannel() {
