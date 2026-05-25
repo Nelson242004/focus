@@ -1,8 +1,106 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models/ranking_profile.dart';
-import '../utils/focus_icon_assets.dart';
 import 'focus_design_system.dart';
+
+class FocusLeagueIcon extends StatelessWidget {
+  final String league;
+  final int? position;
+  final double size;
+  final Color? color;
+  final bool elevated;
+
+  const FocusLeagueIcon({
+    super.key,
+    required this.league,
+    this.position,
+    this.size = 34,
+    this.color,
+    this.elevated = true,
+  });
+
+  const FocusLeagueIcon.position({
+    super.key,
+    required int this.position,
+    this.size = 34,
+    this.color,
+    this.elevated = true,
+  }) : league = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final info = position == null
+        ? LeagueInfo.fromName(league)
+        : _leagueInfoForPosition(position!);
+    final accent = color ?? info.color;
+    final icon = _iconForLeague(info.name, position);
+    final iconSize = size * 0.56;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            accent.withValues(alpha: 0.95),
+            Color.lerp(accent, Colors.black, 0.18)!,
+          ],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.44),
+          width: (size * 0.035).clamp(1.0, 2.0),
+        ),
+        boxShadow: elevated
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.28),
+                  blurRadius: size * 0.26,
+                  offset: Offset(0, size * 0.10),
+                ),
+              ]
+            : null,
+      ),
+      child: Center(
+        child: Icon(
+          icon,
+          size: iconSize,
+          color: Colors.white,
+          shadows: [
+            Shadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 5,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static LeagueInfo _leagueInfoForPosition(int position) {
+    return switch (position) {
+      1 => LeagueInfo.fromName('Oro'),
+      2 => LeagueInfo.fromName('Plata'),
+      3 => LeagueInfo.fromName('Bronce'),
+      _ => LeagueInfo.fromName('Bronce'),
+    };
+  }
+
+  static IconData _iconForLeague(String league, int? position) {
+    if (position == 1) return LucideIcons.crown;
+    if (position == 2) return LucideIcons.medal;
+    if (position == 3) return LucideIcons.shield;
+    return switch (league) {
+      'Oro' => LucideIcons.crown,
+      'Plata' => LucideIcons.medal,
+      _ => LucideIcons.shield,
+    };
+  }
+}
 
 class FocusLeagueBadge extends StatelessWidget {
   final String league;
@@ -32,11 +130,10 @@ class FocusLeagueBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            FocusIconAssets.league(info.name),
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
+          FocusLeagueIcon(
+            league: info.name,
+            size: size,
+            color: info.color,
           ),
           if (showLabel) ...[
             const SizedBox(width: 7),

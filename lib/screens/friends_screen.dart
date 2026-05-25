@@ -14,7 +14,6 @@ import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/badge_assets.dart';
-import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_app_icon.dart';
@@ -1374,7 +1373,11 @@ class _PublicProfileCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 _PublicCardMetric(
                   icon: Icons.emoji_events_rounded,
-                  assetIcon: _rankMedalAsset(profile.rank),
+                  customIcon: FocusLeagueIcon(
+                    league: profile.rank,
+                    size: 18,
+                    elevated: false,
+                  ),
                   label: _leagueLabel(profile.rank),
                 ),
                 const SizedBox(width: 8),
@@ -1425,13 +1428,13 @@ class _PublicProfileCard extends StatelessWidget {
 
 class _PublicCardMetric extends StatelessWidget {
   final IconData icon;
-  final String? assetIcon;
+  final Widget? customIcon;
   final FocusMetricIconKind? metricIcon;
   final String label;
 
   const _PublicCardMetric({
     required this.icon,
-    this.assetIcon,
+    this.customIcon,
     this.metricIcon,
     required this.label,
   });
@@ -1448,15 +1451,10 @@ class _PublicCardMetric extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (metricIcon != null)
+            if (customIcon != null)
+              SizedBox(width: 18, height: 18, child: customIcon)
+            else if (metricIcon != null)
               FocusMetricIcon(kind: metricIcon!, size: 17, color: Colors.white)
-            else if (assetIcon != null)
-              Image.asset(
-                assetIcon!,
-                width: 18,
-                height: 18,
-                fit: BoxFit.contain,
-              )
             else
               Icon(icon, color: Colors.white, size: 16),
             const SizedBox(width: 5),
@@ -1588,7 +1586,11 @@ class _SocialSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryMetric(
                   icon: Icons.emoji_events_rounded,
-                  assetIcon: _rankMedalAsset(profile.rank),
+                  customIcon: FocusLeagueIcon(
+                    league: profile.rank,
+                    size: 26,
+                    elevated: false,
+                  ),
                   iconColor: FocusPalette.cyan,
                   label: 'Liga',
                   value: _leagueLabel(profile.rank),
@@ -1650,7 +1652,7 @@ class _ProfileReveal extends StatelessWidget {
 
 class _SummaryMetric extends StatelessWidget {
   final IconData icon;
-  final String? assetIcon;
+  final Widget? customIcon;
   final FocusMetricIconKind? metricIcon;
   final Color iconColor;
   final String label;
@@ -1659,7 +1661,7 @@ class _SummaryMetric extends StatelessWidget {
 
   const _SummaryMetric({
     required this.icon,
-    this.assetIcon,
+    this.customIcon,
     this.metricIcon,
     required this.iconColor,
     required this.label,
@@ -1678,17 +1680,12 @@ class _SummaryMetric extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (metricIcon != null)
+          if (customIcon != null)
+            SizedBox(width: 26, height: 26, child: customIcon)
+          else if (metricIcon != null)
             FocusMetricIcon(kind: metricIcon!, size: 26, color: iconColor)
-          else if (assetIcon == null)
-            Icon(icon, color: iconColor, size: 26)
           else
-            Image.asset(
-              assetIcon!,
-              width: 26,
-              height: 26,
-              fit: BoxFit.contain,
-            ),
+            Icon(icon, color: iconColor, size: 26),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -2937,10 +2934,6 @@ int _profileBestStreak(RankingProfile profile) {
       _profileStreak(profile);
 }
 
-String _rankMedalAsset(String rank) {
-  return FocusIconAssets.league(rank);
-}
-
 String _leagueLabel(String rank) {
   return switch (rank.trim().toLowerCase()) {
     'oro' || 'diamante' || 'platino' => 'Oro',
@@ -3802,7 +3795,11 @@ class _FocusSummaryGrid extends StatelessWidget {
           ),
           _SummaryItem(
             icon: Icons.emoji_events_rounded,
-            assetIcon: _rankMedalAsset(profile.rank),
+            customIcon: FocusLeagueIcon(
+              league: profile.rank,
+              size: 24,
+              elevated: false,
+            ),
             color: FocusPalette.cyan,
             value: _leagueLabel(profile.rank),
           ),
@@ -4385,14 +4382,14 @@ class _SocialSection extends StatelessWidget {
 
 class _SummaryItem extends StatelessWidget {
   final IconData icon;
-  final String? assetIcon;
+  final Widget? customIcon;
   final FocusMetricIconKind? metricIcon;
   final Color color;
   final String value;
 
   const _SummaryItem({
     required this.icon,
-    this.assetIcon,
+    this.customIcon,
     this.metricIcon,
     required this.color,
     required this.value,
@@ -4409,17 +4406,12 @@ class _SummaryItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (metricIcon != null)
+          if (customIcon != null)
+            SizedBox(width: 24, height: 24, child: customIcon)
+          else if (metricIcon != null)
             FocusMetricIcon(kind: metricIcon!, size: 24, color: color)
-          else if (assetIcon == null)
-            Icon(icon, color: color)
           else
-            Image.asset(
-              assetIcon!,
-              width: 24,
-              height: 24,
-              fit: BoxFit.contain,
-            ),
+            Icon(icon, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Text(

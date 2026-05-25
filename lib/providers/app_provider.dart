@@ -14,7 +14,6 @@ import '../services/notification_service.dart';
 import '../services/firebase_user_data_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/app_utils.dart';
-import '../utils/resource_catalog.dart';
 
 class UpcomingScheduleEntry {
   final Schedule schedule;
@@ -40,88 +39,7 @@ class AppProvider extends ChangeNotifier {
   bool isLoaded = false;
   Object? lastLoadError;
 
-  static const List<ResourceLink> _defaultResources = [
-    ResourceLink(
-      title: 'Spotify - Playlists para estudiar',
-      url:
-          'https://open.spotify.com/playlist/3qfeW1jkJty0kQLwGouhBS?si=6t1Wi9isQIuH0gpzm0b3bw',
-      category: 'playlist',
-      isDefault: true,
-    ),
-    ResourceLink(
-      title: 'YouTube - LoFi Girl',
-      url: 'https://youtu.be/n2w3VdXRJjw?si=_xgYeoR6cVGo8lIE',
-      category: 'playlist',
-      isDefault: true,
-    ),
-    ResourceLink(
-      title: 'Brain.fm',
-      url: 'https://www.brain.fm/',
-      category: 'playlist',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'Khan Academy',
-      url: 'https://www.khanacademy.org/',
-      category: 'course',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'Coursera',
-      url: 'https://www.coursera.org/',
-      category: 'course',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'edX',
-      url: 'https://www.edx.org/',
-      category: 'course',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'MIT OpenCourseWare',
-      url: 'https://ocw.mit.edu/',
-      category: 'course',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'TikTok-PoliCode',
-      url: 'https://www.tiktok.com/@policode01',
-      category: 'social',
-      isDefault: true,
-    ),
-    ResourceLink(
-      title: 'Instagram',
-      url: 'https://www.instagram.com/nelson_spy?igsh=ZjhyMWJuY2poeGNv',
-      category: 'social',
-      isDefault: true,
-    ),
-    ResourceLink(
-      title: 'Politécnica-Drive',
-      url: 'https://drive.google.com/',
-      category: 'tool',
-      isDefault: true,
-    ),
-    ResourceLink(
-      title: 'Notion',
-      url: 'https://www.notion.so/',
-      category: 'tool',
-      isDefault: false,
-    ),
-    ResourceLink(
-      title: 'Anki',
-      url: 'https://apps.ankiweb.net/',
-      category: 'tool',
-      isDefault: false,
-    ),
-  ];
-
   final db = DatabaseHelper.instance;
-
-  List<ResourceLink> get _catalogResources {
-    final configured = ResourceCatalog.buildVisibleResources(subjects);
-    return configured.isEmpty ? _defaultResources : configured;
-  }
 
   Future<void> loadAllData() async {
     try {
@@ -381,13 +299,12 @@ class AppProvider extends ChangeNotifier {
       return subjectId == null || resource.subjectId == subjectId;
     }
 
-    final defaults = _catalogResources.where(matches);
     final userResources = resources.where(matches);
-    return [...defaults, ...userResources];
+    return [...userResources];
   }
 
   List<ResourceLink> resourcesForSubject(int subjectId) {
-    return [..._catalogResources, ...resources]
+    return resources
         .where((resource) => resource.subjectId == subjectId)
         .toList()
       ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
@@ -737,6 +654,7 @@ class AppProvider extends ChangeNotifier {
     bool? onboardingCompleted,
     String? breakAfterFocus,
     String? userName,
+    bool? showPolytechnicTools,
   }) {
     return AppSettings(
       themeMode: themeMode ?? settings.themeMode,
@@ -766,6 +684,8 @@ class AppProvider extends ChangeNotifier {
       onboardingCompleted: onboardingCompleted ?? settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? settings.breakAfterFocus,
       userName: userName ?? settings.userName,
+      showPolytechnicTools:
+          showPolytechnicTools ?? settings.showPolytechnicTools,
     );
   }
 

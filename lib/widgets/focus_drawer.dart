@@ -9,7 +9,6 @@ import '../screens/exams_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/global_ranking_screen.dart';
 import '../screens/main_navigation_screen.dart';
-import '../screens/polytechnic_screen.dart';
 import '../screens/resources_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/study_tasks_screen.dart';
@@ -102,15 +101,6 @@ class FocusDrawer extends StatelessWidget {
                     label: 'Tareas',
                     selected: selectedRoute == 'tasks',
                     onTap: () => _replace(context, const StudyTasksScreen()),
-                  ),
-                  _tile(
-                    context,
-                    duration: duration,
-                    icon: Icons.school_rounded,
-                    iconKind: FocusAppIconKind.polytechnic,
-                    label: 'Politécnica',
-                    selected: selectedRoute == 'polytechnic',
-                    onTap: () => _replace(context, const PolytechnicScreen()),
                   ),
                   _tile(
                     context,

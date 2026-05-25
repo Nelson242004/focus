@@ -44,14 +44,14 @@ class FocusPalette {
   static const surfaceTint = Color(0xFFF4FBF9);
   static const card = Color(0xFFFFFFFF);
 
-  static const darkInk = Color(0xFF020617);
-  static const darkSurface = Color(0xFF050816);
-  static const darkSurfaceTop = Color(0xFF050816);
-  static const darkSurfaceMid = Color(0xFF07101F);
-  static const darkSurfaceTint = Color(0xFF081421);
-  static const darkCard = Color(0xFF09111F);
-  static const darkCard2 = Color(0xFF0D1B2E);
-  static const darkBorder = Color(0xFF1E293B);
+  static const darkInk = Color(0xFF000000);
+  static const darkSurface = Color(0xFF000000);
+  static const darkSurfaceTop = Color(0xFF000000);
+  static const darkSurfaceMid = Color(0xFF030405);
+  static const darkSurfaceTint = Color(0xFF05080A);
+  static const darkCard = Color(0xFF090C10);
+  static const darkCard2 = Color(0xFF10161D);
+  static const darkBorder = Color(0xFF1B2430);
 
   static const focusGradient = [primaryDeep, primary, cyan];
   static const studyGradient = [ink, primaryDeep, primary];

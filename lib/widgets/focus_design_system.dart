@@ -255,9 +255,9 @@ class FocusCuteCard extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: isDark
               ? [
-                  FocusPalette.darkCard2,
-                  Color.lerp(FocusPalette.darkCard2, accent, 0.24)!,
                   FocusPalette.darkCard,
+                  Color.lerp(FocusPalette.darkCard, accent, 0.08)!,
+                  FocusPalette.darkSurface,
                 ]
               : [
                   Colors.white,
@@ -270,8 +270,8 @@ class FocusCuteCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: accent.withValues(alpha: isDark ? 0.16 : 0.10),
-            blurRadius: 28,
-            offset: const Offset(0, 14),
+            blurRadius: isDark ? 18 : 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),

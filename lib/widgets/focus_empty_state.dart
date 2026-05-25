@@ -160,7 +160,7 @@ class FocusCenteredEmptyState extends StatelessWidget {
         accent: accent,
       ),
     );
-    const alignment = Alignment(0, -0.08);
+    const alignment = Alignment.center;
 
     if (height == null) {
       return LayoutBuilder(

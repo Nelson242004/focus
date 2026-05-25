@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
@@ -66,6 +67,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   String? _lastPomodoroNotificationSignature;
   bool _showingDistractionPrompt = false;
   bool _focusPermissionWarningShown = false;
+  bool _isTogglingFocusMode = false;
 
   Future<void> _updatePomodoroSettings({
     int? focusTime,
@@ -97,6 +99,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       onboardingCompleted: provider.settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? provider.settings.breakAfterFocus,
       userName: provider.settings.userName,
+      showPolytechnicTools: provider.settings.showPolytechnicTools,
     );
     await provider.updateSettings(newSettings, syncNotifications: false);
     if (!mounted) return;
@@ -307,9 +310,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               : 'Descanso iniciado.',
           type: FocusFeedbackType.info,
           icon: _mode == 'focus'
-              ? Icons.self_improvement_rounded
+              ? Icons.play_circle_fill_rounded
               : Icons.spa_rounded,
-          celebration: _mode == 'focus',
         );
       }
     }
@@ -818,46 +820,77 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _toggleFocusModeEnabled(bool value) async {
-    if (value) {
-      var permissionGranted = await _refreshFocusModePermissionState();
-      if (!permissionGranted) {
-        final opened = await _showFocusModePermissionSheet();
-        if (!opened) return;
-        permissionGranted = await _refreshFocusModePermissionState();
-        if (!permissionGranted) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: FocusActionSnackContent(
-                icon: Icons.info_rounded,
-                message:
-                    'Focus no detecta todos los permisos todavía. Puedes seguir usando Pomodoro normal.',
-                color: FocusPalette.amber,
-              ),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+    if (_isTogglingFocusMode) return;
+    setState(() => _isTogglingFocusMode = true);
+    try {
+      var nextBlockedApps = _focusModeConfig.blockedApps;
+      if (value && nextBlockedApps.isEmpty) {
+        final selectedApps =
+            await _openFocusModeSetupForResult(initialApps: nextBlockedApps);
+        if (selectedApps == null || selectedApps.isEmpty) {
+          if (mounted) {
+            showFocusFeedback(
+              context,
+              message: 'Elegí al menos una app para activar el bloqueo.',
+              type: FocusFeedbackType.info,
+              icon: Icons.apps_rounded,
+            );
+          }
           return;
         }
+        nextBlockedApps = selectedApps;
       }
-    }
-    final newConfig =
-        _focusModeConfig.copyWith(enabled: value, protectionLevel: 'strict');
-    await FocusModeService.saveConfig(newConfig);
-    if (!mounted) return;
-    setState(() => _focusModeConfig = newConfig);
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    if (!value) {
-      await _stopFocusModeShield();
-      await NotificationService.cancelPomodoroTimerNotification();
-      if (_isRunning) {
+
+      if (value) {
+        var permissionGranted = await _refreshFocusModePermissionState();
+        if (!permissionGranted) {
+          final opened = await _showFocusModePermissionSheet();
+          if (!opened) return;
+          permissionGranted = await _refreshFocusModePermissionState();
+          if (!permissionGranted) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: FocusActionSnackContent(
+                  icon: Icons.info_rounded,
+                  message:
+                      'Focus no detecta todos los permisos todavía. Puedes seguir usando Pomodoro normal.',
+                  color: FocusPalette.amber,
+                ),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            return;
+          }
+        }
+      }
+      final newConfig = _focusModeConfig.copyWith(
+        enabled: value,
+        blockedApps: nextBlockedApps,
+        protectionLevel: 'strict',
+      );
+      await FocusModeService.saveConfig(newConfig);
+      if (!mounted) return;
+      setState(() => _focusModeConfig = newConfig);
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      if (!value) {
+        await _stopFocusModeShield();
+        await NotificationService.cancelPomodoroTimerNotification();
+        if (_isRunning) {
+          unawaited(_showPomodoroNotification(provider));
+        }
+        return;
+      }
+      if (_isRunning && _mode == 'focus') {
+        await _syncFocusModeShield(provider);
         unawaited(_showPomodoroNotification(provider));
       }
-      return;
-    }
-    if (_isRunning && _mode == 'focus') {
-      await _syncFocusModeShield(provider);
-      unawaited(_showPomodoroNotification(provider));
+    } finally {
+      if (mounted) {
+        setState(() => _isTogglingFocusMode = false);
+      } else {
+        _isTogglingFocusMode = false;
+      }
     }
   }
 
@@ -955,19 +988,32 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _openFocusModeSetup() async {
-    if (!mounted) return;
-    final selectedApps = await Navigator.of(context).push<List<FocusShieldApp>>(
-      MaterialPageRoute(
-        builder: (_) => FocusModeSetupScreen(
-          initiallySelected: _focusModeConfig.blockedApps,
-        ),
-      ),
+    final selectedApps = await _openFocusModeSetupForResult(
+      initialApps: _focusModeConfig.blockedApps,
     );
     if (selectedApps == null) return;
     final newConfig = _focusModeConfig.copyWith(blockedApps: selectedApps);
     await FocusModeService.saveConfig(newConfig);
     if (!mounted) return;
     setState(() => _focusModeConfig = newConfig);
+    if (_isRunning && _mode == 'focus' && newConfig.enabled) {
+      unawaited(_syncFocusModeShield(
+        Provider.of<AppProvider>(context, listen: false),
+      ));
+    }
+  }
+
+  Future<List<FocusShieldApp>?> _openFocusModeSetupForResult({
+    required List<FocusShieldApp> initialApps,
+  }) async {
+    if (!mounted) return null;
+    return Navigator.of(context).push<List<FocusShieldApp>>(
+      MaterialPageRoute(
+        builder: (_) => FocusModeSetupScreen(
+          initiallySelected: initialApps,
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleHorizontalFocusMode() async {
@@ -1007,7 +1053,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
     if (!mounted) return;
     setState(() => _isHorizontalFocusMode = false);
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
 
@@ -1196,8 +1245,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _timerAuraController.dispose();
     _audioPlayer.dispose();
     WidgetsBinding.instance.removeObserver(this);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    unawaited(
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.manual,
+        overlays: SystemUiOverlay.values,
+      ),
+    );
+    unawaited(
+      SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]),
+    );
     super.dispose();
   }
 
@@ -1205,7 +1261,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
     final subjects = provider.subjects;
-    final totalSeconds = _totalSecondsForMode(provider);
 
     if (_isLoading) {
       return const FocusSkeletonList(
@@ -1215,24 +1270,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themePalette = _themePalette();
-    final progress =
-        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final compact = MediaQuery.of(context).size.width < 390;
+    final modeTitle = _currentModeTitle();
 
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            if (isDark) ...[
-              const Color(0xFF000000),
-              const Color(0xFF020617),
-              const Color(0xFF000000),
-            ] else ...[
-              themePalette.backgroundStart,
-              themePalette.backgroundMiddle,
-              themePalette.backgroundEnd,
-            ],
-          ],
+          colors: _screenGradientColors(isDark, themePalette),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1253,30 +1297,22 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     children: [
                       AnimatedSwitcher(
                         duration: const Duration(milliseconds: 220),
-                        child: Icon(
-                          _isRunning
-                              ? Icons.center_focus_strong_rounded
-                              : _mode == 'focus'
-                                  ? Icons.self_improvement_rounded
-                                  : Icons.spa_rounded,
+                        child: FocusAssetBadge(
+                          kind: FocusAppIconKind.pomodoro,
                           key: ValueKey(
                               'pomodoro-title-icon-$_isRunning-$_mode'),
-                          color: _mode == 'focus'
-                              ? FocusPalette.primary
-                              : themePalette.accent,
-                          size: 24,
+                          color: themePalette.accent,
+                          size: 36,
+                          iconSize: 22,
+                          fallback: _mode == 'focus'
+                              ? Icons.psychology_alt_rounded
+                              : Icons.spa_rounded,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _isRunning
-                              ? 'Modo sesión'
-                              : _mode == 'focus'
-                                  ? 'Concentrarse ahora'
-                                  : _mode == 'shortBreak'
-                                      ? 'Descanso breve'
-                                      : 'Descanso largo',
+                          _isRunning ? modeTitle : _idleModeTitle(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
@@ -1285,7 +1321,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
                       ),
-                      if (!_isRunning)
+                      if (_isRunning)
+                        IconButton.filledTonal(
+                          tooltip: 'Voltear pantalla',
+                          onPressed: _toggleHorizontalFocusMode,
+                          icon: const Icon(Icons.screen_rotation_alt_rounded),
+                        )
+                      else
                         IconButton(
                           tooltip: 'Ajustes de Pomodoro',
                           onPressed: () => _showPomodoroSettingsSheet(provider),
@@ -1306,17 +1348,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 blockedApps: _focusModeConfig.enabled
                                     ? _focusModeConfig.blockedApps.length
                                     : 0,
-                                shieldActive: _focusModeStatus.active,
-                                accent: themePalette.accent,
-                              ),
-                              FocusGap.sm,
-                              _ImmersiveSessionBrief(
-                                mode: _mode,
-                                subject: _selectedSubject.trim().isEmpty
-                                    ? 'General'
-                                    : _selectedSubject.trim(),
-                                blockedAttempts:
-                                    _focusModeStatus.blockedAttempts,
                                 shieldActive: _focusModeStatus.active,
                                 accent: themePalette.accent,
                               ),
@@ -1372,51 +1403,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               animation: _timerAuraController,
                               builder: (context, child) {
                                 final value = _timerAuraController.value;
-                                final pulse = _isRunning
-                                    ? (0.5 - (value - 0.5).abs())
-                                    : 0.0;
-                                return Transform.rotate(
-                                  angle: _isRunning ? value * 6.28318 : 0,
-                                  child: Transform.scale(
-                                    scale: 1 + (pulse * 0.045),
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        gradient: SweepGradient(
-                                          colors: [
-                                            themePalette.accent
-                                                .withValues(alpha: 0.06),
-                                            themePalette.accent.withValues(
-                                              alpha: _isRunning ? 0.22 : 0.09,
-                                            ),
-                                            FocusPalette.amber.withValues(
-                                              alpha: _isRunning ? 0.18 : 0.06,
-                                            ),
-                                            themePalette.accent
-                                                .withValues(alpha: 0.06),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                                return CustomPaint(
+                                  painter: _ImmersiveTimerAuraPainter(
+                                    animation: value,
+                                    active: _isRunning,
+                                    isDark: isDark,
+                                    accent: themePalette.accent,
+                                    secondary: themePalette.accentSecondary,
                                   ),
                                 );
                               },
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: CircularProgressIndicator(
-                              value: progress,
-                              strokeWidth: 13,
-                              strokeCap: StrokeCap.round,
-                              backgroundColor:
-                                  themePalette.accent.withValues(alpha: 0.10),
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                isDark
-                                    ? themePalette.accent
-                                    : themePalette.accent
-                                        .withValues(alpha: 0.82),
-                              ),
                             ),
                           ),
                           Container(
@@ -1433,22 +1429,25 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: isDark
-                                  ? const Color(0xFF020617)
+                                  ? FocusPalette.darkCard
                                   : Theme.of(context).cardColor,
                               border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withValues(alpha: 0.08)
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .outlineVariant
-                                        .withValues(alpha: 0.36),
+                                color: themePalette.accent.withValues(
+                                  alpha: _isRunning
+                                      ? (isDark ? 0.26 : 0.20)
+                                      : (isDark ? 0.08 : 0.16),
+                                ),
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: themePalette.accent.withValues(
-                                    alpha: isDark ? 0.18 : 0.08,
+                                    alpha: _isRunning
+                                        ? (isDark ? 0.24 : 0.13)
+                                        : (isDark ? 0.18 : 0.08),
                                   ),
-                                  blurRadius: isDark ? 30 : 20,
+                                  blurRadius: _isRunning
+                                      ? (isDark ? 38 : 28)
+                                      : (isDark ? 30 : 20),
                                   offset: const Offset(0, 10),
                                 ),
                               ],
@@ -1500,12 +1499,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.lg,
-                  if (!_isRunning &&
-                      _mode == 'focus' &&
-                      subjects.isNotEmpty) ...[
-                    _subjectSelector(provider, subjects),
-                    FocusGap.md,
-                  ],
                   FocusMicroPop(
                     trigger: 'pomodoro-button-$_isRunning-$_mode',
                     fromScale: 0.97,
@@ -1544,6 +1537,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.sm,
+                  if (!_isRunning && _mode == 'focus') ...[
+                    _subjectSelector(provider, subjects),
+                    FocusGap.sm,
+                  ],
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
                     child: _isRunning
@@ -1573,19 +1570,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 onPressed: _resetTimer,
                                 icon: const Icon(Icons.refresh_rounded),
                                 label: const Text('Reiniciar'),
-                              ),
-                              FilledButton.tonalIcon(
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 14,
-                                  ),
-                                ),
-                                onPressed: _toggleHorizontalFocusMode,
-                                icon: const Icon(
-                                  Icons.stay_current_landscape_rounded,
-                                ),
-                                label: const Text('Horizontal'),
                               ),
                             ],
                           ),
@@ -1619,6 +1603,41 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ),
       ),
     );
+  }
+
+  List<Color> _screenGradientColors(
+    bool isDark,
+    _PomodoroPalette themePalette,
+  ) {
+    return isDark
+        ? [
+            FocusPalette.darkSurfaceTop,
+            FocusPalette.darkSurfaceMid,
+            FocusPalette.darkSurfaceTint,
+          ]
+        : [
+            themePalette.backgroundStart,
+            themePalette.backgroundMiddle,
+            themePalette.backgroundEnd,
+          ];
+  }
+
+  String _idleModeTitle() {
+    return switch (_mode) {
+      'focus' => 'Concentrarse ahora',
+      'shortBreak' => 'Descanso breve',
+      'longBreak' => 'Descanso largo',
+      _ => 'Pomodoro',
+    };
+  }
+
+  String _currentModeTitle() {
+    return switch (_mode) {
+      'focus' => 'Enfoque',
+      'shortBreak' => 'Descanso corto',
+      'longBreak' => 'Descanso largo',
+      _ => 'Pomodoro',
+    };
   }
 
   Future<void> _showPomodoroSettingsSheet(AppProvider provider) async {
@@ -1745,16 +1764,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     bool immersive = false,
   }) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final themePalette = _themePalette();
     return Container(
       decoration: BoxDecoration(
         color: immersive ? null : theme.cardColor,
         gradient: immersive
             ? LinearGradient(
-                colors: [
-                  FocusPalette.primaryDeep.withValues(alpha: 0.92),
-                  FocusPalette.primary.withValues(alpha: 0.72),
-                  FocusPalette.teal.withValues(alpha: 0.78),
-                ],
+                colors: _immersiveCardColors(isDark, themePalette),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
@@ -1768,26 +1785,62 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         boxShadow: [
           BoxShadow(
             color: immersive
-                ? FocusPalette.primaryDeep.withValues(alpha: 0.22)
+                ? (isDark ? FocusPalette.cyan : FocusPalette.primaryDeep)
+                    .withValues(alpha: isDark ? 0.16 : 0.24)
                 : Colors.black.withValues(alpha: 0.04),
-            blurRadius: immersive ? 26 : 16,
-            offset: const Offset(0, 8),
+            blurRadius: immersive ? 34 : 16,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Padding(
         padding: padding,
-        child: immersive
-            ? IconTheme.merge(
-                data: const IconThemeData(color: Colors.white),
-                child: DefaultTextStyle.merge(
-                  style: const TextStyle(color: Colors.white),
-                  child: child,
-                ),
-              )
-            : child,
+        child: child,
       ),
     );
+  }
+
+  List<Color> _immersiveCardColors(
+    bool isDark,
+    _PomodoroPalette themePalette,
+  ) {
+    if (_mode == 'shortBreak') {
+      return isDark
+          ? [
+              Color.lerp(FocusPalette.darkCard, FocusPalette.mint, 0.08)!,
+              FocusPalette.darkCard,
+              Color.lerp(FocusPalette.darkCard2, FocusPalette.mint, 0.10)!,
+            ]
+          : [
+              Color.lerp(Colors.white, FocusPalette.mint, 0.18)!,
+              Color.lerp(Colors.white, FocusPalette.cyan, 0.10)!,
+              Colors.white,
+            ];
+    }
+    if (_mode == 'longBreak') {
+      return isDark
+          ? [
+              Color.lerp(FocusPalette.darkCard, FocusPalette.amber, 0.10)!,
+              FocusPalette.darkCard,
+              Color.lerp(FocusPalette.darkCard2, FocusPalette.amber, 0.12)!,
+            ]
+          : [
+              Color.lerp(Colors.white, FocusPalette.amber, 0.18)!,
+              Color.lerp(Colors.white, FocusPalette.mint, 0.10)!,
+              Colors.white,
+            ];
+    }
+    return isDark
+        ? [
+            Color.lerp(FocusPalette.darkCard, FocusPalette.teal, 0.12)!,
+            FocusPalette.darkCard,
+            Color.lerp(FocusPalette.darkCard2, FocusPalette.cyan, 0.10)!,
+          ]
+        : [
+            Color.lerp(Colors.white, FocusPalette.teal, 0.16)!,
+            Color.lerp(Colors.white, FocusPalette.cyan, 0.12)!,
+            Colors.white,
+          ];
   }
 
   Widget _subjectSelector(AppProvider provider, List<Subject> subjects) {
@@ -1822,6 +1875,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         setState(() => _selectedSubject = value ?? '');
         if (_isRunning) {
           unawaited(_showPomodoroNotification(provider));
+          unawaited(_syncPomodoroWidget(provider, force: true));
+          if (_mode == 'focus') {
+            unawaited(_syncFocusModeShield(provider));
+            unawaited(
+              RankingService.updatePresence(
+                status: 'pomodoro',
+                subject: _activeSubjectName(provider),
+              ),
+            );
+          }
         }
         _persistState();
       },
@@ -1873,7 +1936,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               ),
               Switch(
                 value: isEnabled,
-                onChanged: _toggleFocusModeEnabled,
+                onChanged:
+                    _isTogglingFocusMode ? null : _toggleFocusModeEnabled,
               ),
             ],
           ),
@@ -2018,72 +2082,117 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 }
 
-class _ImmersiveSessionBrief extends StatelessWidget {
-  final String mode;
-  final String subject;
-  final int blockedAttempts;
-  final bool shieldActive;
+class _ImmersiveTimerAuraPainter extends CustomPainter {
+  final double animation;
+  final bool active;
+  final bool isDark;
   final Color accent;
+  final Color secondary;
 
-  const _ImmersiveSessionBrief({
-    required this.mode,
-    required this.subject,
-    required this.blockedAttempts,
-    required this.shieldActive,
+  const _ImmersiveTimerAuraPainter({
+    required this.animation,
+    required this.active,
+    required this.isDark,
     required this.accent,
+    required this.secondary,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final isFocus = mode == 'focus';
-    return FocusSurfaceCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      radius: FocusRadii.card,
-      accent: accent,
-      elevated: false,
-      child: Row(
-        children: [
-          FocusIconBadge(
-            icon: isFocus ? Icons.psychology_alt_rounded : Icons.spa_rounded,
-            color: accent,
-            size: 38,
-            iconSize: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isFocus ? 'Protegiendo tu enfoque' : 'Recuperando energía',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  isFocus
-                      ? '$subject · $blockedAttempts intentos evitados'
-                      : 'Descanso activo · vuelve suave al foco',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: FocusTypography.helper(context),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          FocusPill(
-            icon: shieldActive ? Icons.shield_rounded : Icons.timer_rounded,
-            label: shieldActive ? 'Blindado' : 'Activo',
-            color: shieldActive ? FocusPalette.teal : accent,
-            selected: true,
-          ),
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final shortest = math.min(size.width, size.height);
+    final outerRadius = shortest / 2 - 4;
+    final pulse =
+        active ? (0.5 + math.sin(animation * math.pi * 2) * 0.5) : 0.0;
+
+    final glowRect = Rect.fromCircle(center: center, radius: outerRadius);
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          accent.withValues(alpha: active ? 0.30 : 0.12),
+          secondary.withValues(alpha: active ? 0.18 : 0.07),
+          Colors.transparent,
         ],
-      ),
-    );
+        stops: const [0.28, 0.62, 1],
+      ).createShader(glowRect);
+    canvas.drawCircle(center, outerRadius, glowPaint);
+
+    final baseRingPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = active ? 1.8 : 1.2
+      ..color = accent.withValues(alpha: active ? 0.24 : 0.10);
+    canvas.drawCircle(center, outerRadius - 10, baseRingPaint);
+    canvas.drawCircle(center, outerRadius - 34, baseRingPaint);
+
+    final auraRect = Rect.fromCircle(center: center, radius: outerRadius - 18);
+    final auraPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = active ? 11.0 : 6.0
+      ..shader = SweepGradient(
+        colors: [
+          accent.withValues(alpha: active ? 0.10 : 0.05),
+          secondary.withValues(alpha: active ? 0.82 : 0.26),
+          FocusPalette.amber.withValues(alpha: active ? 0.66 : 0.18),
+          accent.withValues(alpha: active ? 0.96 : 0.34),
+          accent.withValues(alpha: active ? 0.10 : 0.05),
+        ],
+        stops: const [0.0, 0.34, 0.54, 0.78, 1.0],
+        transform: GradientRotation(animation * math.pi * 2),
+      ).createShader(auraRect)
+      ..maskFilter = MaskFilter.blur(
+        BlurStyle.normal,
+        active ? 1.6 + pulse * 0.9 : 1.0,
+      );
+    canvas.drawCircle(center, outerRadius - 18, auraPaint);
+
+    if (!active) return;
+
+    final orbitRect = Rect.fromCircle(center: center, radius: outerRadius - 4);
+    final orbitPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 9 + pulse * 1.6
+      ..shader = SweepGradient(
+        colors: [
+          Colors.transparent,
+          accent.withValues(alpha: 0.16),
+          secondary.withValues(alpha: 0.92),
+          FocusPalette.amber.withValues(alpha: 0.72),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.34, 0.50, 0.62, 1.0],
+        transform: GradientRotation(animation * math.pi * 2),
+      ).createShader(orbitRect)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.8 + pulse * 1.2);
+    canvas.drawCircle(center, outerRadius - 4, orbitPaint);
+
+    final innerOrbitRect =
+        Rect.fromCircle(center: center, radius: outerRadius - 42);
+    final innerOrbitPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 3.2
+      ..shader = SweepGradient(
+        colors: [
+          Colors.transparent,
+          Colors.white.withValues(alpha: isDark ? 0.48 : 0.34),
+          accent.withValues(alpha: 0.62),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.42, 0.58, 1.0],
+        transform: GradientRotation(-animation * math.pi * 2),
+      ).createShader(innerOrbitRect);
+    canvas.drawCircle(center, outerRadius - 42, innerOrbitPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ImmersiveTimerAuraPainter oldDelegate) {
+    return oldDelegate.animation != animation ||
+        oldDelegate.active != active ||
+        oldDelegate.isDark != isDark ||
+        oldDelegate.accent != accent ||
+        oldDelegate.secondary != secondary;
   }
 }
 

@@ -30,6 +30,7 @@ class AppSettings {
   bool onboardingCompleted;
   String breakAfterFocus;
   String userName;
+  bool showPolytechnicTools;
 
   AppSettings({
     this.themeMode = ThemeModeSetting.light,
@@ -55,6 +56,7 @@ class AppSettings {
     this.onboardingCompleted = false,
     this.breakAfterFocus = 'auto',
     this.userName = '',
+    this.showPolytechnicTools = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -81,6 +83,7 @@ class AppSettings {
       'onboardingCompleted': onboardingCompleted,
       'breakAfterFocus': breakAfterFocus,
       'userName': userName,
+      'showPolytechnicTools': showPolytechnicTools,
     };
   }
 
@@ -119,6 +122,8 @@ class AppSettings {
           _boolFromMap(map['onboardingCompleted'], fallback: false),
       breakAfterFocus: '${map['breakAfterFocus'] ?? 'auto'}',
       userName: '${map['userName'] ?? ''}',
+      showPolytechnicTools:
+          _boolFromMap(map['showPolytechnicTools'], fallback: false),
     );
   }
 

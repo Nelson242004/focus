@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -206,7 +206,7 @@ class NotificationService {
         android: AndroidNotificationDetails(
           _pomodoroChannelId,
           _pomodoroChannelName,
-          icon: '@mipmap/ic_launcher',
+          icon: 'ic_stat_focus',
           largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
           channelDescription: _pomodoroChannelDescription,
           importance: Importance.high,
@@ -350,4 +350,3 @@ class NotificationService {
     await _plugin.cancel(id: examId * 10 + 3);
   }
 }
-

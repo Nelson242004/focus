@@ -3,11 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../models/ranking_profile.dart';
 import '../services/ranking_service.dart';
-import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import 'focus_design_system.dart';
 import 'focus_metric_icon.dart';
+import 'focus_social_components.dart';
 
 class FocusPublicProfileSheet extends StatefulWidget {
   final RankingProfile profile;
@@ -162,9 +162,10 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
                               ),
                             ],
                           ),
-                          child: Image.asset(
-                            FocusIconAssets.league(profile.rank),
-                            fit: BoxFit.contain,
+                          child: FocusLeagueIcon(
+                            league: profile.rank,
+                            size: 38,
+                            elevated: false,
                           ),
                         ),
                       ),
@@ -238,7 +239,11 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
                 const SizedBox(width: 10),
                 _PublicMetricCard(
                   icon: Icons.emoji_events_rounded,
-                  assetIcon: FocusIconAssets.league(profile.rank),
+                  customIcon: FocusLeagueIcon(
+                    league: profile.rank,
+                    size: 24,
+                    elevated: false,
+                  ),
                   label: 'Liga',
                   value: league,
                   color: accent,
@@ -461,7 +466,7 @@ class _PublicSocialStatus extends StatelessWidget {
 
 class _PublicMetricCard extends StatelessWidget {
   final IconData icon;
-  final String? assetIcon;
+  final Widget? customIcon;
   final FocusMetricIconKind? metricIcon;
   final String label;
   final String value;
@@ -469,7 +474,7 @@ class _PublicMetricCard extends StatelessWidget {
 
   const _PublicMetricCard({
     required this.icon,
-    this.assetIcon,
+    this.customIcon,
     this.metricIcon,
     required this.label,
     required this.value,
@@ -486,13 +491,8 @@ class _PublicMetricCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (assetIcon != null)
-              Image.asset(
-                assetIcon!,
-                width: 24,
-                height: 24,
-                fit: BoxFit.contain,
-              )
+            if (customIcon != null)
+              SizedBox(width: 24, height: 24, child: customIcon)
             else if (metricIcon != null)
               FocusMetricIcon(kind: metricIcon!, size: 22, color: color)
             else

@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
@@ -148,7 +149,8 @@ class FocusShieldService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_SESSION)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_stat_focus)
+            .setLargeIcon(BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher))
             .setContentTitle("Enfoque · ${formatTime(remainingSeconds)}")
             .setContentText(subject)
             .setStyle(NotificationCompat.BigTextStyle().bigText(subject))

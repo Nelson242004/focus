@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_app_icon.dart';
+import '../widgets/focus_help_button.dart';
 import '../widgets/focus_main_navigation_scope.dart';
 import 'achievements_screen.dart';
 import 'dashboard_screen.dart';
@@ -13,7 +14,6 @@ import 'friends_screen.dart';
 import 'global_ranking_screen.dart';
 import 'habits_screen.dart';
 import 'pomodoro_screen.dart';
-import 'polytechnic_screen.dart';
 import 'resources_screen.dart';
 import 'settings_screen.dart';
 import 'study_tasks_screen.dart';
@@ -40,7 +40,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     HabitsScreen(showAppBar: false),
     ExamsScreen(showAppBar: false),
     StudyTasksScreen(showAppBar: false),
-    PolytechnicScreen(showAppBar: false),
     ResourcesScreen(showAppBar: false),
     GlobalRankingScreen(showAppBar: false),
     FriendsScreen(showAppBar: false),
@@ -60,12 +59,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           'habits' => 3,
           'exams' => 4,
           'tasks' => 5,
-          'polytechnic' => 6,
-          'resources' => 7,
-          'ranking' => 8,
-          'friends' => 9,
-          'achievements' => 10,
-          'settings' => 11,
+          'polytechnic' => 0,
+          'resources' => 6,
+          'ranking' => 7,
+          'friends' => 8,
+          'achievements' => 9,
+          'settings' => 10,
           _ => 0,
         };
     if (_selectedIndex >= _screens.length) _selectedIndex = 0;
@@ -86,22 +85,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       appBar: AppBar(
         title: const Text('Focus'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Tooltip(
-              message: 'Configuración',
-              child: IconButton(
-                icon: FocusAppIcon(
-                  kind: FocusAppIconKind.settings,
-                  size: 30,
-                  fallback: Icons.settings_rounded,
-                  fallbackColor: _selectedIndex == 11
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                ),
-                onPressed: () => _selectTab(11),
-              ),
-            ),
+          _MainAppBarAction(
+            index: _selectedIndex,
+            openSettings: () => _selectTab(10),
           ),
         ],
       ),
@@ -158,6 +144,209 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 }
 
+class _MainAppBarAction extends StatelessWidget {
+  final int index;
+  final VoidCallback openSettings;
+
+  const _MainAppBarAction({
+    required this.index,
+    required this.openSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (index == 0) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Tooltip(
+          message: 'Configuración',
+          child: IconButton(
+            icon: const FocusAppIcon(
+              kind: FocusAppIconKind.settings,
+              size: 30,
+              fallback: Icons.settings_rounded,
+            ),
+            onPressed: openSettings,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: _helpForIndex(index),
+    );
+  }
+
+  Widget _helpForIndex(int index) {
+    return switch (index) {
+      1 => const FocusHelpAction(
+          title: 'Ayuda de Pomodoro',
+          message: 'Inicia sesiones de enfoque y mantén claro tu progreso.',
+          sections: [
+            FocusHelpSection(
+              title: 'Cómo usarlo',
+              items: [
+                'Elige una materia si quieres asociar la sesión.',
+                'Inicia el Pomodoro y evita salir de tu objetivo.',
+                'Al terminar, Focus guarda la sesión y suma puntos válidos.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Modo Enfoque Total',
+              items: [
+                'Activa el bloqueo antes de empezar si quieres proteger tu sesión.',
+                'Las apps seleccionadas se bloquean mientras el Pomodoro está activo.',
+                'Si algo falla, revisa permisos desde Configuración.',
+              ],
+            ),
+          ],
+        ),
+      2 => const FocusHelpAction(
+          title: 'Ayuda de Materias',
+          message: 'Organiza tus clases, horarios y detalles académicos.',
+          sections: [
+            FocusHelpSection(
+              title: 'Materias',
+              items: [
+                'Agrega tus materias desde el botón inferior derecho.',
+                'Puedes ordenar por día y revisar detalles en el desplegable.',
+                'Mantén aula, profesor y horarios actualizados para el dashboard.',
+              ],
+            ),
+          ],
+        ),
+      3 => const FocusHelpAction(
+          title: 'Ayuda de Hábitos',
+          message: 'Crea rutinas pequeñas que sumen progreso real.',
+          sections: [
+            FocusHelpSection(
+              title: 'Hábitos válidos',
+              items: [
+                'Completa hábitos reales del día, no acciones repetidas para sumar puntos.',
+                'Focus limita abusos para que el ranking sea más justo.',
+                'Usa pocos hábitos importantes para mantener claridad.',
+              ],
+            ),
+          ],
+        ),
+      4 => const FocusHelpAction(
+          title: 'Ayuda de Exámenes',
+          message:
+              'Carga tus próximas evaluaciones y mantén el dashboard útil.',
+          sections: [
+            FocusHelpSection(
+              title: 'Exámenes',
+              items: [
+                'Agrega fecha, hora, aula y materia.',
+                'Los exámenes cercanos aparecen en el dashboard y widget.',
+                'Elimina o edita evaluaciones cuando cambie la planificación.',
+              ],
+            ),
+          ],
+        ),
+      5 => const FocusHelpAction(
+          title: 'Ayuda de Tareas',
+          message: 'Usa tareas para pendientes rápidos de estudio.',
+          sections: [
+            FocusHelpSection(
+              title: 'Tareas',
+              items: [
+                'Crea tareas concretas y cortas.',
+                'Marca completadas las que ya resolviste.',
+                'Mantén esta lista limpia para no saturar tu planificación.',
+              ],
+            ),
+          ],
+        ),
+      6 => const FocusHelpAction(
+          title: 'Ayuda de Recursos',
+          message: 'Encuentra enlaces útiles sin llenar la pantalla.',
+          sections: [
+            FocusHelpSection(
+              title: 'Recursos',
+              items: [
+                'Usa el filtro desplegable para buscar por categoría.',
+                'Abre recursos externos solo cuando los necesites.',
+                'Puedes sugerir recursos para mejorar la lista.',
+              ],
+            ),
+          ],
+        ),
+      7 => const FocusHelpAction(
+          title: 'Ayuda de Ranking',
+          message: 'El ranking global se basa en puntos válidos.',
+          sections: [
+            FocusHelpSection(
+              title: 'Reglas',
+              items: [
+                'Cuentan principalmente Pomodoros válidos, hábitos y logros.',
+                'Las ligas se distribuyen por porcentaje de usuarios: oro, plata y bronce.',
+                'El ranking se actualiza periódicamente desde Firebase.',
+                'Oro es el top 10%, Plata llega hasta el top 35% y Bronce es el resto.',
+                'Focus limita acciones repetidas para mantener el ranking justo.',
+              ],
+            ),
+          ],
+        ),
+      8 => const FocusHelpAction(
+          title: 'Ayuda de Perfil y Amigos',
+          message: 'Administra tu perfil social y tus conexiones.',
+          sections: [
+            FocusHelpSection(
+              title: 'Amigos',
+              items: [
+                'Busca usuarios por código o enlace de invitación.',
+                'Envía solicitudes y espera que la otra persona acepte.',
+                'Puedes ver perfiles y eliminar amigos desde su perfil.',
+              ],
+            ),
+          ],
+        ),
+      9 => const FocusHelpAction(
+          title: 'Ayuda de Logros',
+          message: 'Tus insignias muestran avances importantes.',
+          sections: [
+            FocusHelpSection(
+              title: 'Logros',
+              items: [
+                'Se desbloquean por hitos de Pomodoro, hábitos, racha y progreso.',
+                'Algunos logros suman puntos una sola vez.',
+                'Revisa esta pantalla para ver qué ya conseguiste.',
+              ],
+            ),
+          ],
+        ),
+      10 => const FocusHelpAction(
+          title: 'Ayuda de Configuración',
+          message: 'Ajusta Focus sin tocar tus datos principales.',
+          sections: [
+            FocusHelpSection(
+              title: 'Configuración',
+              items: [
+                'Cambia apariencia, idioma, Pomodoro y permisos.',
+                'Revisa diagnósticos si algo no funciona como esperas.',
+                'Usa backup antes de hacer cambios importantes.',
+              ],
+            ),
+          ],
+        ),
+      _ => const FocusHelpAction(
+          title: 'Ayuda de Focus',
+          message: 'Aquí encontrarás información de esta pantalla.',
+          sections: [
+            FocusHelpSection(
+              title: 'Uso',
+              items: [
+                'Revisa las acciones principales y mantén la app simple.'
+              ],
+            ),
+          ],
+        ),
+    };
+  }
+}
+
 class _FocusDockNavigation extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -193,6 +382,7 @@ class _FocusDockNavigationState extends State<_FocusDockNavigation> {
 
   void _centerSelected() {
     if (!_controller.hasClients) return;
+    if (widget.selectedIndex >= _dockItems.length) return;
     final viewport = _controller.position.viewportDimension;
     final itemExtent = _itemWidth + _itemGap;
     final target =
@@ -214,69 +404,6 @@ class _FocusDockNavigationState extends State<_FocusDockNavigation> {
         ? FocusPalette.darkBorder.withValues(alpha: 0.92)
         : FocusPalette.border.withValues(alpha: 0.9);
     final shadow = isDark ? Colors.black : FocusPalette.ink;
-    final items = const [
-      _DockItem(
-        label: 'Inicio',
-        kind: FocusAppIconKind.focus,
-        fallback: Icons.dashboard_rounded,
-      ),
-      _DockItem(
-        label: 'Focus',
-        kind: FocusAppIconKind.pomodoro,
-        fallback: Icons.timer_rounded,
-      ),
-      _DockItem(
-        label: 'Materias',
-        kind: FocusAppIconKind.subjects,
-        fallback: Icons.menu_book_rounded,
-      ),
-      _DockItem(
-        label: 'Hábitos',
-        kind: FocusAppIconKind.habits,
-        fallback: Icons.check_circle_rounded,
-      ),
-      _DockItem(
-        label: 'Exámenes',
-        kind: FocusAppIconKind.exams,
-        fallback: Icons.assignment_rounded,
-      ),
-      _DockItem(
-        label: 'Tareas',
-        kind: FocusAppIconKind.tasks,
-        fallback: Icons.task_alt_rounded,
-      ),
-      _DockItem(
-        label: 'Poli',
-        kind: FocusAppIconKind.polytechnic,
-        fallback: Icons.school_rounded,
-      ),
-      _DockItem(
-        label: 'Recursos',
-        kind: FocusAppIconKind.resources,
-        fallback: Icons.folder_rounded,
-      ),
-      _DockItem(
-        label: 'Ranking',
-        kind: FocusAppIconKind.ranking,
-        fallback: Icons.emoji_events_rounded,
-      ),
-      _DockItem(
-        label: 'Perfil',
-        kind: FocusAppIconKind.friends,
-        fallback: Icons.people_alt_rounded,
-      ),
-      _DockItem(
-        label: 'Logros',
-        kind: FocusAppIconKind.achievements,
-        fallback: Icons.military_tech_rounded,
-      ),
-      _DockItem(
-        label: 'Ajustes',
-        kind: FocusAppIconKind.settings,
-        fallback: Icons.settings_rounded,
-      ),
-    ];
-
     return SafeArea(
       top: false,
       child: Container(
@@ -300,16 +427,17 @@ class _FocusDockNavigationState extends State<_FocusDockNavigation> {
           physics: const BouncingScrollPhysics(),
           child: Row(
             children: [
-              for (var index = 0; index < items.length; index++) ...[
+              for (var index = 0; index < _dockItems.length; index++) ...[
                 SizedBox(
                   width: _itemWidth,
                   child: _DockButton(
-                    item: items[index],
+                    item: _dockItems[index],
                     selected: widget.selectedIndex == index,
                     onTap: () => widget.onDestinationSelected(index),
                   ),
                 ),
-                if (index != items.length - 1) const SizedBox(width: _itemGap),
+                if (index != _dockItems.length - 1)
+                  const SizedBox(width: _itemGap),
               ],
             ],
           ),
@@ -330,6 +458,59 @@ class _DockItem {
     required this.fallback,
   });
 }
+
+const _dockItems = [
+  _DockItem(
+    label: 'Inicio',
+    kind: FocusAppIconKind.focus,
+    fallback: Icons.dashboard_rounded,
+  ),
+  _DockItem(
+    label: 'Focus',
+    kind: FocusAppIconKind.pomodoro,
+    fallback: Icons.timer_rounded,
+  ),
+  _DockItem(
+    label: 'Materias',
+    kind: FocusAppIconKind.subjects,
+    fallback: Icons.menu_book_rounded,
+  ),
+  _DockItem(
+    label: 'Hábitos',
+    kind: FocusAppIconKind.habits,
+    fallback: Icons.check_circle_rounded,
+  ),
+  _DockItem(
+    label: 'Exámenes',
+    kind: FocusAppIconKind.exams,
+    fallback: Icons.assignment_rounded,
+  ),
+  _DockItem(
+    label: 'Tareas',
+    kind: FocusAppIconKind.tasks,
+    fallback: Icons.task_alt_rounded,
+  ),
+  _DockItem(
+    label: 'Recursos',
+    kind: FocusAppIconKind.resources,
+    fallback: Icons.folder_rounded,
+  ),
+  _DockItem(
+    label: 'Ranking',
+    kind: FocusAppIconKind.ranking,
+    fallback: Icons.emoji_events_rounded,
+  ),
+  _DockItem(
+    label: 'Perfil',
+    kind: FocusAppIconKind.friends,
+    fallback: Icons.people_alt_rounded,
+  ),
+  _DockItem(
+    label: 'Logros',
+    kind: FocusAppIconKind.achievements,
+    fallback: Icons.military_tech_rounded,
+  ),
+];
 
 class _DockButton extends StatelessWidget {
   final _DockItem item;

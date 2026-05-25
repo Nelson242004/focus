@@ -204,7 +204,7 @@ class _HeroPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         gradient: LinearGradient(
           colors: isDark
-              ? [const Color(0xFF020617), const Color(0xFF0F172A)]
+              ? [FocusPalette.darkSurface, FocusPalette.darkCard]
               : [const Color(0xFFEFF6FF), Colors.white],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

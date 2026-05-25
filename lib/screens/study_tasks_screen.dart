@@ -281,46 +281,52 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
       body: SafeArea(
         top: false,
         bottom: true,
-        child: Consumer<AppProvider>(
-          builder: (context, provider, _) {
-            final tasks = _filteredTasks(provider);
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
-              children: [
-                _TaskHero(provider: provider),
-                const SizedBox(height: 14),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'active', label: Text('Activas')),
-                      ButtonSegment(value: 'today', label: Text('Hoy')),
-                      ButtonSegment(value: 'overdue', label: Text('Vencidas')),
-                      ButtonSegment(value: 'done', label: Text('Terminadas')),
-                    ],
-                    selected: {_filter},
-                    onSelectionChanged: (value) =>
-                        setState(() => _filter = value.first),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (tasks.isEmpty)
-                  const _EmptyTasks()
-                else
-                  ...tasks.map(
-                    (task) => _TaskCard(
-                      task: task,
-                      subjectName:
-                          provider.getSubjectById(task.subjectId)?.name,
-                      onToggle: (done) =>
-                          provider.completeStudyTask(task, done),
-                      onEdit: () => _showTaskDialog(task: task),
-                      onDelete: () => _deleteTask(task),
+        child: FocusPageBackground(
+          child: Consumer<AppProvider>(
+            builder: (context, provider, _) {
+              if (provider.studyTasks.isEmpty) {
+                return const _EmptyTasks();
+              }
+              final tasks = _filteredTasks(provider);
+              return ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
+                children: [
+                  _TaskHero(provider: provider),
+                  const SizedBox(height: 14),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'active', label: Text('Activas')),
+                        ButtonSegment(value: 'today', label: Text('Hoy')),
+                        ButtonSegment(
+                            value: 'overdue', label: Text('Vencidas')),
+                        ButtonSegment(value: 'done', label: Text('Terminadas')),
+                      ],
+                      selected: {_filter},
+                      onSelectionChanged: (value) =>
+                          setState(() => _filter = value.first),
                     ),
                   ),
-              ],
-            );
-          },
+                  const SizedBox(height: 14),
+                  if (tasks.isEmpty)
+                    const _EmptyTasks()
+                  else
+                    ...tasks.map(
+                      (task) => _TaskCard(
+                        task: task,
+                        subjectName:
+                            provider.getSubjectById(task.subjectId)?.name,
+                        onToggle: (done) =>
+                            provider.completeStudyTask(task, done),
+                        onEdit: () => _showTaskDialog(task: task),
+                        onDelete: () => _deleteTask(task),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -516,8 +522,7 @@ class _EmptyTasks extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FocusCenteredEmptyState(
-      height: MediaQuery.of(context).size.height * 0.42,
+    return const FocusCenteredEmptyState(
       icon: Icons.task_alt_rounded,
       iconKind: FocusAppIconKind.tasks,
       accent: FocusPalette.mint,

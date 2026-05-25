@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,10 +18,12 @@ import '../services/update_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
+import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
 import 'auth_gate_screen.dart';
+import 'polytechnic_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final bool showAppBar;
@@ -31,6 +35,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  late AppProvider _provider;
   int _weeklyGoal = 8;
   int _weeklyFocusMinutesGoal = 300;
   int _dailyHabitGoal = 3;
@@ -45,7 +50,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _examReminderDayBefore = true;
   bool _examReminderTwoHoursBefore = true;
   bool _examReminderThirtyMinutesBefore = false;
+  bool _showPolytechnicTools = false;
   late String _accentColor;
+  Timer? _settingsSaveDebounce;
+  bool _hasPendingSettingsSave = false;
 
   static const List<String> _accentPalette = FocusPalette.accentHexOptions;
 
@@ -53,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final provider = Provider.of<AppProvider>(context, listen: false);
+    _provider = provider;
     _weeklyGoal = provider.settings.weeklyGoal.clamp(1, 99);
     _weeklyFocusMinutesGoal =
         provider.settings.weeklyFocusMinutesGoal.clamp(25, 3000);
@@ -60,7 +69,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _streakGoal = provider.settings.streakGoal.clamp(1, 365);
     _selectedLanguage = provider.settings.language;
     _selectedSound = provider.settings.sound;
-    _selectedStartScreen = provider.settings.startScreen == 'statistics'
+    _selectedStartScreen = provider.settings.startScreen == 'statistics' ||
+            provider.settings.startScreen == 'polytechnic'
         ? 'dashboard'
         : provider.settings.startScreen;
     _breakAfterFocus = provider.settings.breakAfterFocus;
@@ -71,22 +81,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _examReminderTwoHoursBefore = provider.settings.examReminderTwoHoursBefore;
     _examReminderThirtyMinutesBefore =
         provider.settings.examReminderThirtyMinutesBefore;
+    _showPolytechnicTools = provider.settings.showPolytechnicTools;
     _accentColor = provider.settings.accentColor;
   }
 
   @override
-  void dispose() => super.dispose();
+  void dispose() {
+    _settingsSaveDebounce?.cancel();
+    if (_hasPendingSettingsSave) {
+      unawaited(
+        _provider
+            .updateSettings(
+          _draftSettings(_provider),
+          syncNotifications: false,
+        )
+            .catchError((Object error) {
+          debugPrint('Focus settings autosave on dispose skipped: $error');
+          return null;
+        }),
+      );
+    }
+    super.dispose();
+  }
 
   void _showMessage(String message) {
     if (!mounted) return;
     showFocusFeedback(context, message: message, type: FocusFeedbackType.info);
   }
 
+  void _updateDraft(VoidCallback change, {bool validateNotifications = false}) {
+    setState(change);
+    _scheduleSettingsSave(validateNotifications: validateNotifications);
+  }
+
+  void _scheduleSettingsSave({bool validateNotifications = false}) {
+    _hasPendingSettingsSave = true;
+    _settingsSaveDebounce?.cancel();
+    _settingsSaveDebounce = Timer(
+      const Duration(milliseconds: 450),
+      () => unawaited(
+        _persistSettings(validateNotifications: validateNotifications),
+      ),
+    );
+  }
+
   Future<void> _saveSettings() async {
+    _settingsSaveDebounce?.cancel();
+    await _persistSettings(validateNotifications: true, showMessage: true);
+  }
+
+  Future<void> _persistSettings({
+    required bool validateNotifications,
+    bool showMessage = false,
+  }) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final goal = _weeklyGoal.clamp(1, 99);
     var notificationsEnabled = _notificationsEnabled;
-    if (notificationsEnabled) {
+    if (validateNotifications && notificationsEnabled) {
       final granted = await NotificationService.ensurePermissions();
       if (!granted) {
         notificationsEnabled = false;
@@ -100,49 +150,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     await provider.updateSettings(
-      AppSettings(
-        themeMode: provider.settings.themeMode,
-        language: _selectedLanguage,
-        focusTime: provider.settings.focusTime,
-        shortBreakTime: provider.settings.shortBreakTime,
-        longBreakTime: provider.settings.longBreakTime,
-        weeklyGoal: goal,
-        weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal.clamp(25, 3000),
-        dailyHabitGoal: _dailyHabitGoal.clamp(1, 20),
-        streakGoal: _streakGoal.clamp(1, 365),
-        sound: _selectedSound,
-        selectedIdentity: provider.settings.selectedIdentity,
-        startScreen: _selectedStartScreen,
-        textScale: _textScale,
-        animationsEnabled: _animationsEnabled,
-        accentColor: _accentColor,
-        notificationsEnabled: notificationsEnabled,
-        examReminderDayBefore: _examReminderDayBefore,
-        examReminderTwoHoursBefore: _examReminderTwoHoursBefore,
-        examReminderThirtyMinutesBefore: _examReminderThirtyMinutesBefore,
-        onboardingCompleted: provider.settings.onboardingCompleted,
-        breakAfterFocus: _breakAfterFocus,
-        userName: provider.settings.userName,
-      ),
+      _draftSettings(provider, notificationsEnabled: notificationsEnabled),
     );
+    _hasPendingSettingsSave = false;
     if (!mounted) return;
-    _showMessage('Listo. Tu configuración quedó guardada.');
+    if (showMessage) {
+      _showMessage('Listo. Tu configuración quedó guardada.');
+    }
+  }
+
+  AppSettings _draftSettings(
+    AppProvider provider, {
+    bool? notificationsEnabled,
+  }) {
+    return AppSettings(
+      themeMode: provider.settings.themeMode,
+      language: _selectedLanguage,
+      focusTime: provider.settings.focusTime,
+      shortBreakTime: provider.settings.shortBreakTime,
+      longBreakTime: provider.settings.longBreakTime,
+      weeklyGoal: _weeklyGoal.clamp(1, 99),
+      weeklyFocusMinutesGoal: _weeklyFocusMinutesGoal.clamp(25, 3000),
+      dailyHabitGoal: _dailyHabitGoal.clamp(1, 20),
+      streakGoal: _streakGoal.clamp(1, 365),
+      sound: _selectedSound,
+      selectedIdentity: provider.settings.selectedIdentity,
+      startScreen: _selectedStartScreen,
+      textScale: _textScale,
+      animationsEnabled: _animationsEnabled,
+      accentColor: _accentColor,
+      notificationsEnabled: notificationsEnabled ?? _notificationsEnabled,
+      examReminderDayBefore: _examReminderDayBefore,
+      examReminderTwoHoursBefore: _examReminderTwoHoursBefore,
+      examReminderThirtyMinutesBefore: _examReminderThirtyMinutesBefore,
+      onboardingCompleted: provider.settings.onboardingCompleted,
+      breakAfterFocus: _breakAfterFocus,
+      userName: provider.settings.userName,
+      showPolytechnicTools: _showPolytechnicTools,
+    );
   }
 
   void _setWeeklyGoal(int value) {
-    setState(() => _weeklyGoal = value.clamp(1, 99));
+    _updateDraft(() => _weeklyGoal = value.clamp(1, 99));
   }
 
   void _setWeeklyFocusMinutesGoal(int value) {
-    setState(() => _weeklyFocusMinutesGoal = value.clamp(25, 3000));
+    _updateDraft(() => _weeklyFocusMinutesGoal = value.clamp(25, 3000));
   }
 
   void _setDailyHabitGoal(int value) {
-    setState(() => _dailyHabitGoal = value.clamp(1, 20));
+    _updateDraft(() => _dailyHabitGoal = value.clamp(1, 20));
   }
 
   void _setStreakGoal(int value) {
-    setState(() => _streakGoal = value.clamp(1, 365));
+    _updateDraft(() => _streakGoal = value.clamp(1, 365));
   }
 
   Future<void> _resetPreferences() async {
@@ -190,6 +251,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _examReminderTwoHoursBefore = defaults.examReminderTwoHoursBefore;
       _examReminderThirtyMinutesBefore =
           defaults.examReminderThirtyMinutesBefore;
+      _showPolytechnicTools = defaults.showPolytechnicTools;
       _accentColor = defaults.accentColor;
     });
     _showMessage('Configuración restablecida. Tus datos siguen intactos.');
@@ -248,6 +310,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
     if (mounted) setState(() {});
+  }
+
+  Future<void> _openPolytechnicTools() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PolytechnicScreen()),
+    );
   }
 
   String _languageLabel(AppLanguage language) {
@@ -457,14 +525,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: ListView(
             padding: FocusInsets.page,
             children: [
-              _SettingsHero(provider: provider),
-              FocusGap.md,
               _SettingsSection(
                 title: 'Cuenta',
                 subtitle: RankingService.currentUser == null
                     ? 'Sesión y perfil público'
                     : RankingService.currentUser?.email ?? 'Cuenta activa',
                 icon: Icons.person_rounded,
+                iconKind: FocusAppIconKind.profile,
                 children: [
                   _AccountSettingsContent(
                     onLogin: _openLogin,
@@ -478,6 +545,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Apariencia',
                 subtitle: 'Tema, idioma, texto y color',
                 icon: Icons.palette_rounded,
+                iconKind: FocusAppIconKind.settings,
                 children: [
                   _ThemePreview(
                     accentColor: _accentColor,
@@ -506,7 +574,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(
+                    onChanged: (value) => _updateDraft(
                       () => _selectedLanguage = value ?? AppLanguage.system,
                     ),
                   ),
@@ -518,14 +586,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     max: 1.2,
                     divisions: 6,
                     label: _textScale.toStringAsFixed(2),
-                    onChanged: (value) => setState(() => _textScale = value),
+                    onChanged: (value) =>
+                        _updateDraft(() => _textScale = value),
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Animaciones'),
                     value: _animationsEnabled,
                     onChanged: (value) =>
-                        setState(() => _animationsEnabled = value),
+                        _updateDraft(() => _animationsEnabled = value),
                   ),
                   const SizedBox(height: 8),
                   Text('Color principal',
@@ -537,7 +606,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: _accentPalette.map((colorHex) {
                       final selected = _accentColor == colorHex;
                       return GestureDetector(
-                        onTap: () => setState(() => _accentColor = colorHex),
+                        onTap: () =>
+                            _updateDraft(() => _accentColor = colorHex),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
                           width: 34,
@@ -560,7 +630,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
-                      onPressed: () => setState(
+                      onPressed: () => _updateDraft(
                         () => _accentColor = AppSettings().accentColor,
                       ),
                       icon: const Icon(Icons.restart_alt_rounded),
@@ -574,11 +644,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Pomodoro',
                 subtitle: 'Tiempo y metas',
                 icon: Icons.timer_rounded,
+                iconKind: FocusAppIconKind.pomodoro,
                 children: [
                   _StartScreenSelector(
                     value: _selectedStartScreen,
                     onChanged: (value) =>
-                        setState(() => _selectedStartScreen = value),
+                        _updateDraft(() => _selectedStartScreen = value),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -601,7 +672,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ],
                     onChanged: (value) =>
-                        setState(() => _breakAfterFocus = value ?? 'auto'),
+                        _updateDraft(() => _breakAfterFocus = value ?? 'auto'),
                   ),
                   const SizedBox(height: 12),
                   ListTile(
@@ -678,16 +749,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               FocusGap.md,
               _SettingsSection(
+                title: 'Herramientas académicas',
+                subtitle: _showPolytechnicTools
+                    ? 'Politécnica activada'
+                    : 'Funciones opcionales',
+                icon: Icons.school_rounded,
+                iconKind: FocusAppIconKind.polytechnic,
+                children: [
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Mostrar herramientas Politécnica'),
+                    subtitle: const Text(
+                      'Actívalo solo si usas calculadora o Excel de Politécnica.',
+                    ),
+                    value: _showPolytechnicTools,
+                    onChanged: (value) => _updateDraft(
+                      () => _showPolytechnicTools = value,
+                    ),
+                  ),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    child: _showPolytechnicTools
+                        ? ListTile(
+                            key: const ValueKey('polytechnic-tools-enabled'),
+                            contentPadding: EdgeInsets.zero,
+                            leading: const FocusAssetBadge(
+                              kind: FocusAppIconKind.polytechnic,
+                              fallback: Icons.school_rounded,
+                              size: 42,
+                              iconSize: 28,
+                            ),
+                            title: const Text('Politécnica'),
+                            subtitle: const Text(
+                              'Calculadora, carga de Excel y datos académicos.',
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: _openPolytechnicTools,
+                          )
+                        : const ListTile(
+                            key: ValueKey('polytechnic-tools-disabled'),
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.visibility_off_rounded),
+                            title: Text('Oculto para mantener Focus limpio'),
+                            subtitle: Text(
+                              'Puedes activarlo cuando lo necesites.',
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+              FocusGap.md,
+              _SettingsSection(
                 title: 'Notificaciones',
                 subtitle: 'Notificaciones y avisos',
                 icon: Icons.notifications_active_rounded,
+                iconKind: FocusAppIconKind.notifications,
                 children: [
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Notificaciones'),
                     value: _notificationsEnabled,
-                    onChanged: (value) =>
-                        setState(() => _notificationsEnabled = value),
+                    onChanged: (value) => _updateDraft(
+                      () => _notificationsEnabled = value,
+                      validateNotifications: value,
+                    ),
                   ),
                   FutureBuilder<int>(
                     future: NotificationService.pendingNotificationsCount(),
@@ -717,8 +842,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: _examReminderDayBefore,
                           onChanged: _notificationsEnabled
                               ? (value) {
-                                  setState(
-                                      () => _examReminderDayBefore = value);
+                                  _updateDraft(
+                                    () => _examReminderDayBefore = value,
+                                  );
                                   setSheetState(() {});
                                 }
                               : null,
@@ -730,7 +856,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: _examReminderTwoHoursBefore,
                           onChanged: _notificationsEnabled
                               ? (value) {
-                                  setState(
+                                  _updateDraft(
                                     () => _examReminderTwoHoursBefore = value,
                                   );
                                   setSheetState(() {});
@@ -744,7 +870,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: _examReminderThirtyMinutesBefore,
                           onChanged: _notificationsEnabled
                               ? (value) {
-                                  setState(
+                                  _updateDraft(
                                     () => _examReminderThirtyMinutesBefore =
                                         value,
                                   );
@@ -777,6 +903,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: 'Backup',
                 subtitle: '${provider.subjects.length} materias locales',
                 icon: Icons.backup_rounded,
+                iconKind: FocusAppIconKind.backup,
                 children: [
                   Wrap(
                     spacing: 10,
@@ -822,13 +949,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ExpansionTile(
                   tilePadding: const EdgeInsets.symmetric(horizontal: 18),
                   childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                  leading: const Icon(Icons.tune_rounded),
+                  leading: const FocusAssetBadge(
+                    kind: FocusAppIconKind.settings,
+                    fallback: Icons.tune_rounded,
+                    size: 42,
+                    iconSize: 30,
+                  ),
                   title: const Text('Avanzado'),
                   subtitle: const Text('Actualizaciones y acciones delicadas'),
                   children: [
                     _SettingsSection(
                       title: 'Sistema',
                       icon: Icons.health_and_safety_rounded,
+                      iconKind: FocusAppIconKind.permissions,
                       children: [
                         _UpdateCard(onCheck: _checkForUpdates),
                         const SizedBox(height: 12),
@@ -845,6 +978,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _SettingsSection(
                       title: 'Zona peligrosa',
                       icon: Icons.warning_amber_rounded,
+                      iconKind: FocusAppIconKind.permissions,
                       danger: true,
                       children: [
                         const Text('Acciones permanentes.'),
@@ -1150,7 +1284,7 @@ class _ThemePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = colorFromHex(accentColor);
-    final background = darkMode ? const Color(0xFF101820) : Colors.white;
+    final background = darkMode ? FocusPalette.darkCard : Colors.white;
     final foreground = darkMode ? Colors.white : FocusPalette.ink;
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1281,6 +1415,7 @@ class _UpdateCard extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _SettingsHero extends StatelessWidget {
   final AppProvider provider;
 
@@ -1923,6 +2058,7 @@ class _SettingsSection extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
+  final FocusAppIconKind? iconKind;
   final List<Widget> children;
   final bool danger;
 
@@ -1930,42 +2066,49 @@ class _SettingsSection extends StatelessWidget {
     required this.title,
     this.subtitle = '',
     required this.icon,
+    this.iconKind,
     required this.children,
     this.danger = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent =
-        danger ? FocusPalette.danger : Theme.of(context).colorScheme.primary;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-      ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final accent = danger ? FocusPalette.danger : theme.colorScheme.primary;
+    return FocusSurfaceCard(
+      padding: EdgeInsets.zero,
+      radius: FocusRadii.card,
+      accent: accent,
+      elevated: false,
       child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: PageStorageKey<String>('settings-$title'),
           initiallyExpanded: false,
-          maintainState: false,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          maintainState: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(FocusRadii.control),
-              color: accent.withValues(alpha: 0.12),
-            ),
-            child: Icon(icon, color: accent),
-          ),
+          leading: iconKind == null
+              ? FocusIconBadge(
+                  icon: icon,
+                  color: accent,
+                  size: 42,
+                  iconSize: 22,
+                )
+              : FocusAssetBadge(
+                  kind: iconKind!,
+                  fallback: icon,
+                  color: accent,
+                  size: 42,
+                  iconSize: 30,
+                ),
           title: Text(
             title,
-            style: Theme.of(context)
-                .textTheme
-                .titleLarge
-                ?.copyWith(fontWeight: FontWeight.w900),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.2,
+            ),
           ),
           subtitle: subtitle.trim().isEmpty
               ? null
@@ -1973,8 +2116,34 @@ class _SettingsSection extends StatelessWidget {
                   subtitle,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-          children: children,
+          iconColor: accent,
+          collapsedIconColor: theme.colorScheme.onSurfaceVariant,
+          collapsedTextColor: theme.colorScheme.onSurface,
+          textColor: theme.colorScheme.onSurface,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(top: 4),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: (danger ? FocusPalette.danger : accent).withValues(
+                      alpha: isDark ? 0.12 : 0.08,
+                    ),
+                  ),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              ),
+            ),
+          ],
         ),
       ),
     );

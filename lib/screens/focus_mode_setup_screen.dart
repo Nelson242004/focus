@@ -146,6 +146,8 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = MediaQuery.of(context).viewPadding.bottom;
+    final listBottomPadding = 104.0 + bottomSafe;
     final filteredApps = _filteredApps();
     final selectedApps = filteredApps
         .where((app) => _selectedPackages.contains(app.packageName))
@@ -212,15 +214,25 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           child: _isLoading
-              ? const FocusSkeletonList(
-                  heights: [72, 64, 64, 64, 64],
-                  padding: EdgeInsets.fromLTRB(14, 16, 14, 104),
+              ? FocusSkeletonList(
+                  heights: const [72, 64, 64, 64, 64],
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    16,
+                    14,
+                    listBottomPadding,
+                  ),
                 )
               : ListView(
                   key: ValueKey<int>(
                     _selectedPackages.length + filteredApps.length,
                   ),
-                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 104),
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    16,
+                    14,
+                    listBottomPadding,
+                  ),
                   children: [
                     _RevealIn(
                       child: _SearchAndActions(

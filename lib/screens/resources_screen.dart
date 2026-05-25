@@ -336,6 +336,16 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
         child: FocusPageBackground(
           child: Consumer<AppProvider>(
             builder: (context, provider, _) {
+              if (provider.resources.isEmpty) {
+                return const FocusCenteredEmptyState(
+                  icon: Icons.folder_open_rounded,
+                  iconKind: FocusAppIconKind.resources,
+                  accent: FocusPalette.teal,
+                  title: 'Agrega tu primer recurso',
+                  message:
+                      'Guarda cursos, playlists o herramientas para estudiar.',
+                );
+              }
               final filteredResources = _sortResourcesForDisplay([
                 ...provider.resourcesByCategory('playlist'),
                 ...provider.resourcesByCategory('course'),
@@ -369,28 +379,46 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                 children: [
                   _ResourceIntroCard(totalResources: filteredResources.length),
                   const SizedBox(height: 16),
-                  _ResourceToolsCard(
-                    expanded: _toolsExpanded,
-                    searchController: _searchController,
-                    selectedFilter: _selectedFilter,
-                    onExpansionChanged: (value) =>
-                        setState(() => _toolsExpanded = value),
-                    onSearchChanged: (_) => setState(() {}),
-                    onFilterChanged: (value) => setState(
-                      () => _selectedFilter = value ?? 'all',
+                  if (provider.resources.isNotEmpty) ...[
+                    _ResourceToolsCard(
+                      expanded: _toolsExpanded,
+                      searchController: _searchController,
+                      selectedFilter: _selectedFilter,
+                      onExpansionChanged: (value) =>
+                          setState(() => _toolsExpanded = value),
+                      onSearchChanged: (_) => setState(() {}),
+                      onFilterChanged: (value) => setState(
+                        () => _selectedFilter = value ?? 'all',
+                      ),
+                      onSuggestResource: _suggestResource,
                     ),
-                    onSuggestResource: _suggestResource,
-                  ),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
+                  ],
                   if (filteredResources.isEmpty)
                     FocusCenteredEmptyState(
                       height: MediaQuery.of(context).size.height * 0.42,
-                      icon: Icons.public_rounded,
+                      icon: Icons.folder_open_rounded,
                       iconKind: FocusAppIconKind.resources,
                       accent: FocusPalette.teal,
-                      title: 'Tu biblioteca está esperando',
-                      message:
-                          'Guarda un enlace útil y déjalo bonito para estudiar.',
+                      title: provider.resources.isEmpty
+                          ? 'Agrega tu primer recurso'
+                          : 'Sin resultados',
+                      message: provider.resources.isEmpty
+                          ? 'Guarda cursos, playlists o herramientas para estudiar.'
+                          : 'Prueba con otro filtro o búsqueda.',
+                      action: provider.resources.isEmpty
+                          ? null
+                          : OutlinedButton.icon(
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() {
+                                  _selectedFilter = 'all';
+                                  _toolsExpanded = true;
+                                });
+                              },
+                              icon: const Icon(Icons.filter_alt_off_rounded),
+                              label: const Text('Limpiar filtros'),
+                            ),
                     )
                   else ...[
                     if (!showGroupedBySubject)

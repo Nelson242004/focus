@@ -22,6 +22,10 @@ import 'utils/focus_palette.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (!kIsWeb) {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   }
   await Firebase.initializeApp();
@@ -354,7 +358,16 @@ class MyApp extends StatelessWidget {
               primary: accent,
               secondary: FocusPalette.mint,
               tertiary: FocusPalette.amber,
+              onSurface: const Color(0xFFF8FAFC),
+              onSurfaceVariant: const Color(0xFF94A3B8),
               surface: FocusPalette.darkSurfaceTop,
+              surfaceContainerLowest: FocusPalette.darkSurface,
+              surfaceContainerLow: FocusPalette.darkCard,
+              surfaceContainer: FocusPalette.darkCard,
+              surfaceContainerHigh: FocusPalette.darkCard2,
+              surfaceContainerHighest: FocusPalette.darkCard2,
+              outline: FocusPalette.darkBorder,
+              outlineVariant: const Color(0xFF151C26),
             ),
             scaffoldBackgroundColor: FocusPalette.darkSurfaceTop,
             canvasColor: FocusPalette.darkSurfaceTop,
@@ -377,7 +390,7 @@ class MyApp extends StatelessWidget {
               backgroundColor: FocusPalette.darkCard,
               surfaceTintColor: Colors.transparent,
               showDragHandle: true,
-              dragHandleColor: FocusPalette.darkBorder,
+              dragHandleColor: Color(0xFF334155),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
@@ -399,7 +412,7 @@ class MyApp extends StatelessWidget {
             ),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
-              fillColor: FocusPalette.darkCard,
+              fillColor: FocusPalette.darkCard2.withValues(alpha: 0.72),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               border: OutlineInputBorder(
@@ -408,7 +421,9 @@ class MyApp extends StatelessWidget {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(color: FocusPalette.darkBorder),
+                borderSide: BorderSide(
+                  color: FocusPalette.darkBorder.withValues(alpha: 0.88),
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
@@ -444,8 +459,10 @@ class MyApp extends StatelessWidget {
             ),
             outlinedButtonTheme: OutlinedButtonThemeData(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: FocusPalette.darkBorder),
+                foregroundColor: const Color(0xFFF8FAFC),
+                side: BorderSide(
+                  color: FocusPalette.darkBorder.withValues(alpha: 0.95),
+                ),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16)),
                 padding:
@@ -467,7 +484,7 @@ class MyApp extends StatelessWidget {
             ),
             iconButtonTheme: IconButtonThemeData(
               style: IconButton.styleFrom(
-                foregroundColor: Colors.white,
+                foregroundColor: const Color(0xFFF8FAFC),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -475,7 +492,7 @@ class MyApp extends StatelessWidget {
               ),
             ),
             floatingActionButtonTheme: FloatingActionButtonThemeData(
-              elevation: 4,
+              elevation: 2,
               backgroundColor: accent,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
@@ -496,9 +513,9 @@ class MyApp extends StatelessWidget {
             ),
             progressIndicatorTheme: ProgressIndicatorThemeData(
               color: accent,
-              linearTrackColor: FocusPalette.darkBorder.withValues(alpha: 0.8),
+              linearTrackColor: FocusPalette.darkBorder.withValues(alpha: 0.62),
               circularTrackColor:
-                  FocusPalette.darkBorder.withValues(alpha: 0.8),
+                  FocusPalette.darkBorder.withValues(alpha: 0.62),
             ),
             popupMenuTheme: PopupMenuThemeData(
               color: FocusPalette.darkCard,
@@ -540,7 +557,7 @@ class MyApp extends StatelessWidget {
             ),
             snackBarTheme: SnackBarThemeData(
               behavior: SnackBarBehavior.floating,
-              backgroundColor: FocusPalette.ink,
+              backgroundColor: FocusPalette.darkCard2,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(18)),
               contentTextStyle: const TextStyle(
@@ -549,10 +566,10 @@ class MyApp extends StatelessWidget {
               ),
             ),
             dividerColor: FocusPalette.darkBorder,
-            iconTheme: const IconThemeData(color: Colors.white),
+            iconTheme: const IconThemeData(color: Color(0xFFF8FAFC)),
             listTileTheme: const ListTileThemeData(
               iconColor: Color(0xFFE2E8F0),
-              textColor: Colors.white,
+              textColor: Color(0xFFF8FAFC),
             ),
             segmentedButtonTheme: SegmentedButtonThemeData(
               style: ButtonStyle(
@@ -564,16 +581,18 @@ class MyApp extends StatelessWidget {
                 backgroundColor: WidgetStateProperty.resolveWith(
                   (states) => states.contains(WidgetState.selected)
                       ? accent
-                      : FocusPalette.darkCard,
+                      : FocusPalette.darkCard2.withValues(alpha: 0.55),
                 ),
-                side: const WidgetStatePropertyAll(
-                  BorderSide(color: FocusPalette.darkBorder),
+                side: WidgetStatePropertyAll(
+                  BorderSide(
+                    color: FocusPalette.darkBorder.withValues(alpha: 0.9),
+                  ),
                 ),
               ),
             ),
             navigationBarTheme: NavigationBarThemeData(
               elevation: 0,
-              backgroundColor: FocusPalette.darkCard,
+              backgroundColor: Colors.black,
               indicatorColor: accent.withValues(alpha: 0.22),
               labelTextStyle: const WidgetStatePropertyAll(
                 TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
@@ -641,13 +660,32 @@ class MyApp extends StatelessWidget {
             theme: lightTheme,
             darkTheme: darkTheme,
             builder: (context, child) {
-              return _DeepLinkListener(
-                navigatorKey: MyApp.navigatorKey,
-                child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: TextScaler.linear(provider.settings.textScale),
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final overlayStyle = SystemUiOverlayStyle(
+                statusBarColor: Colors.transparent,
+                statusBarIconBrightness:
+                    isDark ? Brightness.light : Brightness.dark,
+                statusBarBrightness:
+                    isDark ? Brightness.dark : Brightness.light,
+                systemNavigationBarColor: isDark
+                    ? FocusPalette.darkSurfaceTop
+                    : FocusPalette.surfaceTop,
+                systemNavigationBarIconBrightness:
+                    isDark ? Brightness.light : Brightness.dark,
+                systemNavigationBarDividerColor: Colors.transparent,
+              );
+
+              return AnnotatedRegion<SystemUiOverlayStyle>(
+                value: overlayStyle,
+                child: _DeepLinkListener(
+                  navigatorKey: MyApp.navigatorKey,
+                  child: MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler:
+                          TextScaler.linear(provider.settings.textScale),
+                    ),
+                    child: child ?? const SizedBox.shrink(),
                   ),
-                  child: child ?? const SizedBox.shrink(),
                 ),
               );
             },

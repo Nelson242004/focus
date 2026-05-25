@@ -406,6 +406,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                   message: 'Así tu examen queda conectado a tu plan.',
                 );
               }
+              if (provider.exams.isEmpty) {
+                return const FocusCenteredEmptyState(
+                  icon: Icons.event_busy_rounded,
+                  iconKind: FocusAppIconKind.exams,
+                  accent: FocusPalette.softAlert,
+                  title: 'Tu primer examen te espera',
+                  message: 'Agrega un parcial o final y Focus lo recuerda.',
+                );
+              }
 
               final exams = _filteredExams(provider);
               final nextExam = _nextUpcomingExam(exams);

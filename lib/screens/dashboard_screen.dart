@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/exam.dart';
+import '../models/habit.dart';
+import '../models/ranking_profile.dart';
 import '../models/schedule.dart';
+import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/app_utils.dart';
@@ -12,6 +15,7 @@ import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_main_navigation_scope.dart';
 import '../widgets/focus_metric_icon.dart';
+import '../widgets/focus_social_components.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -148,7 +152,7 @@ class _DashboardGreetingLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(FocusRadii.panel),
-      onTap: () => FocusMainNavigationScope.of(context)(9),
+      onTap: () => FocusMainNavigationScope.of(context)(8),
       child: FocusCuteCard(
         accent: FocusPalette.primary,
         padding: const EdgeInsets.fromLTRB(22, 22, 4, 4),
@@ -467,15 +471,25 @@ class _NextEventsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final nextClass = provider.nextScheduleEntry;
     final nextExam = provider.nextUpcomingExam;
+    final nextTask = provider.upcomingStudyTasks(limit: 1).isEmpty
+        ? null
+        : provider.upcomingStudyTasks(limit: 1).first;
+    final nextHabit = _nextPendingHabit(provider);
     final nextClassDetail = nextClass == null
         ? 'Agrega horarios'
         : '${_relativeDayLabel(nextClass.startsAt)} · ${nextClass.schedule.startTime} · Aula ${_classroom(nextClass.schedule)}';
     final nextExamDetail =
         nextExam == null ? 'Agrega exámenes' : _examDetail(nextExam);
+    final nextTaskDetail =
+        nextTask == null ? 'Agrega tareas' : _taskDetail(nextTask, provider);
+    final nextHabitDetail = nextHabit == null
+        ? _habitEmptyDetail(provider)
+        : _habitDetail(nextHabit);
     final nextClassAt = nextClass?.startsAt;
     final nextExamAt = nextExam == null
         ? null
         : combineDateAndTime(nextExam.date, nextExam.startTime);
+    final nextTaskAt = nextTask?.dueDate;
 
     return FocusSurfaceCard(
       padding: FocusInsets.cardRelaxed,
@@ -489,7 +503,7 @@ class _NextEventsCard extends StatelessWidget {
             icon: Icons.event_note_rounded,
             iconKind: FocusAppIconKind.calendar,
             title: 'Próximo',
-            subtitle: 'Clase y examen',
+            subtitle: 'Clase, examen, tarea y hábito',
             iconSize: 42,
           ),
           FocusGap.md,
@@ -524,20 +538,63 @@ class _NextEventsCard extends StatelessWidget {
                     : _relativeDayLabel(nextExamAt),
                 onTap: () => FocusMainNavigationScope.of(context)(4),
               );
+              final taskCard = _EventCard(
+                iconKind: FocusAppIconKind.tasks,
+                fallbackIcon: Icons.task_alt_rounded,
+                color: FocusPalette.primary,
+                eyebrow: 'Tarea',
+                title:
+                    nextTask == null ? 'Sin tarea pendiente' : nextTask.title,
+                detail: nextTaskDetail,
+                badge: nextTaskAt == null
+                    ? 'Pendiente'
+                    : _relativeDayLabel(nextTaskAt),
+                onTap: () => FocusMainNavigationScope.of(context)(5),
+              );
+              final habitCard = _EventCard(
+                iconKind: FocusAppIconKind.habits,
+                fallbackIcon: Icons.check_circle_rounded,
+                color: FocusPalette.mint,
+                eyebrow: 'Hábito',
+                title: nextHabit == null
+                    ? provider.habits.isEmpty
+                        ? 'Sin hábito activo'
+                        : 'Hábitos al día'
+                    : nextHabit.name,
+                detail: nextHabitDetail,
+                badge: nextHabit == null && provider.habits.isNotEmpty
+                    ? 'Listo'
+                    : 'Hoy',
+                onTap: () => FocusMainNavigationScope.of(context)(3),
+              );
+              final cards = [classCard, examCard, taskCard, habitCard];
               if (compact) {
                 return Column(
                   children: [
-                    classCard,
-                    const SizedBox(height: 10),
-                    examCard,
+                    for (var i = 0; i < cards.length; i++) ...[
+                      cards[i],
+                      if (i != cards.length - 1) const SizedBox(height: 10),
+                    ],
                   ],
                 );
               }
-              return Row(
+              return Column(
                 children: [
-                  Expanded(child: classCard),
-                  const SizedBox(width: 10),
-                  Expanded(child: examCard),
+                  Row(
+                    children: [
+                      Expanded(child: classCard),
+                      const SizedBox(width: 10),
+                      Expanded(child: examCard),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: taskCard),
+                      const SizedBox(width: 10),
+                      Expanded(child: habitCard),
+                    ],
+                  ),
                 ],
               );
             },
@@ -553,6 +610,40 @@ class _NextEventsCard extends StatelessWidget {
       formatDate(exam.date),
       if (exam.startTime.trim().isNotEmpty) exam.startTime.trim(),
       if (exam.classroom.trim().isNotEmpty) 'Aula ${exam.classroom.trim()}',
+    ];
+    return parts.join(' · ');
+  }
+
+  Habit? _nextPendingHabit(AppProvider provider) {
+    final today = DateTime.now().toIso8601String().split('T')[0];
+    final pending = provider.habits
+        .where((habit) => !habit.history.contains(today))
+        .toList()
+      ..sort((a, b) {
+        final streak = b.currentStreak.compareTo(a.currentStreak);
+        if (streak != 0) return streak;
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+    return pending.isEmpty ? null : pending.first;
+  }
+
+  String _habitDetail(Habit habit) {
+    final streak = habit.currentStreak;
+    if (streak <= 0) return 'Pendiente para hoy';
+    return streak == 1 ? 'Racha de 1 día' : 'Racha de $streak días';
+  }
+
+  String _habitEmptyDetail(AppProvider provider) {
+    if (provider.habits.isEmpty) return 'Crea tu rutina';
+    return '${provider.habits.length} completados hoy';
+  }
+
+  String _taskDetail(StudyTask task, AppProvider provider) {
+    final subject = provider.getSubjectById(task.subjectId);
+    final parts = [
+      task.priorityLabel,
+      formatDate(task.dueDate),
+      if (subject != null) subject.name,
     ];
     return parts.join(' · ');
   }
@@ -638,7 +729,11 @@ class _EventCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            FocusPill(label: badge, color: color),
+            FocusPill(
+              icon: Icons.today_rounded,
+              label: badge,
+              color: color,
+            ),
           ],
         ),
       ),
@@ -655,18 +750,21 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final league = LeagueInfo.fromPoints(provider.gamifiedPoints);
     final metrics = [
       _MetricData(
         metricIcon: FocusMetricIconKind.points,
         value: '${provider.gamifiedPoints}',
         label: 'Puntos',
         color: FocusPalette.primary,
+        destinationIndex: 9,
       ),
       _MetricData(
         metricIcon: FocusMetricIconKind.streak,
         value: '${provider.currentStreak}',
         label: 'Racha',
         color: FocusPalette.amber,
+        destinationIndex: 8,
       ),
       _MetricData(
         icon: Icons.schedule_rounded,
@@ -674,13 +772,18 @@ class _MetricGrid extends StatelessWidget {
         value: '${provider.weeklyFocusHours.toStringAsFixed(1)}h',
         label: 'Semana',
         color: FocusPalette.mint,
+        destinationIndex: 1,
       ),
       _MetricData(
-        icon: Icons.emoji_events_rounded,
-        iconKind: FocusAppIconKind.achievements,
-        value: '${provider.unlockedAchievementCount}',
-        label: 'Logros',
-        color: FocusPalette.teal,
+        customIcon: FocusLeagueIcon(
+          league: league.name,
+          size: 24,
+          elevated: false,
+        ),
+        value: league.name,
+        label: 'Liga',
+        color: league.color,
+        destinationIndex: 7,
       ),
     ];
 
@@ -716,63 +819,71 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
-        color: data.color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: data.color.withValues(alpha: 0.12),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (data.metricIcon != null)
-            FocusMetricIcon(
-              kind: data.metricIcon!,
-              size: 22,
-              color: data.color,
-            )
-          else if (data.iconKind != null)
-            FocusAppIcon(
-              kind: data.iconKind!,
-              size: 24,
-              fallback: data.icon ?? Icons.auto_awesome_rounded,
-              fallbackColor: data.color,
-            )
-          else
-            Icon(data.icon, color: data.color, size: 22),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    height: 1,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  data.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                ),
-              ],
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: data.destinationIndex == null
+          ? null
+          : () => FocusMainNavigationScope.of(context)(data.destinationIndex!),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(
+          color: data.color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: data.color.withValues(alpha: 0.12),
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (data.customIcon != null)
+              SizedBox(width: 24, height: 24, child: data.customIcon)
+            else if (data.metricIcon != null)
+              FocusMetricIcon(
+                kind: data.metricIcon!,
+                size: 22,
+                color: data.color,
+              )
+            else if (data.iconKind != null)
+              FocusAppIcon(
+                kind: data.iconKind!,
+                size: 24,
+                fallback: data.icon ?? Icons.auto_awesome_rounded,
+                fallbackColor: data.color,
+              )
+            else
+              Icon(data.icon, color: data.color, size: 22),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      height: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          height: 1,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -782,17 +893,21 @@ class _MetricData {
   final IconData? icon;
   final FocusAppIconKind? iconKind;
   final FocusMetricIconKind? metricIcon;
+  final Widget? customIcon;
   final String value;
   final String label;
   final Color color;
+  final int? destinationIndex;
 
   const _MetricData({
     this.icon,
     this.iconKind,
     this.metricIcon,
+    this.customIcon,
     required this.value,
     required this.label,
     required this.color,
+    this.destinationIndex,
   });
 }
 

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../models/ranking_profile.dart';
 import '../services/friends_service.dart';
 import '../services/ranking_service.dart';
-import '../utils/focus_icon_assets.dart';
 import '../utils/focus_palette.dart';
 import '../utils/profile_icon_access.dart';
 import '../widgets/focus_app_icon.dart';
@@ -14,6 +13,7 @@ import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_feedback.dart';
 import '../widgets/focus_metric_icon.dart';
 import '../widgets/focus_public_profile_sheet.dart';
+import '../widgets/focus_social_components.dart';
 import 'auth_gate_screen.dart';
 
 class GlobalRankingScreen extends StatefulWidget {
@@ -160,6 +160,19 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
                 title: 'Qué cuenta',
                 text:
                     'Solo cuentan pomodoros válidos. Hábitos y sesiones tienen límites anti-trampa.',
+              ),
+              const SizedBox(height: 10),
+              const _RankingInfoTile(
+                icon: Icons.verified_user_rounded,
+                title: 'Ranking justo',
+                text:
+                    'Pomodoros muy cortos o acciones repetidas no empujan la liga. Focus prioriza progreso real.',
+              ),
+              const SizedBox(height: 10),
+              const _RankingInfoTile(
+                icon: Icons.military_tech_rounded,
+                title: 'Ligas',
+                text: 'Oro: top 10%. Plata: top 35%. Bronce: el resto.',
               ),
               const SizedBox(height: 10),
               _RankingInfoTile(
@@ -315,8 +328,6 @@ class _RankingBody extends StatelessWidget {
               participantCount: participantCount,
             ),
             FocusGap.section,
-            const _RankingRulesCard(),
-            FocusGap.section,
             const _SectionLabel(
               icon: Icons.emoji_events_rounded,
               title: 'Podio semanal',
@@ -415,49 +426,6 @@ class _RankingBody extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _RankingRulesCard extends StatelessWidget {
-  const _RankingRulesCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return FocusSurfaceCard(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      radius: FocusRadii.card,
-      accent: FocusPalette.amber,
-      elevated: false,
-      child: Row(
-        children: [
-          const FocusIconBadge(
-            icon: Icons.verified_user_rounded,
-            color: FocusPalette.amber,
-            size: 38,
-            iconSize: 20,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ranking justo',
-                  style: FocusTypography.sectionTitle(context),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Solo cuentan pomodoros válidos de 25 min o más y hábitos reales.',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: FocusTypography.helper(context),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -755,15 +723,19 @@ class _MyGlobalRankStrip extends StatelessWidget {
           borderRadius: BorderRadius.circular(30),
           gradient: LinearGradient(
             colors: isDark
-                ? const [Color(0xFF0F1720), Color(0xFF163247)]
+                ? [
+                    FocusPalette.darkCard,
+                    Color.lerp(FocusPalette.darkCard, tier.color, 0.14)!,
+                  ]
                 : const [FocusPalette.primaryDeep, FocusPalette.cyan],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           boxShadow: [
             BoxShadow(
-              color: FocusPalette.primaryDeep.withValues(alpha: 0.18),
-              blurRadius: 24,
+              color: (isDark ? tier.color : FocusPalette.primaryDeep)
+                  .withValues(alpha: isDark ? 0.10 : 0.18),
+              blurRadius: isDark ? 18 : 24,
               offset: const Offset(0, 12),
             ),
           ],
@@ -849,11 +821,10 @@ class _MyGlobalRankStrip extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset(
-                      _tierMedalAsset(tier.name),
-                      width: 54,
-                      height: 54,
-                      fit: BoxFit.contain,
+                    FocusLeagueIcon(
+                      league: tier.name,
+                      size: 54,
+                      color: tier.color,
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1026,7 +997,10 @@ class _PodiumPlace extends StatelessWidget {
                 Positioned(
                   right: -4,
                   bottom: -4,
-                  child: _TopMedalBadge(position: entry.position, size: 28),
+                  child: FocusLeagueIcon.position(
+                    position: entry.position,
+                    size: 28,
+                  ),
                 ),
               ],
             ),
@@ -1532,7 +1506,7 @@ class _RankBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final tier = _distributedRankTierForPosition(position, participantCount);
     if (position <= 3) {
-      return _TopMedalBadge(position: position, size: 40);
+      return FocusLeagueIcon.position(position: position, size: 40);
     }
     return Container(
       width: 42,
@@ -1551,46 +1525,13 @@ class _RankBadge extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(5),
-        child: Image.asset(
-          _tierMedalAsset(tier.name),
-          fit: BoxFit.contain,
+      child: Center(
+        child: FocusLeagueIcon(
+          league: tier.name,
+          size: 32,
+          color: tier.color,
+          elevated: false,
         ),
-      ),
-    );
-  }
-}
-
-class _TopMedalBadge extends StatelessWidget {
-  final int position;
-  final double size;
-
-  const _TopMedalBadge({
-    required this.position,
-    required this.size,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: _podiumColor(position).withValues(alpha: 0.30),
-            blurRadius: size * 0.24,
-            offset: Offset(0, size * 0.10),
-          ),
-        ],
-      ),
-      child: Image.asset(
-        _medalAsset(position),
-        width: size,
-        height: size,
-        fit: BoxFit.contain,
       ),
     );
   }
@@ -1617,16 +1558,9 @@ Color _podiumColor(int position) {
   };
 }
 
-String _medalAsset(int position) {
-  return FocusIconAssets.leagueByPosition(position);
-}
-
-String _tierMedalAsset(String tierName) {
-  return FocusIconAssets.league(tierName);
-}
-
 _RankTier _distributedRankTierForPosition(int position, int participantCount) {
-  if (participantCount <= 0 || position <= 0) {
+  final limits = _rankTierLimits(participantCount);
+  if (position <= 0 || limits.total <= 0) {
     return const _RankTier(
       name: 'Bronce',
       color: Color(0xFFB45309),
@@ -1634,18 +1568,14 @@ _RankTier _distributedRankTierForPosition(int position, int participantCount) {
     );
   }
 
-  final goldLimit = (participantCount * 0.10).ceil().clamp(1, participantCount);
-  final silverLimit =
-      (participantCount * 0.35).ceil().clamp(goldLimit, participantCount);
-
-  if (position <= goldLimit) {
+  if (position <= limits.goldLimit) {
     return const _RankTier(
       name: 'Oro',
       color: FocusPalette.amber,
       icon: Icons.stars_rounded,
     );
   }
-  if (position <= silverLimit) {
+  if (position <= limits.silverLimit) {
     return const _RankTier(
       name: 'Plata',
       color: Color(0xFF64748B),
@@ -1660,39 +1590,46 @@ _RankTier _distributedRankTierForPosition(int position, int participantCount) {
 }
 
 double _tierProgressValue(int position, int participantCount) {
-  if (participantCount <= 0 || position <= 0) return 0;
-  final goldLimit = (participantCount * 0.10).ceil().clamp(1, participantCount);
-  final silverLimit =
-      (participantCount * 0.35).ceil().clamp(goldLimit, participantCount);
-  if (position <= goldLimit) return 1;
-  if (position <= silverLimit) {
-    final span = (silverLimit - goldLimit).clamp(1, participantCount);
-    final distance = (position - goldLimit - 1).clamp(0, span);
+  final limits = _rankTierLimits(participantCount);
+  if (limits.total <= 0 || position <= 0) return 0;
+  if (position <= limits.goldLimit) return 1;
+  if (position <= limits.silverLimit) {
+    final span = (limits.silverLimit - limits.goldLimit).clamp(1, limits.total);
+    final distance = (position - limits.goldLimit - 1).clamp(0, span);
     return (1 - (distance / span)).clamp(0.12, 1);
   }
-  final span = (participantCount - silverLimit).clamp(1, participantCount);
-  final distance = (position - silverLimit - 1).clamp(0, span);
+  final span = (limits.total - limits.silverLimit).clamp(1, limits.total);
+  final distance = (position - limits.silverLimit - 1).clamp(0, span);
   return (1 - (distance / span)).clamp(0.08, 1);
 }
 
 String _tierProgressLabel(int position, int participantCount) {
-  if (participantCount <= 0 || position <= 0) {
+  final limits = _rankTierLimits(participantCount);
+  if (limits.total <= 0 || position <= 0) {
     return 'Suma puntos para entrar a la liga semanal.';
   }
-  final goldLimit = (participantCount * 0.10).ceil().clamp(1, participantCount);
-  final silverLimit =
-      (participantCount * 0.35).ceil().clamp(goldLimit, participantCount);
-  if (position <= goldLimit) return 'Estás dentro del top 10% de Focus.';
-  if (position <= silverLimit) {
-    final needed = position - goldLimit;
+  if (position <= limits.goldLimit) return 'Estás dentro del top 10% de Focus.';
+  if (position <= limits.silverLimit) {
+    final needed = position - limits.goldLimit;
     return needed == 1
         ? 'Te falta 1 puesto para Oro.'
         : 'Te faltan $needed puestos para Oro.';
   }
-  final needed = position - silverLimit;
+  final needed = position - limits.silverLimit;
   return needed == 1
       ? 'Te falta 1 puesto para Plata.'
       : 'Te faltan $needed puestos para Plata.';
+}
+
+({int total, int goldLimit, int silverLimit}) _rankTierLimits(int total) {
+  if (total <= 0) return (total: 0, goldLimit: 0, silverLimit: 0);
+  final goldLimit = (total * 0.10).ceil().clamp(1, total);
+  final silverLimit = (total * 0.35).ceil().clamp(goldLimit, total);
+  return (
+    total: total,
+    goldLimit: goldLimit,
+    silverLimit: silverLimit,
+  );
 }
 
 String _careerLabel(String career) {
