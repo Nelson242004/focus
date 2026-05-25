@@ -473,6 +473,84 @@ class DatabaseHelper {
     );
   }
 
+  Future<void> replaceAllData({
+    required List<Pomodoro> pomodoros,
+    required List<Habit> habits,
+    required List<Subject> subjects,
+    required List<Schedule> schedules,
+    required List<Exam> exams,
+    required List<StudyTask> studyTasks,
+    required List<ResourceLink> resources,
+    required AppSettings settings,
+  }) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.delete('pomodoros');
+      await txn.delete('habits');
+      await txn.delete('exams');
+      await txn.delete('study_tasks');
+      await txn.delete('resources');
+      await txn.delete('schedules');
+      await txn.delete('subjects');
+      await txn.delete('settings');
+
+      for (final subject in subjects) {
+        await txn.insert(
+          'subjects',
+          subject.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final schedule in schedules) {
+        await txn.insert(
+          'schedules',
+          schedule.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final exam in exams) {
+        await txn.insert(
+          'exams',
+          exam.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final task in studyTasks) {
+        await txn.insert(
+          'study_tasks',
+          task.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final resource in resources) {
+        await txn.insert(
+          'resources',
+          resource.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final pomodoro in pomodoros) {
+        await txn.insert(
+          'pomodoros',
+          pomodoro.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      for (final habit in habits) {
+        await txn.insert(
+          'habits',
+          habit.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await txn.insert(
+        'settings',
+        {'key': 'settings', 'value': _serializeSettings(settings)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
   Future<int> insertExam(Exam e) async {
     final db = await database;
     return db.insert('exams', e.toMap());
@@ -500,6 +578,7 @@ class DatabaseHelper {
     await db.delete('study_tasks');
     await db.delete('schedules');
     await db.delete('subjects');
+    await db.delete('resources');
   }
 
   Future<void> clearAll({bool reseed = true}) async {

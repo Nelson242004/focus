@@ -42,7 +42,15 @@ service cloud.firestore {
         allow read, write: if isSelf(uid);
       }
 
+      match /studyTasks/{docId} {
+        allow read, write: if isSelf(uid);
+      }
+
       match /pomodoros/{docId} {
+        allow read, write: if isSelf(uid);
+      }
+
+      match /settings/{docId} {
         allow read, write: if isSelf(uid);
       }
     }

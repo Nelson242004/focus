@@ -56,7 +56,10 @@ class RankingProfile {
       career: '${map['career'] ?? 'Sin carrera'}',
       rank: '${map['rank'] ?? 'Bronce'}',
       photoUrl: '${map['photoUrl'] ?? ''}',
-      totalPoints: int.tryParse('${map['totalPoints'] ?? 0}') ?? 0,
+      totalPoints: int.tryParse(
+            '${map['focusPoints'] ?? stats['focusPoints'] ?? map['totalPoints'] ?? 0}',
+          ) ??
+          0,
       weeklyPoints: int.tryParse('${map['weeklyPoints'] ?? 0}') ?? 0,
       pomodoros: int.tryParse('${map['pomodoros'] ?? 0}') ?? 0,
       focusMinutes: int.tryParse('${map['focusMinutes'] ?? 0}') ?? 0,

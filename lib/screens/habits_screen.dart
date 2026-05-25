@@ -276,9 +276,14 @@ class _HabitsScreenState extends State<HabitsScreen> {
       await RankingService.syncSocialStats(
         currentStreak: provider.currentStreak,
         totalPomodoros: provider.pomodoros.length,
+        totalFocusMinutes: provider.totalFocusMinutes,
         totalHabitCompletions: provider.totalHabitCompletions,
         weeklyMissionCompleted: provider.weeklyMissionCompleted,
         level: provider.level,
+        bestStreak: provider.bestStreak,
+        focusPoints: provider.gamifiedPoints,
+        weeklyPomodoros: provider.weeklyPomodoros,
+        weeklyFocusMinutes: provider.weeklyFocusMinutes,
       );
     } catch (error) {
       debugPrint('Focus ranking habit sync skipped: $error');

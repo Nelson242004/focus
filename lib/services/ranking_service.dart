@@ -291,10 +291,14 @@ class RankingService {
   static Future<void> syncSocialStats({
     required int currentStreak,
     required int totalPomodoros,
+    required int totalFocusMinutes,
     required int totalHabitCompletions,
     required bool weeklyMissionCompleted,
     required int level,
     int? bestStreak,
+    int? focusPoints,
+    int? weeklyPomodoros,
+    int? weeklyFocusMinutes,
   }) async {
     final user = currentUser;
     if (user == null) return;
@@ -315,14 +319,26 @@ class RankingService {
       transaction.set(
         userRef,
         {
+          if (focusPoints != null) 'focusPoints': focusPoints,
+          if (focusPoints != null) 'stats.focusPoints': focusPoints,
+          if (focusPoints != null) 'totalPoints': focusPoints,
           'stats.currentStreak': currentStreak,
           'stats.bestStreak': nextBest,
           'stats.totalPomodoros': totalPomodoros,
+          'stats.totalFocusMinutes': totalFocusMinutes,
           'stats.totalHabitCompletions': totalHabitCompletions,
           'stats.weeklyMissionCompleted': weeklyMissionCompleted,
+          if (weeklyPomodoros != null) 'stats.weeklyPomodoros': weeklyPomodoros,
+          if (weeklyFocusMinutes != null)
+            'stats.weeklyFocusMinutes': weeklyFocusMinutes,
+          if (weeklyPomodoros != null) 'weeklyPomodoros': weeklyPomodoros,
+          if (weeklyFocusMinutes != null)
+            'weeklyFocusMinutes': weeklyFocusMinutes,
           'stats.level': level,
           'currentStreak': currentStreak,
           'bestStreak': nextBest,
+          'pomodoros': totalPomodoros,
+          'focusMinutes': totalFocusMinutes,
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -355,7 +371,8 @@ class RankingService {
     final profileDoc = await _firestore.collection('users').doc(user.uid).get();
     final profile = profileDoc.data();
     if (profile == null) return;
-    final currentPoints = pointsFromUserMap(profile);
+    final normalized = _normalizedWeeklyState(profile);
+    final currentPoints = normalized.points;
     final currentRank = rankForPoints(currentPoints);
     await _currentScoresCollection().doc(user.uid).set({
       'uid': user.uid,
@@ -383,9 +400,8 @@ class RankingService {
         'level': profile['stats']?['level'] ?? 1,
       },
       'points': currentPoints,
-      'pomodoros': int.tryParse('${profile['weeklyPomodoros'] ?? 0}') ?? 0,
-      'focusMinutes':
-          int.tryParse('${profile['weeklyFocusMinutes'] ?? 0}') ?? 0,
+      'pomodoros': normalized.pomodoros,
+      'focusMinutes': normalized.focusMinutes,
       'badges': List<String>.from(profile['badges'] ?? []),
       'favoriteBadge':
           profile['favoriteBadge'] ?? profile['stats']?['favoriteBadge'] ?? '',
@@ -397,8 +413,13 @@ class RankingService {
       'lastPointEvent': profile['lastPointEvent'] ?? '',
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-    if ('${profile['rank'] ?? ''}' != currentRank) {
+    if ('${profile['weeklyWeekId'] ?? ''}' != currentWeekId()) {
       await _firestore.collection('users').doc(user.uid).set({
+        'weeklyWeekId': currentWeekId(),
+        'weeklyPoints': 0,
+        'weeklyPomodoros': 0,
+        'weeklyFocusMinutes': 0,
+        'weeklyHabitCompletions': 0,
         'rank': currentRank,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
@@ -472,15 +493,11 @@ class RankingService {
       transaction.set(
         userRef,
         {
-          'rank': rankForPoints(nextPoints),
           'weeklyWeekId': currentWeekId(),
           'weeklyPoints': nextPoints,
-          'totalPoints': FieldValue.increment(awardedPoints),
           'weeklyPomodoros': normalized.pomodoros + 1,
           'weeklyFocusMinutes': normalized.focusMinutes + durationMinutes,
           'weeklyHabitCompletions': normalized.habitCompletions,
-          'pomodoros': FieldValue.increment(1),
-          'focusMinutes': FieldValue.increment(durationMinutes),
           'rankingDailyDayId': dayId,
           'rankingDailyPomodoroBlocks': dailyBlocks + countedBlocks,
           'lastPointEvent': 'pomodoro',
@@ -557,14 +574,11 @@ class RankingService {
       transaction.set(
         userRef,
         {
-          'rank': rankForPoints(nextPoints),
           'weeklyWeekId': currentWeekId(),
           'weeklyPoints': nextPoints,
-          'totalPoints': FieldValue.increment(awardedPoints),
           'weeklyPomodoros': normalized.pomodoros,
           'weeklyFocusMinutes': normalized.focusMinutes,
           'weeklyHabitCompletions': normalized.habitCompletions + 1,
-          'habitCompletions': FieldValue.increment(1),
           'rankingDailyDayId': dayId,
           'rankingDailyHabitIds': nextDailyHabitIds,
           'lastPointEvent': 'habit',
@@ -627,8 +641,6 @@ class RankingService {
           'badges': badges,
           'weeklyWeekId': currentWeekId(),
           'weeklyPoints': nextPoints,
-          'totalPoints': FieldValue.increment(points),
-          'rank': rankForPoints(nextPoints),
           'updatedAt': FieldValue.serverTimestamp(),
         },
         SetOptions(merge: true),
@@ -690,7 +702,10 @@ class RankingService {
           position: position,
         );
       }).toList();
-      return _hydrateEntriesWithCurrentProfileIcons(entries);
+      final hydrated = await _hydrateEntriesWithCurrentProfileIcons(entries);
+      final distributed = _withDistributedRanks(hydrated);
+      await _syncCurrentUserDistributedRank(distributed);
+      return distributed;
     } catch (error) {
       debugPrint('[FocusRanking] Fallback ranking desde users: $error');
     }
@@ -710,7 +725,7 @@ class RankingService {
         if (points != 0) return points;
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
-    return entries.map((entry) {
+    final positioned = entries.map((entry) {
       position++;
       return RankingEntry(
         uid: entry.uid,
@@ -733,6 +748,9 @@ class RankingService {
         lastPointEvent: entry.lastPointEvent,
       );
     }).toList();
+    final distributed = _withDistributedRanks(positioned);
+    await _syncCurrentUserDistributedRank(distributed);
+    return distributed;
   }
 
   static Stream<List<RankingEntry>> leagueLeaderboardStream({
@@ -996,6 +1014,23 @@ class RankingService {
     return 'Bronce';
   }
 
+  static String distributedRankForPosition(int position, int total) {
+    if (position <= 0 || total <= 0) return 'Bronce';
+    final limits = distributedRankLimits(total);
+    if (position <= limits.goldLimit) return 'Oro';
+    if (position <= limits.silverLimit) return 'Plata';
+    return 'Bronce';
+  }
+
+  static ({int total, int goldLimit, int silverLimit}) distributedRankLimits(
+    int total,
+  ) {
+    if (total <= 0) return (total: 0, goldLimit: 0, silverLimit: 0);
+    final goldLimit = (total * 0.10).ceil().clamp(1, total);
+    final silverLimit = (total * 0.35).ceil().clamp(goldLimit, total);
+    return (total: total, goldLimit: goldLimit, silverLimit: silverLimit);
+  }
+
   static DateTime nextHourlyUpdate() {
     final now = DateTime.now();
     return DateTime(now.year, now.month, now.day, now.hour + 1);
@@ -1059,8 +1094,11 @@ class RankingService {
         'level': map['stats']?['level'] ?? 1,
       },
       'points': normalized.points,
-      'pomodoros': normalized.pomodoros,
-      'focusMinutes': normalized.focusMinutes,
+      'pomodoros':
+          _intFrom(map['weeklyPomodoros'] ?? map['stats']?['weeklyPomodoros']),
+      'focusMinutes': _intFrom(
+        map['weeklyFocusMinutes'] ?? map['stats']?['weeklyFocusMinutes'],
+      ),
       'badges': List<String>.from(map['badges'] ?? []),
       'favoriteBadge':
           map['favoriteBadge'] ?? map['stats']?['favoriteBadge'] ?? '',
@@ -1172,6 +1210,58 @@ class RankingService {
       return entries;
     }
   }
+
+  static List<RankingEntry> _withDistributedRanks(List<RankingEntry> entries) {
+    final total = entries.length;
+    return entries.map((entry) {
+      return RankingEntry(
+        uid: entry.uid,
+        name: entry.name,
+        career: entry.career,
+        rank: distributedRankForPosition(entry.position, total),
+        points: entry.points,
+        pomodoros: entry.pomodoros,
+        focusMinutes: entry.focusMinutes,
+        socialMascotIndex: entry.socialMascotIndex,
+        profileIconAsset: entry.profileIconAsset,
+        position: entry.position,
+        trend: entry.trend,
+        photoUrl: entry.photoUrl,
+        university: entry.university,
+        badges: entry.badges,
+        favoriteBadge: entry.favoriteBadge,
+        featuredBadges: entry.featuredBadges,
+        lastActive: entry.lastActive,
+        lastPointEvent: entry.lastPointEvent,
+      );
+    }).toList();
+  }
+
+  static Future<void> _syncCurrentUserDistributedRank(
+    List<RankingEntry> entries,
+  ) async {
+    final user = currentUser;
+    if (user == null || entries.isEmpty) return;
+    final matches = entries.where((entry) => entry.uid == user.uid);
+    if (matches.isEmpty) return;
+    final entry = matches.first;
+    try {
+      await Future.wait([
+        _firestore.collection('users').doc(user.uid).set({
+          'rank': entry.rank,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+        _currentScoresCollection().doc(user.uid).set({
+          'rank': entry.rank,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)),
+      ]);
+    } catch (error) {
+      debugPrint('[FocusRanking] Rank distribuido no sincronizado: $error');
+    }
+  }
+
+  static int _intFrom(Object? value) => int.tryParse('$value') ?? 0;
 
   static String _profileIconAssetFromProfile(Map<String, dynamic> profile) {
     final stats = profile['stats'];

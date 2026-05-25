@@ -14,6 +14,7 @@ class FocusPublicProfileSheet extends StatefulWidget {
   final bool isMe;
   final bool isFriend;
   final int? points;
+  final String? league;
   final String? statusLabel;
   final Future<bool> Function()? onSendRequest;
   final Future<void> Function()? onRemove;
@@ -24,6 +25,7 @@ class FocusPublicProfileSheet extends StatefulWidget {
     this.isMe = false,
     this.isFriend = true,
     this.points,
+    this.league,
     this.statusLabel,
     this.onSendRequest,
     this.onRemove,
@@ -96,7 +98,7 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
   @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
-    final league = _leagueLabel(profile.rank);
+    final league = _leagueLabel(widget.league ?? profile.rank);
     final accent = _leagueColor(league);
     final isFriend = widget.isFriend;
     final isMe = widget.isMe;
@@ -163,7 +165,7 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
                             ],
                           ),
                           child: FocusLeagueIcon(
-                            league: profile.rank,
+                            league: league,
                             size: 38,
                             elevated: false,
                           ),
@@ -240,7 +242,7 @@ class _FocusPublicProfileSheetState extends State<FocusPublicProfileSheet> {
                 _PublicMetricCard(
                   icon: Icons.emoji_events_rounded,
                   customIcon: FocusLeagueIcon(
-                    league: profile.rank,
+                    league: league,
                     size: 24,
                     elevated: false,
                   ),

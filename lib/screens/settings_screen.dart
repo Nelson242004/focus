@@ -293,9 +293,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirm != true) return;
+    if (!mounted) return;
 
     try {
+      final provider = Provider.of<AppProvider>(context, listen: false);
+      await provider.prepareForAccountSignOut();
       await RankingService.signOut();
+      await provider.clearLocalAccountData(reseed: false);
       if (!mounted) return;
       setState(() {});
       _showMessage('Sesión cerrada.');

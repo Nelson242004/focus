@@ -94,6 +94,7 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
           isMe: isMe,
           isFriend: isFriend,
           points: entry.points,
+          league: entry.rank,
           statusLabel: isMe
               ? 'Tu perfil'
               : isFriend
@@ -1622,14 +1623,7 @@ String _tierProgressLabel(int position, int participantCount) {
 }
 
 ({int total, int goldLimit, int silverLimit}) _rankTierLimits(int total) {
-  if (total <= 0) return (total: 0, goldLimit: 0, silverLimit: 0);
-  final goldLimit = (total * 0.10).ceil().clamp(1, total);
-  final silverLimit = (total * 0.35).ceil().clamp(goldLimit, total);
-  return (
-    total: total,
-    goldLimit: goldLimit,
-    silverLimit: silverLimit,
-  );
+  return RankingService.distributedRankLimits(total);
 }
 
 String _careerLabel(String career) {

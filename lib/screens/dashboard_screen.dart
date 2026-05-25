@@ -750,7 +750,34 @@ class _MetricGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (RankingService.currentUser != null) {
+      return StreamBuilder<RankingProfile?>(
+        stream: RankingService.profileStream(),
+        builder: (context, snapshot) {
+          final profileLeague = snapshot.data?.rank.trim();
+          final league = profileLeague == null || profileLeague.isEmpty
+              ? LeagueInfo.fromPoints(provider.gamifiedPoints)
+              : LeagueInfo.fromName(profileLeague);
+          return _MetricGridContent(provider: provider, league: league);
+        },
+      );
+    }
     final league = LeagueInfo.fromPoints(provider.gamifiedPoints);
+    return _MetricGridContent(provider: provider, league: league);
+  }
+}
+
+class _MetricGridContent extends StatelessWidget {
+  final AppProvider provider;
+  final LeagueInfo league;
+
+  const _MetricGridContent({
+    required this.provider,
+    required this.league,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final metrics = [
       _MetricData(
         metricIcon: FocusMetricIconKind.points,

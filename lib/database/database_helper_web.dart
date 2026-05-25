@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -311,6 +311,76 @@ class DatabaseHelper {
   Future<void> updateSettings(AppSettings settings) async {
     final prefs = await _preferences;
     await prefs.setString(_settingsKey, jsonEncode(settings.toMap()));
+  }
+
+  Future<void> replaceAllData({
+    required List<Pomodoro> pomodoros,
+    required List<Habit> habits,
+    required List<Subject> subjects,
+    required List<Schedule> schedules,
+    required List<Exam> exams,
+    required List<StudyTask> studyTasks,
+    required List<ResourceLink> resources,
+    required AppSettings settings,
+  }) async {
+    final prefs = await _preferences;
+    await _writeCollection(
+      _subjectsKey,
+      subjects.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _schedulesKey,
+      schedules.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _examsKey,
+      exams.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _studyTasksKey,
+      studyTasks.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _resourcesKey,
+      resources.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _pomodorosKey,
+      pomodoros.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await _writeCollection(
+      _habitsKey,
+      habits.map((item) => item.toMap()).toList(),
+      prefsOverride: prefs,
+    );
+    await prefs.setString(_settingsKey, jsonEncode(settings.toMap()));
+    await prefs.setBool(_seededKey, true);
+    await _setSequenceFromItems(prefs, _subjectsKey, subjects);
+    await _setSequenceFromItems(prefs, _schedulesKey, schedules);
+    await _setSequenceFromItems(prefs, _examsKey, exams);
+    await _setSequenceFromItems(prefs, _studyTasksKey, studyTasks);
+    await _setSequenceFromItems(prefs, _resourcesKey, resources);
+    await _setSequenceFromItems(prefs, _pomodorosKey, pomodoros);
+    await _setSequenceFromItems(prefs, _habitsKey, habits);
+  }
+
+  Future<void> _setSequenceFromItems(
+    SharedPreferences prefs,
+    String key,
+    Iterable<dynamic> items,
+  ) async {
+    var maxId = 0;
+    for (final item in items) {
+      final id = item.id;
+      if (id is int && id > maxId) maxId = id;
+    }
+    await prefs.setInt(_sequenceKey(key), maxId);
   }
 
   Future<int> insertExam(Exam e) async {

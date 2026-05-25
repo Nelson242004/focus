@@ -97,9 +97,14 @@ class _FriendsScreenState extends State<FriendsScreen> {
     RankingService.syncSocialStats(
       currentStreak: localStreak,
       totalPomodoros: provider.pomodoros.length,
+      totalFocusMinutes: provider.totalFocusMinutes,
       totalHabitCompletions: provider.totalHabitCompletions,
       weeklyMissionCompleted: provider.weeklyMissionCompleted,
       level: provider.level,
+      bestStreak: provider.bestStreak,
+      focusPoints: provider.gamifiedPoints,
+      weeklyPomodoros: provider.weeklyPomodoros,
+      weeklyFocusMinutes: provider.weeklyFocusMinutes,
     ).then((_) async {
       _lastSyncedLocalStreak = localStreak;
       if (!mounted) return;

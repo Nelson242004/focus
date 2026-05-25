@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../models/app_settings.dart';
 import '../models/exam.dart';
@@ -12,6 +13,7 @@ import '../models/study_task.dart';
 import '../models/subject.dart';
 import '../services/notification_service.dart';
 import '../services/firebase_user_data_service.dart';
+import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/app_utils.dart';
 
@@ -38,6 +40,8 @@ class AppProvider extends ChangeNotifier {
   AppSettings settings = AppSettings();
   bool isLoaded = false;
   Object? lastLoadError;
+  String? _syncedAccountUid;
+  static const String _localAccountUidKey = 'focus_local_account_uid';
 
   final db = DatabaseHelper.instance;
 
@@ -65,19 +69,165 @@ class AppProvider extends ChangeNotifier {
       isLoaded = true;
       notifyListeners();
       await WidgetSyncService.syncFromProvider(this);
-      await _syncRemoteProgressData();
     }
   }
 
-  Future<void> _syncRemoteProgressData() async {
+  bool get _hasLocalUserData =>
+      pomodoros.isNotEmpty ||
+      habits.isNotEmpty ||
+      subjects.isNotEmpty ||
+      schedules.isNotEmpty ||
+      exams.isNotEmpty ||
+      studyTasks.isNotEmpty ||
+      resources.isNotEmpty;
+
+  Future<void> syncAccountAfterSignIn(String uid) async {
+    if (_syncedAccountUid == uid) return;
+    _syncedAccountUid = uid;
     try {
-      await FirebaseUserDataService.syncProgressData(
+      final localOwnerUid = await _localAccountUid();
+      final accountChanged = localOwnerUid != null && localOwnerUid != uid;
+      if (accountChanged) {
+        await _clearLocalOnly(reseed: false);
+        await loadAllData();
+      }
+
+      final cloudData = await FirebaseUserDataService.fetchAllData();
+      if (cloudData == null) {
+        await _saveLocalAccountUid(uid);
+        return;
+      }
+      if (cloudData.hasAnyData && (accountChanged || !_hasLocalUserData)) {
+        final restoredSettings = cloudData.settings ?? settings;
+        await db.replaceAllData(
+          pomodoros: cloudData.pomodoros,
+          habits: cloudData.habits,
+          subjects: cloudData.subjects,
+          schedules: cloudData.schedules,
+          exams: cloudData.exams,
+          studyTasks: cloudData.studyTasks,
+          resources: cloudData.resources,
+          settings: restoredSettings,
+        );
+        await loadAllData();
+        await syncRemoteSocialProgress();
+        await _saveLocalAccountUid(uid);
+        return;
+      }
+      if (_hasLocalUserData) {
+        await _syncRemoteAllData();
+      }
+      await _saveLocalAccountUid(uid);
+    } catch (error, stackTrace) {
+      _syncedAccountUid = null;
+      debugPrint('Focus account cloud sync skipped: $error');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+  }
+
+  Future<void> _syncRemoteAllData() async {
+    try {
+      await FirebaseUserDataService.syncAllData(
         pomodoros: pomodoros,
         habits: habits,
+        subjects: subjects,
+        schedules: schedules,
+        exams: exams,
+        studyTasks: studyTasks,
+        resources: resources,
+        settings: settings,
       );
+      await syncRemoteSocialProgress();
     } catch (error) {
-      debugPrint('Focus remote progress sync skipped: $error');
+      debugPrint('Focus remote data sync skipped: $error');
     }
+  }
+
+  Future<void> syncRemoteSocialProgress() async {
+    if (RankingService.currentUser == null) return;
+    try {
+      await RankingService.syncSocialStats(
+        currentStreak: currentStreak,
+        totalPomodoros: pomodoros.length,
+        totalFocusMinutes: totalFocusMinutes,
+        totalHabitCompletions: totalHabitCompletions,
+        weeklyMissionCompleted: weeklyMissionCompleted,
+        level: level,
+        bestStreak: bestStreak,
+        focusPoints: gamifiedPoints,
+        weeklyPomodoros: weeklyPomodoros,
+        weeklyFocusMinutes: weeklyFocusMinutes,
+      );
+      await RankingService.syncAchievementAwards(
+        pomodoros: pomodoros.length,
+        currentStreak: currentStreak,
+        totalHabitCompletions: totalHabitCompletions,
+        weeklyMissionCompleted: weeklyMissionCompleted,
+        level: level,
+        maxLevel: maxLevel,
+      );
+      await RankingService.syncSocialStats(
+        currentStreak: currentStreak,
+        totalPomodoros: pomodoros.length,
+        totalFocusMinutes: totalFocusMinutes,
+        totalHabitCompletions: totalHabitCompletions,
+        weeklyMissionCompleted: weeklyMissionCompleted,
+        level: level,
+        bestStreak: bestStreak,
+        focusPoints: gamifiedPoints,
+        weeklyPomodoros: weeklyPomodoros,
+        weeklyFocusMinutes: weeklyFocusMinutes,
+      );
+      await RankingService.ensureCurrentWeekScore();
+    } catch (error) {
+      debugPrint('Focus social progress sync skipped: $error');
+    }
+  }
+
+  Future<void> _runOptionalFullCloudSync(String label) {
+    return _runOptionalCloudSync(_syncRemoteAllData, label);
+  }
+
+  Future<String?> _localAccountUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString(_localAccountUidKey);
+    return uid == null || uid.trim().isEmpty ? null : uid;
+  }
+
+  Future<void> _saveLocalAccountUid(String uid) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_localAccountUidKey, uid);
+  }
+
+  Future<void> _clearLocalAccountUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_localAccountUidKey);
+  }
+
+  Future<void> prepareForAccountSignOut() => _syncRemoteAllData();
+
+  Future<void> clearLocalAccountData({bool reseed = false}) async {
+    await _clearLocalOnly(reseed: reseed);
+    await _clearLocalAccountUid();
+    _syncedAccountUid = null;
+    await loadAllData();
+  }
+
+  Future<void> _clearLocalOnly({required bool reseed}) async {
+    for (final exam in exams) {
+      if (exam.id != null) {
+        try {
+          await NotificationService.cancelExamNotifications(exam.id!);
+        } catch (error) {
+          debugPrint('Focus local exam notification clear skipped: $error');
+        }
+      }
+    }
+    await db.clearAll(reseed: reseed);
+  }
+
+  void _queueSocialProgressSync() {
+    unawaited(syncRemoteSocialProgress());
   }
 
   Future<void> _notifyAndSyncWidget() {
@@ -238,6 +388,7 @@ class AppProvider extends ChangeNotifier {
       () => FirebaseUserDataService.savePomodoro(p),
       'save pomodoro',
     );
+    _queueSocialProgressSync();
     await _notifyAndSyncWidget();
   }
 
@@ -248,6 +399,7 @@ class AppProvider extends ChangeNotifier {
       () => FirebaseUserDataService.deletePomodoro(id),
       'delete pomodoro',
     );
+    _queueSocialProgressSync();
     await _notifyAndSyncWidget();
   }
 
@@ -259,6 +411,7 @@ class AppProvider extends ChangeNotifier {
       () => FirebaseUserDataService.saveHabit(h),
       'save habit',
     );
+    _queueSocialProgressSync();
     await _notifyAndSyncWidget();
   }
 
@@ -269,6 +422,7 @@ class AppProvider extends ChangeNotifier {
       () => FirebaseUserDataService.saveHabit(h),
       'update habit',
     );
+    _queueSocialProgressSync();
     await _notifyAndSyncWidget();
   }
 
@@ -279,6 +433,7 @@ class AppProvider extends ChangeNotifier {
       () => FirebaseUserDataService.deleteHabit(id),
       'delete habit',
     );
+    _queueSocialProgressSync();
     await _notifyAndSyncWidget();
   }
 
@@ -311,14 +466,30 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addResource(ResourceLink resource) async {
-    await db.insertResource(resource);
+    final id = await db.insertResource(resource);
+    final savedResource = ResourceLink(
+      id: id,
+      title: resource.title,
+      url: resource.url,
+      category: resource.category,
+      subjectId: resource.subjectId,
+      isDefault: resource.isDefault,
+    );
     await _loadResources();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveResource(savedResource),
+      'save resource',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteResource(int id) async {
     await db.deleteResource(id);
     await _loadResources();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deleteResource(id),
+      'delete resource',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -327,12 +498,21 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertStudyTask(normalized);
     normalized.id = id;
     await _loadStudyTasks();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveStudyTask(normalized),
+      'save study task',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> updateStudyTask(StudyTask task) async {
-    await db.updateStudyTask(_normalizeStudyTask(task));
+    final normalized = _normalizeStudyTask(task);
+    await db.updateStudyTask(normalized);
     await _loadStudyTasks();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveStudyTask(normalized),
+      'update study task',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -355,6 +535,10 @@ class AppProvider extends ChangeNotifier {
   Future<void> deleteStudyTask(int id) async {
     await db.deleteStudyTask(id);
     await _loadStudyTasks();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deleteStudyTask(id),
+      'delete study task',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -424,6 +608,7 @@ class AppProvider extends ChangeNotifier {
       await db.insertSchedule(scheduleToSave);
       await _loadSubjects();
       await _loadSchedules();
+      await _runOptionalFullCloudSync('save subject with schedule');
       await _notifyAndSyncWidget();
       return savedSubject;
     } catch (_) {
@@ -440,6 +625,10 @@ class AppProvider extends ChangeNotifier {
       throw StateError('No se pudo guardar la materia.');
     }
     await _loadSubjects();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveSubject(s),
+      'save subject',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -460,6 +649,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSubjects();
     await _loadExams();
     await _loadStudyTasks();
+    await _runOptionalFullCloudSync('update subject');
     await _notifyAndSyncWidget();
   }
 
@@ -469,6 +659,7 @@ class AppProvider extends ChangeNotifier {
     await _loadSchedules();
     await _loadExams();
     await _loadStudyTasks();
+    await _runOptionalFullCloudSync('delete subject');
     await _notifyAndSyncWidget();
   }
 
@@ -498,6 +689,10 @@ class AppProvider extends ChangeNotifier {
     final id = await db.insertSchedule(s);
     s.id = id;
     await _loadSchedules();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveSchedule(s),
+      'save schedule',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -513,12 +708,20 @@ class AppProvider extends ChangeNotifier {
     }
     await db.updateSchedule(s);
     await _loadSchedules();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveSchedule(s),
+      'update schedule',
+    );
     await _notifyAndSyncWidget();
   }
 
   Future<void> deleteSchedule(int id) async {
     await db.deleteSchedule(id);
     await _loadSchedules();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deleteSchedule(id),
+      'delete schedule',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -552,6 +755,10 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveExam(savedExam),
+      'save exam',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -575,6 +782,10 @@ class AppProvider extends ChangeNotifier {
     }
     await _loadExams();
     _syncExamSubjectNames();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveExam(normalized),
+      'update exam',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -601,6 +812,10 @@ class AppProvider extends ChangeNotifier {
       debugPrint('Focus exam notification delete skipped: $error');
     }
     await _loadExams();
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.deleteExam(id),
+      'delete exam',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -616,6 +831,7 @@ class AppProvider extends ChangeNotifier {
     await _loadExams();
     await _loadStudyTasks();
     await _loadResources();
+    await _runOptionalFullCloudSync('clear academic data');
     await _notifyAndSyncWidget();
   }
 
@@ -628,6 +844,10 @@ class AppProvider extends ChangeNotifier {
     if (syncNotifications) {
       await _syncExamNotifications();
     }
+    await _runOptionalCloudSync(
+      () => FirebaseUserDataService.saveSettings(settings),
+      'save settings',
+    );
     await _notifyAndSyncWidget();
   }
 
@@ -700,6 +920,12 @@ class AppProvider extends ChangeNotifier {
         debugPrint('Focus theme save skipped: $error');
       }),
     );
+    unawaited(
+      _runOptionalCloudSync(
+        () => FirebaseUserDataService.saveSettings(settings),
+        'save theme settings',
+      ),
+    );
   }
 
   Future<void> updateSelectedIdentity(String identity) async {
@@ -752,9 +978,9 @@ class AppProvider extends ChangeNotifier {
     }
     await db.clearAll(reseed: reseed);
     try {
-      await FirebaseUserDataService.clearProgressData();
+      await FirebaseUserDataService.clearAllUserData();
     } catch (error) {
-      debugPrint('Focus remote progress clear skipped: $error');
+      debugPrint('Focus remote data clear skipped: $error');
     }
     await loadAllData();
     if (reseed) {
@@ -849,6 +1075,14 @@ class AppProvider extends ChangeNotifier {
     return streak;
   }
 
+  int get bestStreak {
+    final bestHabitStreak = habits.fold<int>(
+      0,
+      (best, habit) => habit.bestStreak > best ? habit.bestStreak : best,
+    );
+    return bestHabitStreak > currentStreak ? bestHabitStreak : currentStreak;
+  }
+
   static const int maxLevel = 5;
   static const int pointsPerLevel = 200;
 
@@ -884,14 +1118,21 @@ class AppProvider extends ChangeNotifier {
   double get totalFocusHours =>
       pomodoros.fold<double>(0, (sum, pomodoro) => sum + pomodoro.duration) /
       60;
+
+  int get totalFocusMinutes =>
+      pomodoros.fold<int>(0, (sum, pomodoro) => sum + pomodoro.duration);
+
   double get weeklyFocusHours {
+    return weeklyFocusMinutes / 60;
+  }
+
+  int get weeklyFocusMinutes {
     final now = DateTime.now();
     final startOfWeek = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
-    final minutes = pomodoros
+    return pomodoros
         .where((p) => !DateTime.parse(p.date).isBefore(startOfWeek))
         .fold<int>(0, (sum, p) => sum + p.duration);
-    return minutes / 60;
   }
 
   double get weeklyProgress =>

@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../models/ranking_profile.dart';
+import '../providers/app_provider.dart';
 import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
@@ -24,6 +26,41 @@ class AuthGateScreen extends StatefulWidget {
 }
 
 class _AuthGateScreenState extends State<AuthGateScreen> {
+  String? _preparedUid;
+  Future<void>? _prepareFuture;
+  bool _signedOutCleaned = false;
+  Future<void>? _signedOutFuture;
+
+  Future<void> _prepareSignedInSession(User user) {
+    if (_preparedUid == user.uid && _prepareFuture != null) {
+      return _prepareFuture!;
+    }
+    _preparedUid = user.uid;
+    _prepareFuture = _runSignedInPreparation(user);
+    return _prepareFuture!;
+  }
+
+  Future<void> _runSignedInPreparation(User user) async {
+    _signedOutCleaned = false;
+    await RankingService.ensureProfile();
+    if (!mounted) return;
+    await Provider.of<AppProvider>(context, listen: false)
+        .syncAccountAfterSignIn(user.uid);
+    await RankingService.ensureCurrentWeekScore();
+  }
+
+  Future<void> _prepareSignedOutSession() {
+    if (_signedOutCleaned && _signedOutFuture != null) {
+      return _signedOutFuture!;
+    }
+    _preparedUid = null;
+    _prepareFuture = null;
+    _signedOutCleaned = true;
+    _signedOutFuture = Provider.of<AppProvider>(context, listen: false)
+        .clearLocalAccountData(reseed: false);
+    return _signedOutFuture!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
@@ -32,23 +69,22 @@ class _AuthGateScreenState extends State<AuthGateScreen> {
       builder: (context, snapshot) {
         final user = snapshot.data;
         if (user == null) {
-          return widget.requireAccount ? const LoginScreen() : widget.child;
+          return FutureBuilder<void>(
+            future: _prepareSignedOutSession(),
+            builder: (context, cleanSnapshot) {
+              if (cleanSnapshot.connectionState == ConnectionState.waiting) {
+                return const FocusSkeletonScaffold();
+              }
+              return widget.requireAccount ? const LoginScreen() : widget.child;
+            },
+          );
         }
-        if (!widget.requireAccount) {
-          unawaited(RankingService.ensureCurrentWeekScore());
-          return widget.child;
-        }
-        return FutureBuilder<RankingProfile?>(
-          future: RankingService.ensureProfile(),
+        return FutureBuilder<void>(
+          future: _prepareSignedInSession(user),
           builder: (context, profileSnapshot) {
             if (profileSnapshot.connectionState == ConnectionState.waiting) {
               return const FocusSkeletonScaffold();
             }
-            final profile = profileSnapshot.data;
-            if (profile == null) {
-              return widget.child;
-            }
-            RankingService.ensureCurrentWeekScore();
             return widget.child;
           },
         );

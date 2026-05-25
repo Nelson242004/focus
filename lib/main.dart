@@ -691,16 +691,16 @@ class MyApp extends StatelessWidget {
             },
             home: !provider.isLoaded
                 ? const _BootSplash()
-                : provider.settings.onboardingCompleted
-                    ? AuthGateScreen(
-                        requireAccount: false,
-                        child: kIsWeb
+                : AuthGateScreen(
+                    requireAccount: true,
+                    child: provider.settings.onboardingCompleted
+                        ? kIsWeb
                             ? const WebFocusScreen()
-                            : const MainNavigationScreen(),
-                      )
-                    : OnboardingScreen(
-                        onComplete: () => provider.completeOnboarding(),
-                      ),
+                            : const MainNavigationScreen()
+                        : OnboardingScreen(
+                            onComplete: () => provider.completeOnboarding(),
+                          ),
+                  ),
           );
         },
       ),

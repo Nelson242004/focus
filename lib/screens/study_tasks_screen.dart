@@ -408,111 +408,185 @@ class _TaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = task.priority == 'high'
-        ? FocusPalette.softAlert
+    final priorityColor = task.priority == 'high'
+        ? FocusPalette.danger
         : task.priority == 'low'
-            ? FocusPalette.calm
-            : FocusPalette.points;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Checkbox(
-                value: task.isDone,
-                onChanged: (value) => onToggle(value ?? false)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                          decoration:
-                              task.isDone ? TextDecoration.lineThrough : null,
-                        ),
-                  ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+            ? FocusPalette.mint
+            : FocusPalette.amber;
+    final accent = task.isOverdue
+        ? FocusPalette.danger
+        : task.isDone
+            ? FocusPalette.muted
+            : priorityColor;
+    final subject = subjectName?.trim();
+    final statusLabel = task.isOverdue
+        ? 'Vencida'
+        : task.isDone
+            ? 'Terminada'
+            : task.statusLabel;
+    final secondary = [
+      if (subject != null && subject.isNotEmpty) subject,
+      formatDate(task.dueDate),
+      task.priorityLabel,
+    ].join(' · ');
+
+    final compactSecondary = secondary.replaceAll(' \u00C2\u00B7 ', ' | ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: FocusSurfaceCard(
+        padding: EdgeInsets.zero,
+        radius: 20,
+        accent: accent,
+        elevated: false,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onEdit,
+          child: Row(
+            children: [
+              const SizedBox(width: 12),
+              _TaskCheckButton(
+                done: task.isDone,
+                color: accent,
+                onChanged: onToggle,
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _TaskChip(
-                        icon: Icons.calendar_today_rounded,
-                        label: formatDate(task.dueDate),
+                      Text(
+                        task.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              height: 1.04,
+                              decoration: task.isDone
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                              color: task.isDone
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.56)
+                                  : null,
+                            ),
                       ),
-                      _TaskChip(
-                        icon: Icons.flag_rounded,
-                        label: task.priorityLabel,
-                        color: color.withValues(alpha: 0.16),
+                      const SizedBox(height: 5),
+                      Text(
+                        compactSecondary.isEmpty
+                            ? statusLabel
+                            : compactSecondary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
                       ),
-                      _TaskChip(
-                        icon: Icons.hourglass_top_rounded,
-                        label: task.statusLabel,
-                      ),
-                      if (subjectName != null)
-                        _TaskChip(
-                          icon: Icons.book_rounded,
-                          label: subjectName!,
-                        ),
                     ],
                   ),
-                  if (task.notes.trim().isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(task.notes),
-                  ],
-                  if (task.isOverdue) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Vencida',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              _TaskStatusDot(label: statusLabel, color: accent),
+              PopupMenuButton<String>(
+                tooltip: 'Opciones',
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                onSelected: (value) {
+                  if (value == 'edit') onEdit();
+                  if (value == 'delete') onDelete();
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'edit', child: Text('Editar')),
+                  PopupMenuItem(value: 'delete', child: Text('Eliminar')),
                 ],
               ),
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'edit') onEdit();
-                if (value == 'delete') onDelete();
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: Text('Editar')),
-                PopupMenuItem(value: 'delete', child: Text('Eliminar')),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _TaskChip extends StatelessWidget {
-  final IconData icon;
+class _TaskStatusDot extends StatelessWidget {
   final String label;
-  final Color? color;
+  final Color color;
 
-  const _TaskChip({
-    required this.icon,
+  const _TaskStatusDot({
     required this.label,
-    this.color,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text(label),
-      backgroundColor: color,
-      visualDensity: VisualDensity.compact,
+    return Tooltip(
+      message: label,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 9,
+        height: 34,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.82),
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
+class _TaskCheckButton extends StatelessWidget {
+  final bool done;
+  final Color color;
+  final ValueChanged<bool> onChanged;
+
+  const _TaskCheckButton({
+    required this.done,
+    required this.color,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: () => onChanged(!done),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: done ? color : color.withValues(alpha: 0.10),
+          border: Border.all(
+            color: done ? color : color.withValues(alpha: 0.34),
+            width: 1.6,
+          ),
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          child: done
+              ? const Icon(
+                  Icons.check_rounded,
+                  key: ValueKey('done'),
+                  size: 18,
+                  color: Colors.white,
+                )
+              : Icon(
+                  Icons.circle_outlined,
+                  key: const ValueKey('todo'),
+                  size: 14,
+                  color: color.withValues(alpha: 0.55),
+                ),
+        ),
+      ),
     );
   }
 }
