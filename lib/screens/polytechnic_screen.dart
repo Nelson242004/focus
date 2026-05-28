@@ -51,7 +51,7 @@ class _PolytechnicScreenState extends State<PolytechnicScreen> {
               title: const Text('Politécnica'),
               actions: const [
                 FocusHelpAction(
-                  title: 'Ayuda de politecnica',
+                  title: 'Ayuda de Politécnica',
                   message:
                       'Esta sección sirve para importar y filtrar planes de estudio sin recargar cada paso con demasiado texto.',
                   sections: [

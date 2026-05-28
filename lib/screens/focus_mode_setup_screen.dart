@@ -169,11 +169,11 @@ class _FocusModeSetupScreenState extends State<FocusModeSetupScreen> {
                 'Aquí eliges las apps que Focus va a considerar distractoras durante el modo de enfoque.',
             sections: [
               FocusHelpSection(
-                title: 'Como usarlo',
+                title: 'Cómo usarlo',
                 items: [
                   'Selecciona solo las apps que realmente te sacan del estudio.',
                   'Las recomendadas te ayudan a marcar rápido redes, video y mensajería.',
-                  'El boton inferior guarda la lista elegida.',
+                  'El botón inferior guarda la lista elegida.',
                 ],
               ),
             ],

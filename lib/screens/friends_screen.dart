@@ -157,21 +157,23 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 FocusHelpAction(
                   title: 'Ayuda de perfil',
                   message:
-                      'Desde aquí editas tu perfil público y gestionas amigos sin cargar la pantalla con explicaciones largas.',
+                      'Aquí controlas cómo te ven otros usuarios y gestionas tus amigos.',
                   sections: [
                     FocusHelpSection(
                       title: 'Perfil público',
                       items: [
-                        'Tu nombre y carrera son los datos que otros pueden ver en funciones sociales.',
-                        'Puedes cambiar personaje y color de fondo desde el editor del perfil.',
+                        'Otros pueden ver nombre, carrera, personaje, liga, puntos públicos e insignias.',
+                        'Puedes cambiar personaje y color de fondo desde el editor de perfil.',
+                        'El personaje elegido se refleja en ranking, perfil, amigos y vistas sociales.',
                       ],
                     ),
                     FocusHelpSection(
-                      title: 'Amigos',
+                      title: 'Solicitudes',
                       items: [
                         'Tu código sirve para que te agreguen rápido.',
-                        'Buscar te permite enviar solicitudes y compartir facilita invitar fuera de la app.',
-                        'El ranking entre amigos toma tu perfil público, no la información privada de tu cuenta.',
+                        'Busca por código, nombre, correo o carrera para enviar solicitudes.',
+                        'Una solicitud no crea amistad hasta que la otra persona acepta.',
+                        'Mis amigos concentra amigos, solicitudes recibidas y solicitudes enviadas.',
                       ],
                     ),
                   ],

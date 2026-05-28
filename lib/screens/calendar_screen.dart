@@ -41,19 +41,21 @@ class _CalendarScreenState extends State<CalendarScreen> {
               FocusHelpAction(
                 title: 'Ayuda de calendario',
                 message:
-                    'El calendario junta exámenes, tareas y otras fechas para que veas tu carga de un vistazo.',
+                    'El calendario junta clases, exámenes, tareas, hábitos y Pomodoros por fecha.',
                 sections: [
                   FocusHelpSection(
-                    title: 'Vista',
+                    title: 'Qué muestra',
                     items: [
-                      'El resumen mensual te muestra cuánto se concentra en el mes actual.',
-                      'Al tocar un día ves su agenda sin llenar toda la pantalla de texto.',
+                      'El resumen mensual muestra cuánta carga tienes en el mes actual.',
+                      'Al tocar un día ves su agenda sin llenar toda la pantalla.',
+                      'Los exámenes se ordenan por fecha y hora cuando están cargadas.',
                     ],
                   ),
                   FocusHelpSection(
-                    title: 'Tip',
+                    title: 'Uso rápido',
                     items: [
-                      'Usa Hoy para volver rápido a la fecha actual y revisar lo más cercano.',
+                      'Usa Hoy para volver a la fecha actual.',
+                      'Edita materias, tareas o exámenes desde su pantalla original.',
                     ],
                   ),
                 ],

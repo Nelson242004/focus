@@ -30,14 +30,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 'Aquí revisas pomodoros pasados y filtras por materia cuando quieres ver progreso real.',
             sections: [
               FocusHelpSection(
-                title: 'Como leerlo',
+                title: 'Cómo leerlo',
                 items: [
                   'Buscar y filtrar sirven para encontrar sesiones sin saturar la lista.',
                   'Cada fila muestra materia, fecha y duración de la sesión.',
                 ],
               ),
               FocusHelpSection(
-                title: 'Gestion',
+                title: 'Gestión',
                 items: [
                   'Si deslizas una sesión, la eliminas del historial local.',
                 ],

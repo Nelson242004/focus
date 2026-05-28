@@ -308,21 +308,21 @@ class _ResourcesScreenState extends State<ResourcesScreen> {
                 FocusHelpAction(
                   title: 'Ayuda de recursos',
                   message:
-                      'Guarda solo enlaces utiles para estudiar y deja el resto fuera para que la biblioteca se mantenga limpia.',
+                      'Guarda enlaces útiles para estudiar sin convertirlo en una lista pesada.',
                   sections: [
                     FocusHelpSection(
-                      title: 'Que puedes guardar',
+                      title: 'Qué puedes guardar',
                       items: [
-                        'Playlists, cursos, herramientas y perfiles o redes utiles.',
+                        'Playlists, cursos, herramientas, documentos y enlaces por materia.',
                         'Puedes dejar un recurso como general o vincularlo a una materia.',
                       ],
                     ),
                     FocusHelpSection(
-                      title: 'Organizacion',
+                      title: 'Organización',
                       items: [
                         'Usa buscar y filtros para no llenar la pantalla con texto secundario.',
-                        'El boton inferior sirve para agregar recursos nuevos.',
-                        'Si quieres sugerir recursos para Focus, usa el boton Sugerir recurso.',
+                        'El botón inferior sirve para agregar recursos nuevos.',
+                        'Mantén solo recursos útiles para que la sección siga simple.',
                       ],
                     ),
                   ],

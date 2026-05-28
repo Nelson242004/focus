@@ -21,7 +21,7 @@ class FocusHelpAction extends StatelessWidget {
     required this.title,
     required this.sections,
     this.message,
-    this.tooltip = 'Informacion',
+    this.tooltip = 'Información',
   });
 
   @override

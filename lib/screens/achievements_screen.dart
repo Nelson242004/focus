@@ -40,15 +40,15 @@ class AchievementsScreen extends StatelessWidget {
                     FocusHelpAction(
                       title: 'Ayuda de logros',
                       message:
-                          'La pantalla deja visible solo tu nivel y tus insignias. Los detalles largos viven aquí.',
+                          'Logros resume nivel, insignias y puntos ganados una sola vez.',
                       sections: [
                         FocusHelpSection(
                           title: 'Puntos y niveles',
                           items: [
-                            'Pomodoros, hábitos y logros desbloqueados suman puntos.',
+                            'Pomodoros válidos, hábitos válidos y logros desbloqueados suman puntos.',
                             'Los niveles suben por tramos y muestran cuánto te falta para el siguiente.',
-                            'Cada pomodoro completado suma puntos por bloque de enfoque válido.',
-                            'Pomodoro sin distracciones y hábitos completados pueden sumar puntos extra.',
+                            'Cada bloque Pomodoro válido de 25 minutos suma 20 puntos.',
+                            'Cada hábito válido suma 12 puntos.',
                             'Los logros suman puntos una sola vez al desbloquearse.',
                             'El progreso máximo llega hasta el nivel 5.',
                           ],
@@ -68,6 +68,7 @@ class AchievementsScreen extends StatelessWidget {
                           items: [
                             'Completar la misión semanal desbloquea una insignia extra.',
                             'La misión se basa en pomodoros completados durante la semana.',
+                            'El progreso semanal se reinicia el domingo.',
                             'La racha también ayuda a empujar tu progreso general.',
                           ],
                         ),

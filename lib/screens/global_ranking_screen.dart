@@ -151,24 +151,38 @@ class _GlobalRankingScreenState extends State<GlobalRankingScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Lo principal del ranking global en un solo lugar.',
+                'El top 20 semanal, reglas de puntos y actualización.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: FocusPalette.muted,
                     ),
               ),
               const SizedBox(height: 16),
               const _RankingInfoTile(
-                icon: Icons.timer_rounded,
-                title: 'Qué cuenta',
+                icon: Icons.leaderboard_rounded,
+                title: 'Qué aparece',
                 text:
-                    'Solo cuentan pomodoros válidos. Hábitos y sesiones tienen límites anti-trampa.',
+                    'Se muestran hasta 20 usuarios para cargar rápido y gastar menos lecturas.',
               ),
               const SizedBox(height: 10),
               const _RankingInfoTile(
-                icon: Icons.verified_user_rounded,
-                title: 'Ranking justo',
+                icon: Icons.update_rounded,
+                title: 'Actualización',
                 text:
-                    'Pomodoros muy cortos o acciones repetidas no empujan la liga. Focus prioriza progreso real.',
+                    'Se refresca al entrar y luego cada hora. El reinicio semanal ocurre el domingo.',
+              ),
+              const SizedBox(height: 10),
+              const _RankingInfoTile(
+                icon: Icons.timer_rounded,
+                title: 'Pomodoro',
+                text:
+                    'Cada bloque válido de 25 min suma 20 puntos. Máximo 6 bloques por día.',
+              ),
+              const SizedBox(height: 10),
+              const _RankingInfoTile(
+                icon: Icons.task_alt_rounded,
+                title: 'Hábitos',
+                text:
+                    'Cada hábito válido suma 12 puntos. Máximo 3 hábitos por día y no repite el mismo hábito hoy.',
               ),
               const SizedBox(height: 10),
               const _RankingInfoTile(

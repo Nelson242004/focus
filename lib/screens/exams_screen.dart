@@ -296,13 +296,13 @@ class _ExamsScreenState extends State<ExamsScreen> {
       final aMoment = combineDateAndTime(a.date, a.startTime);
       final bMoment = combineDateAndTime(b.date, b.startTime);
       final now = DateTime.now();
-      final aUpcoming = !aMoment.isBefore(now);
-      final bUpcoming = !bMoment.isBefore(now);
+      final aUpcoming = isExamUpcoming(a, now: now);
+      final bUpcoming = isExamUpcoming(b, now: now);
       if (aUpcoming != bUpcoming) {
         return aUpcoming ? -1 : 1;
       }
       if (aUpcoming) {
-        return aMoment.compareTo(bMoment);
+        return examSortMoment(a).compareTo(examSortMoment(b));
       }
       return bMoment.compareTo(aMoment);
     });
@@ -310,18 +310,16 @@ class _ExamsScreenState extends State<ExamsScreen> {
   }
 
   String _countdownLabel(Exam exam) {
-    final examMoment = combineDateAndTime(exam.date, exam.startTime);
-    final days = examMoment.difference(DateTime.now()).inDays;
-    if (days < 0) return 'Ya pasó';
+    if (!isExamUpcoming(exam)) return 'Ya pasó';
+    final days = calendarDaysUntil(exam.date);
     if (days == 0) return 'Es hoy';
-    if (days == 1) return 'Falta 1 día';
+    if (days == 1) return 'Mañana';
     return 'Faltan $days días';
   }
 
   Exam? _nextUpcomingExam(List<Exam> exams) {
     for (final exam in exams) {
-      final moment = combineDateAndTime(exam.date, exam.startTime);
-      if (!moment.isBefore(DateTime.now())) return exam;
+      if (isExamUpcoming(exam)) return exam;
     }
     return null;
   }
@@ -369,7 +367,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                 FocusHelpAction(
                   title: 'Ayuda de exámenes',
                   message:
-                      'Aquí ves lo próximo, tu calendario y los parciales o finales de cada materia.',
+                      'Aquí ves evaluaciones próximas, calendario y recordatorios.',
                   sections: [
                     FocusHelpSection(
                       title: 'Datos importantes',
@@ -377,13 +375,15 @@ class _ExamsScreenState extends State<ExamsScreen> {
                         'Solo la materia y la fecha son obligatorias.',
                         'La hora y el aula pueden completarse después.',
                         'No se permiten duplicados del mismo tipo para una materia en la misma fecha.',
+                        'Un examen de mañana se muestra como Mañana, aunque falten menos de 24 horas.',
                       ],
                     ),
                     FocusHelpSection(
-                      title: 'Uso rápido',
+                      title: 'Notificaciones',
                       items: [
-                        'El boton inferior crea un examen nuevo.',
-                        'El calendario te ayuda a detectar semanas cargadas sin meter demasiado texto en pantalla.',
+                        'Los recordatorios dependen de lo activado en Configuración.',
+                        'Los exámenes próximos aparecen en Dashboard, Calendario y Widget.',
+                        'El botón inferior crea un examen nuevo.',
                       ],
                     ),
                   ],
@@ -739,9 +739,7 @@ class _ExamsScreenState extends State<ExamsScreen> {
                             final accent = exam.isFinal
                                 ? FocusPalette.softAlert
                                 : FocusPalette.primary;
-                            final isUpcoming =
-                                combineDateAndTime(exam.date, exam.startTime)
-                                    .isAfter(DateTime.now());
+                            final isUpcoming = isExamUpcoming(exam);
                             return TweenAnimationBuilder<double>(
                               tween: Tween(begin: 0, end: 1),
                               duration: Duration(

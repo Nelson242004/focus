@@ -257,20 +257,22 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
                 FocusHelpAction(
                   title: 'Ayuda de tareas',
                   message:
-                      'Esta pantalla está pensada para ver rápido qué sigue y qué está vencido.',
+                      'Tareas es para pendientes concretos, con filtros rápidos.',
                   sections: [
                     FocusHelpSection(
-                      title: 'Como funciona',
+                      title: 'Cómo funciona',
                       items: [
-                        'Activas muestra lo pendiente, Hoy prioriza lo urgente y Vencidas te ayuda a recuperar control.',
+                        'Activas muestra lo pendiente; Hoy prioriza vencimientos del día.',
+                        'Vencidas muestra lo que necesita atención inmediata.',
                         'La materia es opcional, pero ayuda a ordenar mejor tu semana.',
-                        'La prioridad y el estado sirven para que la lista no se vuelva confusa.',
+                        'Prioridad y estado sirven para ordenar sin llenar la pantalla de texto.',
                       ],
                     ),
                     FocusHelpSection(
-                      title: 'Tip',
+                      title: 'Uso rápido',
                       items: [
-                        'Usa el boton inferior para crear tareas nuevas sin cargar la barra superior.',
+                        'Usa el botón inferior para crear tareas nuevas.',
+                        'Marca como completada una tarea cuando ya la resolviste.',
                       ],
                     ),
                   ],

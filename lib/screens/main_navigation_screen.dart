@@ -182,20 +182,30 @@ class _MainAppBarAction extends StatelessWidget {
     return switch (index) {
       1 => const FocusHelpAction(
           title: 'Ayuda de Pomodoro',
-          message: 'Inicia sesiones de enfoque y mantén claro tu progreso.',
+          message: 'Lo esencial para usar Pomodoro y sumar puntos sin dudas.',
           sections: [
             FocusHelpSection(
-              title: 'Cómo usarlo',
+              title: 'Sesiones',
               items: [
-                'Elige una materia si quieres asociar la sesión.',
-                'Inicia el Pomodoro y evita salir de tu objetivo.',
-                'Al terminar, Focus guarda la sesión y suma puntos válidos.',
+                'Elige una materia si quieres asociar la sesión a tu progreso.',
+                'Enfoque usa el temporizador principal; descanso corto y largo no suman puntos.',
+                'Al terminar una sesión de enfoque, Focus guarda el Pomodoro en tu historial.',
               ],
             ),
             FocusHelpSection(
-              title: 'Modo Enfoque Total',
+              title: 'Puntos',
               items: [
-                'Activa el bloqueo antes de empezar si quieres proteger tu sesión.',
+                'Cada bloque válido de 25 minutos suma 20 puntos.',
+                'Una sesión de 50 minutos cuenta como 2 bloques válidos.',
+                'El extra de Enfoque Total suma 5 puntos si terminaste sin distracciones.',
+                'Solo cuentan hasta 6 bloques de Pomodoro por día para el ranking.',
+                'Los descansos no restan puntos y los bloques ya ganados tampoco se pierden.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Enfoque Total',
+              items: [
+                'Activa el bloqueo antes de empezar si quieres proteger la sesión.',
                 'Las apps seleccionadas se bloquean mientras el Pomodoro está activo.',
                 'Si algo falla, revisa permisos desde Configuración.',
               ],
@@ -204,28 +214,46 @@ class _MainAppBarAction extends StatelessWidget {
         ),
       2 => const FocusHelpAction(
           title: 'Ayuda de Materias',
-          message: 'Organiza tus clases, horarios y detalles académicos.',
+          message: 'Aquí organizas materias, aulas, profesores y horario.',
           sections: [
             FocusHelpSection(
-              title: 'Materias',
+              title: 'Qué se guarda',
               items: [
-                'Agrega tus materias desde el botón inferior derecho.',
-                'Puedes ordenar por día y revisar detalles en el desplegable.',
-                'Mantén aula, profesor y horarios actualizados para el dashboard.',
+                'Cada materia puede tener color, aula, profesor, sección y bloques de horario.',
+                'El horario semanal se arma con los bloques cargados de lunes a sábado.',
+                'El dashboard usa tus materias para mostrar la próxima clase.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Uso rápido',
+              items: [
+                'El botón inferior derecho es la acción principal para agregar.',
+                'PDF y PNG exportan el horario para compartirlo o guardarlo.',
+                'El desplegable de detalles deja la lista limpia cuando tienes muchas materias.',
               ],
             ),
           ],
         ),
       3 => const FocusHelpAction(
           title: 'Ayuda de Hábitos',
-          message: 'Crea rutinas pequeñas que sumen progreso real.',
+          message:
+              'Hábitos sirve para crear repeticiones pequeñas y sostenibles.',
           sections: [
             FocusHelpSection(
-              title: 'Hábitos válidos',
+              title: 'Cómo cuentan',
               items: [
-                'Completa hábitos reales del día, no acciones repetidas para sumar puntos.',
-                'Focus limita abusos para que el ranking sea más justo.',
-                'Usa pocos hábitos importantes para mantener claridad.',
+                'Marcar un hábito completa el día actual y actualiza tu racha.',
+                'Cada hábito válido puede sumar 12 puntos al ranking.',
+                'Solo cuentan hasta 3 hábitos por día para evitar abuso.',
+                'Un hábito recién creado debe tener 24 horas para sumar puntos de ranking.',
+                'Si ya marcaste el mismo hábito hoy, no vuelve a sumar puntos.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Recomendación',
+              items: [
+                'Usa pocos hábitos claros, tipo leer 10 minutos o repasar apuntes.',
+                'La pantalla prioriza constancia, racha y hábitos de hoy.',
               ],
             ),
           ],
@@ -233,56 +261,75 @@ class _MainAppBarAction extends StatelessWidget {
       4 => const FocusHelpAction(
           title: 'Ayuda de Exámenes',
           message:
-              'Carga tus próximas evaluaciones y mantén el dashboard útil.',
+              'Carga evaluaciones para que Focus te avise y priorice lo próximo.',
           sections: [
             FocusHelpSection(
-              title: 'Exámenes',
+              title: 'Datos',
               items: [
-                'Agrega fecha, hora, aula y materia.',
-                'Los exámenes cercanos aparecen en el dashboard y widget.',
-                'Elimina o edita evaluaciones cuando cambie la planificación.',
+                'Materia y fecha son lo principal; hora y aula pueden completarse después.',
+                'Focus evita duplicados del mismo tipo para una materia en la misma fecha.',
+                'Los exámenes próximos aparecen en Dashboard, Calendario y Widget.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Recordatorios',
+              items: [
+                'Las notificaciones dependen de lo que tengas activado en Configuración.',
+                'Un examen de mañana debe mostrarse como Mañana, no como Hoy.',
+                'Edita o elimina el examen si cambia la planificación.',
               ],
             ),
           ],
         ),
       5 => const FocusHelpAction(
           title: 'Ayuda de Tareas',
-          message: 'Usa tareas para pendientes rápidos de estudio.',
+          message: 'Tareas es para pendientes concretos de estudio.',
           sections: [
             FocusHelpSection(
-              title: 'Tareas',
+              title: 'Cómo organizar',
               items: [
-                'Crea tareas concretas y cortas.',
-                'Marca completadas las que ya resolviste.',
-                'Mantén esta lista limpia para no saturar tu planificación.',
+                'Activas muestra lo pendiente; Hoy prioriza vencimientos del día.',
+                'Vencidas te muestra lo que necesita atención inmediata.',
+                'Puedes vincular una tarea a una materia, pero no es obligatorio.',
+                'La prioridad sirve para ordenar sin llenar la pantalla de texto.',
               ],
             ),
           ],
         ),
       6 => const FocusHelpAction(
           title: 'Ayuda de Recursos',
-          message: 'Encuentra enlaces útiles sin llenar la pantalla.',
+          message:
+              'Recursos guarda enlaces útiles sin competir con tus herramientas principales.',
           sections: [
             FocusHelpSection(
-              title: 'Recursos',
+              title: 'Qué guardar',
               items: [
-                'Usa el filtro desplegable para buscar por categoría.',
-                'Abre recursos externos solo cuando los necesites.',
-                'Puedes sugerir recursos para mejorar la lista.',
+                'Guarda cursos, playlists, documentos, herramientas o enlaces por materia.',
+                'Usa filtros y búsqueda para llegar rápido sin una lista interminable.',
+                'Mantén solo recursos útiles para que la sección siga simple.',
               ],
             ),
           ],
         ),
       7 => const FocusHelpAction(
           title: 'Ayuda de Ranking',
-          message: 'El ranking global se basa en puntos válidos.',
+          message: 'El ranking muestra el top 20 semanal con puntos válidos.',
           sections: [
             FocusHelpSection(
-              title: 'Reglas',
+              title: 'Qué aparece',
               items: [
-                'Cuentan principalmente Pomodoros válidos, hábitos y logros.',
-                'Las ligas se distribuyen por porcentaje de usuarios: oro, plata y bronce.',
-                'El ranking se actualiza periódicamente desde Firebase.',
+                'Se muestran hasta 20 usuarios para que cargue rápido y gaste menos lecturas.',
+                'Tu fila se destaca si estás dentro del top visible.',
+                'El ranking se refresca al entrar y luego cada hora mientras estás en la pantalla.',
+                'El reinicio semanal ocurre el domingo.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Puntos y ligas',
+              items: [
+                'Pomodoros válidos, hábitos válidos y logros pueden sumar puntos.',
+                'Cada bloque Pomodoro de 25 minutos suma 20 puntos; máximo 6 bloques por día.',
+                'Cada hábito válido suma 12 puntos; máximo 3 hábitos por día.',
                 'Oro es el top 10%, Plata llega hasta el top 35% y Bronce es el resto.',
                 'Focus limita acciones repetidas para mantener el ranking justo.',
               ],
@@ -291,42 +338,54 @@ class _MainAppBarAction extends StatelessWidget {
         ),
       8 => const FocusHelpAction(
           title: 'Ayuda de Perfil y Amigos',
-          message: 'Administra tu perfil social y tus conexiones.',
+          message: 'Tu perfil social controla cómo apareces en Focus.',
           sections: [
             FocusHelpSection(
-              title: 'Amigos',
+              title: 'Perfil público',
               items: [
-                'Busca usuarios por código o enlace de invitación.',
-                'Envía solicitudes y espera que la otra persona acepte.',
-                'Puedes ver perfiles y eliminar amigos desde su perfil.',
+                'Otros usuarios pueden ver tu nombre, carrera, personaje, liga y puntos públicos.',
+                'El personaje elegido se usa en perfil, ranking, amigos y estados vacíos compatibles.',
+                'Las imágenes PNG propias son locales; para que otros las vean hace falta subirlas a la nube.',
+              ],
+            ),
+            FocusHelpSection(
+              title: 'Solicitudes',
+              items: [
+                'Busca por código, nombre, correo o carrera.',
+                'Enviar solicitud no agrega al usuario hasta que acepte.',
+                'Mis amigos reemplaza Mi círculo y concentra amigos, enviados y recibidos.',
               ],
             ),
           ],
         ),
       9 => const FocusHelpAction(
           title: 'Ayuda de Logros',
-          message: 'Tus insignias muestran avances importantes.',
+          message: 'Logros resume insignias, nivel y progreso conseguido.',
           sections: [
             FocusHelpSection(
-              title: 'Logros',
+              title: 'Cómo se desbloquean',
               items: [
-                'Se desbloquean por hitos de Pomodoro, hábitos, racha y progreso.',
-                'Algunos logros suman puntos una sola vez.',
-                'Revisa esta pantalla para ver qué ya conseguiste.',
+                'Hay insignias por primer Pomodoro, primer hábito, rachas y metas semanales.',
+                'Los logros suman puntos una sola vez cuando se desbloquean.',
+                'Los niveles van del 1 al 5 y suben con tus puntos totales.',
+                'La misión semanal se basa en Pomodoros completados durante la semana.',
               ],
             ),
           ],
         ),
       10 => const FocusHelpAction(
           title: 'Ayuda de Configuración',
-          message: 'Ajusta Focus sin tocar tus datos principales.',
+          message:
+              'Configuración concentra cuenta, apariencia, Pomodoro, permisos y backup.',
           sections: [
             FocusHelpSection(
-              title: 'Configuración',
+              title: 'Secciones',
               items: [
-                'Cambia apariencia, idioma, Pomodoro y permisos.',
-                'Revisa diagnósticos si algo no funciona como esperas.',
-                'Usa backup antes de hacer cambios importantes.',
+                'Cuenta maneja sesión, nombre y datos sociales.',
+                'Apariencia cambia tema, color, animaciones y escala de texto.',
+                'Pomodoro ajusta tiempos, sonido y bloqueo.',
+                'Notificaciones y Permisos se activan cuando realmente los necesitas.',
+                'Backup y Avanzado quedan separados para no saturar el uso diario.',
               ],
             ),
           ],

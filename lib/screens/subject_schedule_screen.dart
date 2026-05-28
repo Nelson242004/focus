@@ -206,7 +206,7 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
                 'Aquí agregas o ajustas los bloques de una materia concreta.',
             sections: [
               FocusHelpSection(
-                title: 'Que puedes hacer',
+                title: 'Qué puedes hacer',
                 items: [
                   'Guardar varios bloques para la misma materia.',
                   'Agrega aula si la conoces o déjala para después.',
@@ -216,7 +216,7 @@ class _SubjectScheduleScreenState extends State<SubjectScheduleScreen> {
               FocusHelpSection(
                 title: 'Uso',
                 items: [
-                  'El boton inferior crea un bloque nuevo.',
+                  'El botón inferior crea un bloque nuevo.',
                 ],
               ),
             ],

@@ -27,6 +27,8 @@ class HabitRankingResult {
 class RankingService {
   RankingService._();
 
+  static const int defaultLeaderboardLimit = 20;
+
   static const int pointsPerPomodoro = 20;
   static const int distractionFreeBonus = 5;
   static const int pointsPerHabitCompletion = 12;
@@ -55,6 +57,8 @@ class RankingService {
 
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final Map<String, _CachedProfile> _profileCache = {};
+  static const Duration _profileCacheTtl = Duration(minutes: 3);
   static bool _googleReady = false;
 
   static User? get currentUser => _auth.currentUser;
@@ -140,6 +144,7 @@ class RankingService {
       debugPrint('[FocusRanking] Google signOut omitido: $error');
     }
     await _auth.signOut();
+    _profileCache.clear();
   }
 
   static Stream<RankingProfile?> profileStream() {
@@ -161,10 +166,21 @@ class RankingService {
   }
 
   static Future<RankingProfile?> fetchProfileByUid(String uid) async {
-    if (uid.trim().isEmpty) return null;
-    final snapshot = await _firestore.collection('users').doc(uid).get();
+    final cleanedUid = uid.trim();
+    if (cleanedUid.isEmpty) return null;
+    final cached = _profileCache[cleanedUid];
+    if (cached != null && !cached.isExpired) return cached.profile;
+    final snapshot = await _firestore.collection('users').doc(cleanedUid).get();
     final data = snapshot.data();
-    return isUserDataActive(data) ? RankingProfile.fromMap(uid, data!) : null;
+    final profile = isUserDataActive(data)
+        ? RankingProfile.fromMap(cleanedUid, data!)
+        : null;
+    if (profile != null) {
+      _profileCache[cleanedUid] = _CachedProfile(profile, data!);
+    } else {
+      _profileCache.remove(cleanedUid);
+    }
+    return profile;
   }
 
   static Future<RankingProfile?> ensureProfile() async {
@@ -718,7 +734,9 @@ class RankingService {
     });
   }
 
-  static Stream<List<RankingEntry>> globalLeaderboardStream({int limit = 50}) {
+  static Stream<List<RankingEntry>> globalLeaderboardStream({
+    int limit = defaultLeaderboardLimit,
+  }) {
     return _currentScoresCollection()
         .orderBy('points', descending: true)
         .limit(limit)
@@ -737,7 +755,7 @@ class RankingService {
   }
 
   static Future<List<RankingEntry>> fetchGlobalLeaderboard(
-      {int limit = 50}) async {
+      {int limit = defaultLeaderboardLimit}) async {
     try {
       await ensureCurrentWeekScore();
     } catch (error) {
@@ -815,7 +833,7 @@ class RankingService {
 
   static Stream<List<RankingEntry>> leagueLeaderboardStream({
     required String league,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) {
     return _currentScoresCollection()
         .where('rank', isEqualTo: league)
@@ -839,7 +857,7 @@ class RankingService {
 
   static Future<List<RankingEntry>> fetchLeagueLeaderboard({
     required String league,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) async {
     final snapshot = await _currentScoresCollection()
         .where('rank', isEqualTo: league)
@@ -861,7 +879,7 @@ class RankingService {
 
   static Stream<List<RankingEntry>> careerLeaderboardStream({
     required String career,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) {
     return _currentScoresCollection()
         .where('career', isEqualTo: career)
@@ -885,7 +903,7 @@ class RankingService {
 
   static Future<List<RankingEntry>> fetchCareerLeaderboard({
     required String career,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) async {
     final snapshot = await _currentScoresCollection()
         .where('career', isEqualTo: career)
@@ -907,7 +925,7 @@ class RankingService {
 
   static Stream<List<RankingEntry>> friendsLeaderboardStream({
     required List<String> friendUids,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) {
     if (friendUids.isEmpty) return Stream.value([]);
     return _currentScoresCollection()
@@ -932,7 +950,7 @@ class RankingService {
 
   static Future<List<RankingEntry>> fetchFriendsLeaderboard({
     required List<String> friendUids,
-    int limit = 50,
+    int limit = defaultLeaderboardLimit,
   }) async {
     final uid = currentUser?.uid;
     final allUids = {
@@ -1245,12 +1263,12 @@ class RankingService {
   ) async {
     if (entries.isEmpty) return entries;
     try {
-      final hydrated = await Future.wait(entries.map((entry) async {
-        final profile =
-            await _firestore.collection('users').doc(entry.uid).get();
-        final data = profile.data();
-        if (!isUserDataActive(data)) return null;
-        final activeData = data!;
+      final profileDataByUid = await _fetchActiveProfileDataByUid(
+        entries.map((entry) => entry.uid).toSet().toList(),
+      );
+      final hydrated = entries.map((entry) {
+        final activeData = profileDataByUid[entry.uid];
+        if (activeData == null) return null;
         final stats = activeData['stats'];
         final rawIndex = stats is Map
             ? activeData['socialMascotIndex'] ?? stats['socialMascotIndex']
@@ -1277,12 +1295,53 @@ class RankingService {
           lastActive: entry.lastActive,
           lastPointEvent: entry.lastPointEvent,
         );
-      }));
+      });
       return hydrated.whereType<RankingEntry>().toList();
     } catch (error) {
       debugPrint('[FocusRanking] No se pudieron refrescar iconos: $error');
       return entries;
     }
+  }
+
+  static Future<Map<String, Map<String, dynamic>>> _fetchActiveProfileDataByUid(
+    List<String> uids,
+  ) async {
+    final result = <String, Map<String, dynamic>>{};
+    final pending = <String>[];
+    final now = DateTime.now();
+    for (final uid in uids.where((uid) => uid.trim().isNotEmpty)) {
+      final cached = _profileCache[uid];
+      if (cached != null &&
+          now.difference(cached.cachedAt) < _profileCacheTtl) {
+        result[uid] = cached.data;
+      } else {
+        pending.add(uid);
+      }
+    }
+
+    for (var index = 0; index < pending.length; index += 10) {
+      final chunk = pending.sublist(
+        index,
+        (index + 10).clamp(0, pending.length).toInt(),
+      );
+      final snapshot = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        if (!isUserDataActive(data)) {
+          _profileCache.remove(doc.id);
+          continue;
+        }
+        result[doc.id] = data;
+        _profileCache[doc.id] = _CachedProfile(
+          RankingProfile.fromMap(doc.id, data),
+          data,
+        );
+      }
+    }
+    return result;
   }
 
   static List<RankingEntry> _withDistributedRanks(List<RankingEntry> entries) {
@@ -1428,4 +1487,15 @@ class RankingService {
         .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
         .join(' ');
   }
+}
+
+class _CachedProfile {
+  final RankingProfile profile;
+  final Map<String, dynamic> data;
+  final DateTime cachedAt;
+
+  _CachedProfile(this.profile, this.data) : cachedAt = DateTime.now();
+
+  bool get isExpired =>
+      DateTime.now().difference(cachedAt) >= RankingService._profileCacheTtl;
 }

@@ -325,8 +325,7 @@ class AppProvider extends ChangeNotifier {
     }
     for (final exam in exams) {
       try {
-        if (combineDateAndTime(exam.date, exam.startTime)
-            .isAfter(DateTime.now())) {
+        if (isExamUpcoming(exam)) {
           await _scheduleExamNotifications(exam);
         } else if (exam.id != null) {
           await NotificationService.cancelExamNotifications(exam.id!);
@@ -1197,13 +1196,9 @@ class AppProvider extends ChangeNotifier {
   Exam? get nextUpcomingExam {
     final now = DateTime.now();
     final upcoming = exams
-        .where((exam) =>
-            !combineDateAndTime(exam.date, exam.startTime).isBefore(now))
+        .where((exam) => isExamUpcoming(exam, now: now))
         .toList()
-      ..sort(
-        (a, b) => combineDateAndTime(a.date, a.startTime)
-            .compareTo(combineDateAndTime(b.date, b.startTime)),
-      );
+      ..sort((a, b) => examSortMoment(a).compareTo(examSortMoment(b)));
     return upcoming.isEmpty ? null : upcoming.first;
   }
 

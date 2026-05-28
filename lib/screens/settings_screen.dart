@@ -751,58 +751,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ],
               ),
-              FocusGap.md,
-              _SettingsSection(
-                title: 'Herramientas académicas',
-                subtitle: _showPolytechnicTools
-                    ? 'Politécnica activada'
-                    : 'Funciones opcionales',
-                icon: Icons.school_rounded,
-                iconKind: FocusAppIconKind.polytechnic,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Mostrar herramientas Politécnica'),
-                    subtitle: const Text(
-                      'Actívalo solo si usas calculadora o Excel de Politécnica.',
-                    ),
-                    value: _showPolytechnicTools,
-                    onChanged: (value) => _updateDraft(
-                      () => _showPolytechnicTools = value,
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    child: _showPolytechnicTools
-                        ? ListTile(
-                            key: const ValueKey('polytechnic-tools-enabled'),
-                            contentPadding: EdgeInsets.zero,
-                            leading: const FocusAssetBadge(
-                              kind: FocusAppIconKind.polytechnic,
-                              fallback: Icons.school_rounded,
-                              size: 42,
-                              iconSize: 28,
-                            ),
-                            title: const Text('Politécnica'),
-                            subtitle: const Text(
-                              'Calculadora, carga de Excel y datos académicos.',
-                            ),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: _openPolytechnicTools,
-                          )
-                        : const ListTile(
-                            key: ValueKey('polytechnic-tools-disabled'),
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.visibility_off_rounded),
-                            title: Text('Oculto para mantener Focus limpio'),
-                            subtitle: Text(
-                              'Puedes activarlo cuando lo necesites.',
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-              FocusGap.md,
               _SettingsSection(
                 title: 'Notificaciones',
                 subtitle: 'Notificaciones y avisos',
@@ -962,6 +910,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Avanzado'),
                   subtitle: const Text('Actualizaciones y acciones delicadas'),
                   children: [
+                    _SettingsSection(
+                      title: 'Herramientas académicas',
+                      subtitle: _showPolytechnicTools
+                          ? 'Politécnica activada'
+                          : 'Funciones opcionales',
+                      icon: Icons.school_rounded,
+                      iconKind: FocusAppIconKind.polytechnic,
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Mostrar herramientas Politécnica'),
+                          subtitle: const Text(
+                            'Actívalo solo si usas calculadora o Excel de Politécnica.',
+                          ),
+                          value: _showPolytechnicTools,
+                          onChanged: (value) => _updateDraft(
+                            () => _showPolytechnicTools = value,
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: _showPolytechnicTools
+                              ? ListTile(
+                                  key: const ValueKey(
+                                    'polytechnic-tools-enabled',
+                                  ),
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const FocusAssetBadge(
+                                    kind: FocusAppIconKind.polytechnic,
+                                    fallback: Icons.school_rounded,
+                                    size: 42,
+                                    iconSize: 28,
+                                  ),
+                                  title: const Text('Politécnica'),
+                                  subtitle: const Text(
+                                    'Calculadora, carga de Excel y datos académicos.',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_rounded,
+                                  ),
+                                  onTap: _openPolytechnicTools,
+                                )
+                              : const ListTile(
+                                  key: ValueKey('polytechnic-tools-disabled'),
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: Icon(Icons.visibility_off_rounded),
+                                  title: Text(
+                                    'Oculto para mantener Focus limpio',
+                                  ),
+                                  subtitle: Text(
+                                    'Puedes activarlo cuando lo necesites.',
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     _SettingsSection(
                       title: 'Sistema',
                       icon: Icons.health_and_safety_rounded,

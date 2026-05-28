@@ -34,6 +34,29 @@ DateTime combineExamDateAndTime(Exam exam) {
   return combineDateAndTime(exam.date, exam.startTime);
 }
 
+DateTime dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+int calendarDaysUntil(DateTime date, {DateTime? from}) {
+  final start = dateOnly(from ?? DateTime.now());
+  final target = dateOnly(date);
+  return target.difference(start).inDays;
+}
+
+bool isExamUpcoming(Exam exam, {DateTime? now}) {
+  final current = now ?? DateTime.now();
+  if (exam.startTime.trim().isEmpty || !isValidTime(exam.startTime)) {
+    return !dateOnly(exam.date).isBefore(dateOnly(current));
+  }
+  return !combineExamDateAndTime(exam).isBefore(current);
+}
+
+DateTime examSortMoment(Exam exam) {
+  if (exam.startTime.trim().isEmpty || !isValidTime(exam.startTime)) {
+    return DateTime(exam.date.year, exam.date.month, exam.date.day, 23, 59);
+  }
+  return combineExamDateAndTime(exam);
+}
+
 TimeOfDay? parseTimeOfDay(String value) {
   final minutes = timeToMinutes(value);
   if (minutes < 0) return null;
@@ -71,4 +94,3 @@ String weekdayLabel(int dayOfWeek) {
   if (dayOfWeek < 0 || dayOfWeek >= days.length) return 'Día desconocido';
   return days[dayOfWeek];
 }
-

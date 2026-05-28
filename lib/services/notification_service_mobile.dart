@@ -273,6 +273,7 @@ class NotificationService {
     final examDateTime = combineExamDateAndTime(exam);
     final classroom =
         exam.classroom.trim().isEmpty ? 'aula por confirmar' : exam.classroom;
+    final dayLabel = _relativeExamDayLabel(examDateTime);
     final dayBeforeMoment = hasDefinedTime
         ? examDateTime.subtract(const Duration(days: 1))
         : DateTime(
@@ -289,15 +290,16 @@ class NotificationService {
           when: dayBeforeMoment,
           title: 'Examen mañana',
           body: hasDefinedTime
-              ? '${exam.subject} mañana a las ${exam.startTime} en $classroom'
-              : '${exam.subject} mañana con hora por confirmar en $classroom',
+              ? '${exam.subject} es $dayLabel a las ${exam.startTime} en $classroom'
+              : '${exam.subject} es $dayLabel con hora por confirmar en $classroom',
         ),
       if (hasDefinedTime && twoHoursBefore)
         (
           suffix: 2,
           when: examDateTime.subtract(const Duration(hours: 2)),
           title: 'Examen próximamente',
-          body: '${exam.subject} hoy a las ${exam.startTime} en $classroom',
+          body:
+              '${exam.subject} es $dayLabel a las ${exam.startTime} en $classroom',
         ),
       if (hasDefinedTime && thirtyMinutesBefore)
         (
@@ -348,5 +350,12 @@ class NotificationService {
     await _plugin.cancel(id: examId * 10 + 1);
     await _plugin.cancel(id: examId * 10 + 2);
     await _plugin.cancel(id: examId * 10 + 3);
+  }
+
+  static String _relativeExamDayLabel(DateTime examDateTime) {
+    final days = calendarDaysUntil(examDateTime);
+    if (days == 0) return 'hoy';
+    if (days == 1) return 'mañana';
+    return 'el ${formatDate(examDateTime)}';
   }
 }
