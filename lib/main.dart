@@ -829,44 +829,33 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen>
-    with SingleTickerProviderStateMixin {
+class _OnboardingScreenState extends State<OnboardingScreen> {
   int _page = 0;
   bool _finishing = false;
+  final String _selectedStartScreen = 'dashboard';
   late final PageController _controller;
-  late final AnimationController _motion;
 
   static const _pages = [
     (
-      eyebrow: 'Focus Study OS',
-      title: 'Todo tu semestre con calma.',
-      text: 'Clases, exámenes y tareas ordenados para saber qué toca ahora.',
-      stat: 'Hoy',
-      statValue: 'Clase + examen',
-      asset: 'assets/profile_icons/focus_programmer.png',
-      colors: [Color(0xFF2563EB), Color(0xFF14B8A6), Color(0xFFF59E0B)],
-      rows: ['Próxima clase', 'Examen cercano', 'Tarea urgente'],
-    ),
-    (
-      eyebrow: 'Modo enfoque',
-      title: 'Estudia sin pelear con el celular.',
-      text:
-          'Pomodoro, descansos y bloqueo total se sienten claros desde el primer toque.',
-      stat: 'Sesión',
-      statValue: '25:00',
-      asset: 'assets/profile_icons/focus_green_tech.png',
-      colors: [Color(0xFF2563EB), Color(0xFF0EA5E9), Color(0xFF10B981)],
-      rows: ['Enfoque activo', 'Bloqueo listo', 'Descanso corto'],
-    ),
-    (
-      eyebrow: 'Perfil y ranking',
-      title: 'Haz que tu progreso se vea tuyo.',
-      text: 'Personaje, puntos, insignias y amigos con un estilo más Focus.',
-      stat: 'Liga',
-      statValue: 'Top 20',
+      title: 'Organiza tu día',
+      text: 'Clases, exámenes y tareas en un solo lugar.',
+      label: 'Dashboard',
       asset: 'assets/profile_icons/focus_champion_female.png',
       colors: [Color(0xFF2563EB), Color(0xFF14B8A6), Color(0xFFF59E0B)],
-      rows: ['1240 puntos', 'Racha 7 días', 'Insignia nueva'],
+    ),
+    (
+      title: 'Entra en enfoque',
+      text: 'Pomodoro y descansos para estudiar sin ruido.',
+      label: '25:00',
+      asset: 'assets/profile_icons/focus_champion_female.png',
+      colors: [Color(0xFF2563EB), Color(0xFF0EA5E9), Color(0xFF10B981)],
+    ),
+    (
+      title: 'Mira tu progreso',
+      text: 'Puntos, rachas, logros y ranking semanal.',
+      label: 'Top 20',
+      asset: 'assets/profile_icons/focus_champion_female.png',
+      colors: [Color(0xFF2563EB), Color(0xFF14B8A6), Color(0xFFF59E0B)],
     ),
   ];
 
@@ -874,15 +863,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void initState() {
     super.initState();
     _controller = PageController();
-    _motion = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 5200),
-    )..repeat();
   }
 
   @override
   void dispose() {
-    _motion.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -890,6 +874,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Future<void> _finishOnboarding() async {
     if (_finishing) return;
     setState(() => _finishing = true);
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    unawaited(provider.updateStartScreen(_selectedStartScreen));
     unawaited(widget.onComplete());
     if (!mounted) return;
     await Navigator.of(context).pushReplacement(
@@ -903,8 +889,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   @override
   Widget build(BuildContext context) {
     final page = _pages[_page];
-    final size = MediaQuery.of(context).size;
-    final isCompact = size.height < 760 || size.width < 380;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : FocusPalette.ink;
     final mutedColor = isDark ? const Color(0xFFB6C2D2) : FocusPalette.muted;
@@ -932,12 +916,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         ),
         child: SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              isCompact ? 18 : 22,
-              isCompact ? 12 : 18,
-              isCompact ? 18 : 22,
-              isCompact ? 14 : 20,
-            ),
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 20),
             child: Column(
               children: [
                 Row(
@@ -953,18 +932,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       ),
                     ),
                     const Spacer(),
-                    TextButton.icon(
+                    TextButton(
                       onPressed: _finishing ? null : _finishOnboarding,
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                      label: const Text('Saltar'),
                       style: TextButton.styleFrom(
                         foregroundColor: mutedColor,
                         visualDensity: VisualDensity.compact,
                       ),
+                      child: const Text('Saltar'),
                     ),
                   ],
                 ),
-                SizedBox(height: isCompact ? 10 : 18),
+                const SizedBox(height: 16),
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
@@ -972,36 +950,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     itemCount: _pages.length,
                     itemBuilder: (context, index) {
                       final item = _pages[index];
-                      return Column(
+                      return _SimpleOnboardingSlide(
+                        title: item.title,
+                        text: item.text,
+                        label: item.label,
+                        asset: item.asset,
+                        accent: item.colors.first,
+                        textColor: textColor,
+                        mutedColor: mutedColor,
                         key: ValueKey(index),
-                        children: [
-                          Expanded(
-                            child: _OnboardingPremiumHero(
-                              asset: item.asset,
-                              colors: item.colors,
-                              rows: item.rows,
-                              stat: item.stat,
-                              statValue: item.statValue,
-                              compact: isCompact,
-                              animation: _motion,
-                            ),
-                          ),
-                          SizedBox(height: isCompact ? 16 : 24),
-                          _OnboardingTextPanel(
-                            eyebrow: item.eyebrow,
-                            title: item.title,
-                            text: item.text,
-                            accent: item.colors.first,
-                            textColor: textColor,
-                            mutedColor: mutedColor,
-                            compact: isCompact,
-                          ),
-                        ],
                       );
                     },
                   ),
                 ),
-                SizedBox(height: isCompact ? 18 : 22),
+                const SizedBox(height: 20),
                 Row(
                   children: [
                     ...List.generate(_pages.length, (index) {
@@ -1095,6 +1057,102 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 }
 
+class _SimpleOnboardingSlide extends StatelessWidget {
+  final String title;
+  final String text;
+  final String label;
+  final String asset;
+  final Color accent;
+  final Color textColor;
+  final Color mutedColor;
+
+  const _SimpleOnboardingSlide({
+    super.key,
+    required this.title,
+    required this.text,
+    required this.label,
+    required this.asset,
+    required this.accent,
+    required this.textColor,
+    required this.mutedColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.045)
+                  : Colors.white.withValues(alpha: 0.78),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : FocusPalette.border.withValues(alpha: 0.72),
+              ),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    color: accent.withValues(alpha: 0.10),
+                    border: Border.all(color: accent.withValues(alpha: 0.20)),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  height: 210,
+                  child: Image.asset(asset, fit: BoxFit.contain),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w900,
+                        height: 1.05,
+                        letterSpacing: 0,
+                      ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: mutedColor,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
 class _OnboardingPremiumHero extends StatelessWidget {
   final String asset;
   final List<Color> colors;
@@ -1103,6 +1161,7 @@ class _OnboardingPremiumHero extends StatelessWidget {
   final String statValue;
   final bool compact;
   final Animation<double> animation;
+  final int page;
 
   const _OnboardingPremiumHero({
     required this.asset,
@@ -1112,6 +1171,7 @@ class _OnboardingPremiumHero extends StatelessWidget {
     required this.statValue,
     required this.compact,
     required this.animation,
+    required this.page,
   });
 
   @override
@@ -1204,7 +1264,11 @@ class _OnboardingPremiumHero extends StatelessWidget {
                 Positioned(
                   right: (compact ? 12 : 20) + slowDrift * 5,
                   bottom: (compact ? 18 : 28) - drift * 5,
-                  child: _OnboardingMiniPanel(rows: rows, color: colors.first),
+                  child: _OnboardingMiniMockup(
+                    rows: rows,
+                    color: colors.first,
+                    page: page,
+                  ),
                 ),
               ],
             );
@@ -1215,6 +1279,141 @@ class _OnboardingPremiumHero extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
+class _OnboardingChoicePanel extends StatelessWidget {
+  final String selectedStartScreen;
+  final String selectedGoal;
+  final ValueChanged<String> onStartScreenChanged;
+  final ValueChanged<String> onGoalChanged;
+
+  const _OnboardingChoicePanel({
+    required this.selectedStartScreen,
+    required this.selectedGoal,
+    required this.onStartScreenChanged,
+    required this.onGoalChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.045)
+            : Colors.white.withValues(alpha: 0.72),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : FocusPalette.border.withValues(alpha: 0.70),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Empieza por',
+            style: TextStyle(
+              color: isDark ? Colors.white : FocusPalette.ink,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OnboardingChoiceChip(
+                label: 'Dashboard',
+                selected: selectedStartScreen == 'dashboard',
+                onTap: () => onStartScreenChanged('dashboard'),
+              ),
+              _OnboardingChoiceChip(
+                label: 'Pomodoro',
+                selected: selectedStartScreen == 'pomodoro',
+                onTap: () => onStartScreenChanged('pomodoro'),
+              ),
+              _OnboardingChoiceChip(
+                label: 'Materias',
+                selected: selectedStartScreen == 'subjects',
+                onTap: () => onStartScreenChanged('subjects'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OnboardingChoiceChip(
+                label: 'Meta semanal',
+                selected: selectedGoal == 'weekly',
+                onTap: () => onGoalChanged('weekly'),
+              ),
+              _OnboardingChoiceChip(
+                label: 'Racha',
+                selected: selectedGoal == 'streak',
+                onTap: () => onGoalChanged('streak'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _OnboardingChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? FocusPalette.primary : FocusPalette.muted;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: selected
+              ? FocusPalette.primary.withValues(alpha: 0.12)
+              : Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.48),
+          border: Border.all(
+            color: selected
+                ? FocusPalette.primary.withValues(alpha: 0.36)
+                : Theme.of(context).dividerColor.withValues(alpha: 0.36),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontWeight: FontWeight.w900,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
 class _OnboardingTextPanel extends StatelessWidget {
   final String eyebrow;
   final String title;
@@ -1340,13 +1539,15 @@ class _OnboardingGlassStat extends StatelessWidget {
   }
 }
 
-class _OnboardingMiniPanel extends StatelessWidget {
+class _OnboardingMiniMockup extends StatelessWidget {
   final List<String> rows;
   final Color color;
+  final int page;
 
-  const _OnboardingMiniPanel({
+  const _OnboardingMiniMockup({
     required this.rows,
     required this.color,
+    required this.page,
   });
 
   @override
@@ -1368,6 +1569,29 @@ class _OnboardingMiniPanel extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                page == 1
+                    ? Icons.timer_rounded
+                    : page == 2
+                        ? Icons.emoji_events_rounded
+                        : Icons.dashboard_rounded,
+                color: color,
+                size: 16,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           ...rows.asMap().entries.map(
                 (entry) => Padding(
                   padding: EdgeInsets.only(

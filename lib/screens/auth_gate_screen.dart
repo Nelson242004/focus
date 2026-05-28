@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +11,8 @@ import '../services/ranking_service.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_feedback.dart';
+import 'main_navigation_screen.dart';
+import 'web_focus_screen.dart';
 
 class AuthGateScreen extends StatefulWidget {
   final Widget child;
@@ -110,7 +113,7 @@ class _DuoLoginScreenState extends State<LoginScreen> {
   bool _creatingAccount = false;
   bool _loading = false;
   bool _obscurePassword = true;
-  bool _showEmailForm = false;
+  bool _showEmailForm = true;
 
   @override
   void dispose() {
@@ -134,9 +137,7 @@ class _DuoLoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
       }
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+      _finishSuccessfulLogin();
     } catch (error) {
       _showError(error);
     } finally {
@@ -147,15 +148,37 @@ class _DuoLoginScreenState extends State<LoginScreen> {
   Future<void> _submitGoogle() async {
     setState(() => _loading = true);
     try {
-      await RankingService.signInWithGoogle();
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+      await RankingService.signInWithGoogle().timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => throw TimeoutException(
+          'Google tardó demasiado en responder. Intenta de nuevo.',
+        ),
+      );
+      _finishSuccessfulLogin();
     } catch (error) {
-      _showError(error);
+      if (!RankingService.isGoogleSignInCanceled(error)) {
+        _showError(error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  void _finishSuccessfulLogin() {
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    unawaited(navigator.pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => AuthGateScreen(
+          requireAccount: true,
+          child: kIsWeb ? const WebFocusScreen() : const MainNavigationScreen(),
+        ),
+      ),
+    ));
   }
 
   Future<void> _resetPassword() async {
@@ -203,7 +226,7 @@ class _DuoLoginScreenState extends State<LoginScreen> {
                     creatingAccount: _creatingAccount,
                     loading: _loading,
                     obscurePassword: _obscurePassword,
-                    onBack: () => setState(() => _showEmailForm = false),
+                    onBack: () => Navigator.of(context).maybePop(),
                     onToggleMode: () => setState(
                       () => _creatingAccount = !_creatingAccount,
                     ),
@@ -351,193 +374,55 @@ class _LoginChoiceStep extends StatelessWidget {
       key: const ValueKey('choice-step'),
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 34),
       children: [
-        _LoginTopBar(enabled: !loading && canPop, onBack: onBack),
-        SizedBox(height: MediaQuery.sizeOf(context).height * 0.035),
-        const _LoginImmersiveHero(),
-        const SizedBox(height: 18),
-        _LoginSurfaceCard(
-          child: Column(
-            children: [
-              const _FocusWelcomeMark(),
-              const SizedBox(height: 18),
-              Text(
-                'Bienvenido a Focus',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _loginText(context),
-                  fontSize: 28,
-                  height: 1.05,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -0.4,
-                ),
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.10,
+        ),
+        ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.sizeOf(context).height * 0.58,
+          ),
+          child: Center(
+            child: _LoginSurfaceCard(
+              child: Column(
+                children: [
+                  const _FocusWelcomeMark(),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Tu espacio Focus',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _loginText(context),
+                      fontSize: 28,
+                      height: 1.05,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Entra para guardar tu perfil, competir en el ranking y mantener tus logros sincronizados.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: _loginMuted(context),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  const _FocusLoginFeatureStrip(),
+                  const SizedBox(height: 20),
+                  _DuoPrimaryButton(
+                    label: 'Iniciar sesión',
+                    loading: false,
+                    onPressed: loading ? null : onSignIn,
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
-              Text(
-                'Inicia sesión para usar perfil, ranking y progreso social.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: _loginMuted(context),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                ),
-              ),
-              const SizedBox(height: 18),
-              const _FocusLoginFeatureStrip(),
-              const SizedBox(height: 20),
-              _DuoPrimaryButton(
-                label: 'Iniciar sesión',
-                loading: false,
-                onPressed: loading ? null : onSignIn,
-              ),
-            ],
+            ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class _LoginImmersiveHero extends StatelessWidget {
-  const _LoginImmersiveHero();
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = _loginIsDark(context);
-    return Container(
-      height: 210,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(32),
-        gradient: LinearGradient(
-          colors: isDark
-              ? const [
-                  Color(0xFF07111F),
-                  Color(0xFF0B1B2D),
-                  Color(0xFF10251F),
-                ]
-              : const [
-                  Color(0xFFDCEBFF),
-                  Color(0xFFDFF8F1),
-                  Color(0xFFFFF4D9),
-                ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.08)
-              : Colors.white.withValues(alpha: 0.78),
-        ),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _LoginImmersivePatternPainter(
-                color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.28),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 18,
-            top: 18,
-            child: _LoginHeroBadge(
-              title: 'Focus',
-              subtitle: 'Perfil y ranking',
-            ),
-          ),
-          Positioned(
-            right: 8,
-            bottom: -10,
-            child: Image.asset(
-              'assets/profile_icons/focus_champion_female.png',
-              width: 190,
-              height: 190,
-              fit: BoxFit.contain,
-            ),
-          ),
-          Positioned(
-            left: 18,
-            bottom: 18,
-            child: _LoginHeroMetric(label: 'Top', value: '20'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginHeroBadge extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _LoginHeroBadge({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color:
-            Colors.white.withValues(alpha: _loginIsDark(context) ? 0.12 : 0.82),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset('assets/icon.png', width: 28, height: 28),
-          const SizedBox(width: 9),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: _loginText(context),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: _loginMuted(context),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoginHeroMetric extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _LoginHeroMetric({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color:
-            Colors.white.withValues(alpha: _loginIsDark(context) ? 0.12 : 0.82),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          color: _loginText(context),
-          fontWeight: FontWeight.w900,
-        ),
-      ),
     );
   }
 }

@@ -64,6 +64,11 @@ class RankingService {
   static User? get currentUser => _auth.currentUser;
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  static bool isGoogleSignInCanceled(Object error) {
+    return error is GoogleSignInException &&
+        error.code == GoogleSignInExceptionCode.canceled;
+  }
+
   static bool isUserDataActive(Map<String, dynamic>? data) {
     if (data == null) return false;
     final status =
