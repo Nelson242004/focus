@@ -129,7 +129,6 @@ class PomodoroTimerService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setShowWhen(false)
-            .setProgress(100, progress, false)
             .setColor(if (mode == "focus") 0xFF2563EB.toInt() else 0xFF10B981.toInt())
             .build()
     }
@@ -140,7 +139,7 @@ class PomodoroTimerService : Service() {
         remainingSeconds: Int,
         progress: Int,
     ): RemoteViews {
-        val compactModeLabel = when (mode) {
+        /*val compactModeLabel = when (mode) {
             "longBreak" -> "Largo"
             "shortBreak" -> "Corto"
             else -> "Focus"
@@ -150,16 +149,13 @@ class PomodoroTimerService : Service() {
             "shortBreak" -> R.drawable.focus_mascot_break
             else -> R.drawable.focus_mascot_pomodoro
         }
-        val accentColor = if (mode == "focus") 0xFF2563EB.toInt() else 0xFF10B981.toInt()
+        val accentColor = if (mode == "focus") 0xFF2563EB.toInt() else 0xFF10B981.toInt()*/
 
         return RemoteViews(packageName, R.layout.notification_pomodoro_timer).apply {
             setImageViewResource(R.id.pomodoroFocusIcon, R.mipmap.ic_launcher)
             setTextViewText(R.id.pomodoroTitle, "$modeLabel · ${formatTime(remainingSeconds)}")
             setTextViewText(R.id.pomodoroBody, body)
             setProgressBar(R.id.pomodoroProgress, 100, progress, false)
-            setImageViewResource(R.id.pomodoroModeIcon, modeIcon)
-            setTextViewText(R.id.pomodoroModeLabel, compactModeLabel)
-            setTextColor(R.id.pomodoroModeLabel, accentColor)
         }
     }
 

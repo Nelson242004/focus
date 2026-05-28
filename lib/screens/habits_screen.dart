@@ -313,7 +313,7 @@ class _HabitsScreenState extends State<HabitsScreen> {
     return Scaffold(
       appBar: widget.showAppBar
           ? AppBar(
-              title: const Text('Hábitos atómicos'),
+              title: const Text('Hábitos'),
             )
           : null,
       body: FocusPageBackground(
@@ -358,19 +358,20 @@ class _HabitsScreenState extends State<HabitsScreen> {
                   bestStreak: bestStreak,
                   averageConsistency: averageConsistency,
                 ),
-                const SizedBox(height: 14),
-                _HabitLimitNotice(
-                  currentHabits: habits.length,
-                  maxHabits: _maxHabits,
-                  canCreateMore: canCreateMore,
-                ),
-                const SizedBox(height: 18),
-                const FocusSectionHeader(
-                  icon: Icons.checklist_rounded,
-                  iconKind: FocusAppIconKind.habits,
-                  title: 'Hoy',
-                  subtitle: 'Pequeñas repeticiones, progreso real.',
-                  accent: FocusPalette.primary,
+                if (!canCreateMore) ...[
+                  const SizedBox(height: 12),
+                  _HabitLimitNotice(
+                    currentHabits: habits.length,
+                    maxHabits: _maxHabits,
+                    canCreateMore: canCreateMore,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Text(
+                  'Hoy',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
                 const SizedBox(height: 12),
                 ...orderedHabits.asMap().entries.map(
@@ -423,8 +424,10 @@ class _HabitsHero extends StatelessWidget {
     final progress = totalHabits == 0 ? 0.0 : completedToday / totalHabits;
     final theme = Theme.of(context);
     return FocusSurfaceCard(
-      padding: FocusInsets.panel,
-      accent: FocusPalette.primary,
+      padding: const EdgeInsets.all(16),
+      radius: 26,
+      accent: FocusPalette.mint,
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -434,25 +437,27 @@ class _HabitsHero extends StatelessWidget {
               const FocusAssetBadge(
                 kind: FocusAppIconKind.habits,
                 fallback: Icons.checklist_rounded,
-                color: FocusPalette.primary,
-                size: 54,
-                iconSize: 34,
+                color: FocusPalette.mint,
+                size: 48,
+                iconSize: 29,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hábitos de hoy',
-                      style: theme.textTheme.headlineSmall?.copyWith(
+                      '$completedToday/$totalHabits hoy',
+                      style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w900,
                         height: 1.05,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 5),
                     Text(
-                      '$completedToday de $totalHabits hábitos completados',
+                      completedToday == totalHabits
+                          ? 'Rutina completa'
+                          : 'Pequeñas victorias',
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w700,
@@ -462,14 +467,14 @@ class _HabitsHero extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                width: 74,
-                height: 74,
+                width: 58,
+                height: 58,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     CircularProgressIndicator(
                       value: progress,
-                      strokeWidth: 8,
+                      strokeWidth: 6,
                       backgroundColor: theme.colorScheme.outlineVariant
                           .withValues(alpha: 0.42),
                       valueColor:
@@ -480,7 +485,7 @@ class _HabitsHero extends StatelessWidget {
                         '${(progress * 100).round()}%',
                         style: TextStyle(
                           color: theme.colorScheme.onSurface,
-                          fontSize: 17,
+                          fontSize: 14,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
@@ -490,7 +495,7 @@ class _HabitsHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
@@ -501,39 +506,12 @@ class _HabitsHero extends StatelessWidget {
               valueColor: const AlwaysStoppedAnimation(FocusPalette.mint),
             ),
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _AtomicLawChip(
-                icon: Icons.visibility_rounded,
-                label: 'Obvio',
-                color: FocusPalette.primary,
-              ),
-              _AtomicLawChip(
-                icon: Icons.favorite_rounded,
-                label: 'Atractivo',
-                color: FocusPalette.coral,
-              ),
-              _AtomicLawChip(
-                icon: Icons.touch_app_rounded,
-                label: 'Fácil',
-                color: FocusPalette.mint,
-              ),
-              _AtomicLawChip(
-                icon: Icons.emoji_events_rounded,
-                label: 'Satisfactorio',
-                color: FocusPalette.amber,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _HeroMetric(
-                  label: 'Mejor racha',
+                  label: 'Mejor',
                   value: '$bestStreak días',
                   icon: Icons.local_fire_department_rounded,
                 ),
@@ -547,45 +525,6 @@ class _HabitsHero extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AtomicLawChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  const _AtomicLawChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
           ),
         ],
       ),
@@ -608,37 +547,43 @@ class _HeroMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(16),
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.36),
         border: Border.all(
-          color: colorScheme.outlineVariant,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.7),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Icon(icon, color: colorScheme.primary, size: 19),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+          Icon(icon, color: FocusPalette.mint, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -717,8 +662,7 @@ class _HabitCard extends StatelessWidget {
     final today = DateTime.now().toIso8601String().split('T')[0];
     final doneToday = habit.history.contains(today);
     final monthlyScore = (habit.completionPercentage(30) * 100).round();
-    final colorScheme = Theme.of(context).colorScheme;
-    final accent = doneToday ? FocusPalette.mint : FocusPalette.primary;
+    final accent = doneToday ? FocusPalette.mint : FocusPalette.teal;
     final last7Days = List.generate(
         7, (index) => DateTime.now().subtract(Duration(days: 6 - index)));
 
@@ -726,14 +670,14 @@ class _HabitCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: FocusSurfaceCard(
         padding: EdgeInsets.zero,
-        radius: 22,
+        radius: 20,
         accent: accent,
         elevated: false,
         child: InkWell(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           onTap: onEdit,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -747,8 +691,8 @@ class _HabitCard extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         onTap: onToggle,
                         child: Container(
-                          width: 34,
-                          height: 34,
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
                             color: doneToday
                                 ? accent
@@ -760,16 +704,14 @@ class _HabitCard extends StatelessWidget {
                             ),
                           ),
                           child: Icon(
-                            doneToday
-                                ? Icons.check_rounded
-                                : Icons.circle_outlined,
+                            doneToday ? Icons.check_rounded : Icons.add_rounded,
                             color: doneToday ? Colors.white : accent,
-                            size: doneToday ? 20 : 15,
+                            size: 20,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 11),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -780,31 +722,30 @@ class _HabitCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context)
                                 .textTheme
-                                .titleSmall
+                                .titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w900,
                                   height: 1.05,
                                 ),
                           ),
                           const SizedBox(height: 5),
-                          Text(
-                            doneToday
-                                ? 'Registrado hoy · ${habit.identity}'
-                                : 'Acción mínima · ${habit.identity}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                          Row(
+                            children: [
+                              _MiniStat(
+                                icon: Icons.local_fire_department_rounded,
+                                text: '${habit.currentStreak} días',
+                                color: FocusPalette.amber,
+                              ),
+                              const SizedBox(width: 8),
+                              _MiniStat(
+                                icon: Icons.insights_rounded,
+                                text: '$monthlyScore%',
+                                color: FocusPalette.mint,
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ),
-                    _HabitStatusRail(
-                      done: doneToday,
-                      color: accent,
                     ),
                     PopupMenuButton<String>(
                       tooltip: 'Opciones',
@@ -827,64 +768,54 @@ class _HabitCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                _HabitChain(last7Days: last7Days, history: habit.history),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                const SizedBox(height: 10),
+                Row(
                   children: [
-                    _HabitSystemPill(
-                      icon: Icons.local_fire_department_rounded,
-                      label: 'Racha',
-                      value: '${habit.currentStreak}',
-                      color: FocusPalette.primary,
+                    Expanded(
+                      child: _HabitChain(
+                          last7Days: last7Days, history: habit.history),
                     ),
-                    _HabitSystemPill(
-                      icon: Icons.insights_rounded,
-                      label: '30 días',
-                      value: '$monthlyScore%',
-                      color: FocusPalette.mint,
-                    ),
-                    _HabitSystemPill(
-                      icon: Icons.emoji_events_rounded,
-                      label: 'Hoy',
-                      value: doneToday ? 'Hecho' : '+racha',
-                      color: FocusPalette.amber,
+                    const SizedBox(width: 10),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: doneToday
+                          ? Container(
+                              key: const ValueKey('done-chip'),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 7),
+                              decoration: BoxDecoration(
+                                color:
+                                    FocusPalette.mint.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color:
+                                      FocusPalette.mint.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: const Text(
+                                'Hecho',
+                                style: TextStyle(
+                                  color: FocusPalette.mint,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          : FilledButton(
+                              key: const ValueKey('pending-button'),
+                              onPressed: onToggle,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(92, 36),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                backgroundColor: FocusPalette.teal,
+                                foregroundColor: Colors.white,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: const Text('Cumplir'),
+                            ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                FocusMicroPop(
-                  trigger: 'habit-${habit.id}-$doneToday',
-                  fromScale: doneToday ? 0.96 : 0.99,
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: onToggle,
-                      icon: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        transitionBuilder: (child, animation) =>
-                            ScaleTransition(scale: animation, child: child),
-                        child: Icon(
-                          doneToday
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked_rounded,
-                          key: ValueKey(doneToday),
-                        ),
-                      ),
-                      label: Text(
-                        doneToday ? 'Completado hoy' : 'Cumplir ahora',
-                      ),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size.fromHeight(42),
-                        backgroundColor: doneToday
-                            ? FocusPalette.mint
-                            : FocusPalette.primary,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -895,76 +826,32 @@ class _HabitCard extends StatelessWidget {
   }
 }
 
-class _HabitStatusRail extends StatelessWidget {
-  final bool done;
-  final Color color;
-
-  const _HabitStatusRail({
-    required this.done,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: done ? 'Completado hoy' : 'Pendiente hoy',
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 8,
-        height: 36,
-        margin: const EdgeInsets.only(left: 8, right: 4),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: done ? 0.85 : 0.36),
-          borderRadius: BorderRadius.circular(999),
-        ),
-      ),
-    );
-  }
-}
-
-class _HabitSystemPill extends StatelessWidget {
+class _MiniStat extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final String value;
+  final String text;
   final Color color;
 
-  const _HabitSystemPill({
+  const _MiniStat({
     required this.icon,
-    required this.label,
-    required this.value,
+    required this.text,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.14)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: color, size: 15),
-          const SizedBox(width: 6),
-          Text(
-            '$label: ',
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontSize: 12,
-            ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 4),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w800,
+              ),
+        ),
+      ],
     );
   }
 }
@@ -981,77 +868,30 @@ class _HabitChain extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: last7Days.map((date) {
-                final key = date.toIso8601String().split('T')[0];
-                final completed = history.contains(key);
-                return FocusMicroPop(
-                  trigger: '$key-$completed',
-                  fromScale: completed ? 0.82 : 0.96,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: completed
-                          ? FocusPalette.primary
-                          : colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: completed
-                            ? FocusPalette.primary
-                            : colorScheme.outlineVariant,
-                      ),
-                    ),
-                    child: Center(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 220),
-                        transitionBuilder: (child, animation) =>
-                            ScaleTransition(scale: animation, child: child),
-                        child: completed
-                            ? const Icon(
-                                Icons.check_rounded,
-                                key: ValueKey('done'),
-                                color: Colors.white,
-                                size: 18,
-                              )
-                            : Text(
-                                '${date.day}',
-                                key: ValueKey(date.day),
-                                style: TextStyle(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+    return Row(
+      children: last7Days.map((date) {
+        final key = date.toIso8601String().split('T')[0];
+        final completed = history.contains(key);
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 5),
+            child: FocusMicroPop(
+              trigger: '$key-$completed',
+              fromScale: completed ? 0.82 : 0.96,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 8,
+                decoration: BoxDecoration(
+                  color: completed
+                      ? FocusPalette.mint
+                      : colorScheme.outlineVariant.withValues(alpha: 0.62),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
             ),
           ),
-          const SizedBox(width: 10),
-          Text(
-            '7 días',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w900,
-                ),
-          ),
-        ],
-      ),
+        );
+      }).toList(),
     );
   }
 }

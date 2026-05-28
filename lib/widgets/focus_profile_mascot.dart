@@ -82,80 +82,21 @@ class _FocusProfileMascotState extends State<FocusProfileMascot>
         child: AnimatedBuilder(
           animation: _fallbackController,
           builder: (context, _) {
-            final progress = widget.animate ? _fallbackController.value : 0.0;
-            final pulse = math.sin(progress * math.pi * 2);
             final config = _fallbackConfigForState();
             final asset = widget.profileIconAsset ?? config.presetAsset;
-            final jump = widget.state == FocusMascotState.celebrating
-                ? -math.sin(progress * math.pi * 2).abs() * widget.size * 0.05
-                : 0.0;
-            final shake = widget.state == FocusMascotState.worried
-                ? math.sin(progress * math.pi * 16) * widget.size * 0.018
-                : 0.0;
-            final restTilt = widget.state == FocusMascotState.rest
-                ? math.sin(progress * math.pi * 2) * 0.035
-                : 0.0;
-            final mascotScale = widget.state == FocusMascotState.pomodoro ||
-                    widget.state == FocusMascotState.shield
-                ? 1.02 + pulse * 0.012
-                : 1.0 + pulse * 0.01;
 
-            return Stack(
-              alignment: Alignment.center,
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _ProfileIconMascotEffectsPainter(
-                      config: config,
-                      state: widget.state,
-                      progress: progress,
-                    ),
-                  ),
-                ),
-                Transform.translate(
-                  offset: Offset(shake, jump + pulse * widget.size * 0.012),
-                  child: Transform.rotate(
-                    angle: restTilt,
-                    child: Transform.scale(
-                      scale: mascotScale,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 280),
-                        switchInCurve: Curves.easeOutBack,
-                        switchOutCurve: Curves.easeIn,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: ScaleTransition(
-                              scale: Tween<double>(begin: 0.92, end: 1)
-                                  .animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: FocusProfileIconImage(
-                          asset: asset,
-                          key: ValueKey(asset),
-                          width: widget.size * 0.92,
-                          height: widget.size * 0.92,
-                          fit: BoxFit.contain,
-                          filterQuality: FilterQuality.high,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _ProfileIconMascotOverlayPainter(
-                        config: config,
-                        state: widget.state,
-                        progress: progress,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              child: FocusProfileIconImage(
+                asset: asset,
+                key: ValueKey(asset),
+                width: widget.size * 0.94,
+                height: widget.size * 0.94,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+              ),
             );
           },
         ),
@@ -188,6 +129,7 @@ class _FocusProfileMascotState extends State<FocusProfileMascot>
   }
 }
 
+// ignore: unused_element
 class _ProfileIconMascotEffectsPainter extends CustomPainter {
   final FocusAvatarConfig config;
   final FocusMascotState state;
@@ -296,6 +238,7 @@ class _ProfileIconMascotEffectsPainter extends CustomPainter {
   }
 }
 
+// ignore: unused_element
 class _ProfileIconMascotOverlayPainter extends CustomPainter {
   final FocusAvatarConfig config;
   final FocusMascotState state;

@@ -3,6 +3,7 @@ const String darkProfileIconAsset = 'assets/profile_icons/focus_dark.png';
 const String darkFemaleProfileIconAsset =
     'assets/profile_icons/focus_dark_female.png';
 const String customProfileIconAsset = 'custom_profile_icon://local';
+const String giphyProfileIconHost = 'giphy.com';
 
 const List<String> profileIconAssets = [
   defaultProfileIconAsset,
@@ -76,10 +77,22 @@ String normalizeProfileIconAsset(
   String? email,
   bool enforceAccess = false,
 }) {
+  if (isGiphyProfileIconAsset(asset)) return asset;
   if (asset == customProfileIconAsset) return customProfileIconAsset;
   if (!profileIconAssets.contains(asset)) return defaultProfileIconAsset;
   if (!enforceAccess) return asset;
   return allowedProfileIconAssetOrDefault(asset, email);
+}
+
+bool isGiphyProfileIconAsset(String asset) {
+  final uri = Uri.tryParse(asset.trim());
+  if (uri == null || !uri.hasScheme) return false;
+  if (uri.scheme != 'https') return false;
+  final host = uri.host.toLowerCase();
+  return host == giphyProfileIconHost ||
+      host.endsWith('.$giphyProfileIconHost') ||
+      host == 'giphy.com' ||
+      host.endsWith('.giphy.com');
 }
 
 int _safeProfileIconIndex(Object? value) {

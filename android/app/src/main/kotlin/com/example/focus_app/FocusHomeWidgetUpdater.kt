@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -19,6 +21,7 @@ object FocusHomeWidgetUpdater {
     const val KEY_EXAM_AT_MILLIS = "exam_at_millis"
     const val KEY_META = "meta"
     const val KEY_PROFILE_ICON_ASSET = "profile_icon_asset"
+    const val KEY_PROFILE_ICON_IMAGE_BASE64 = "profile_icon_image_base64"
 
     fun updateWidgets(
         context: Context,
@@ -70,6 +73,7 @@ object FocusHomeWidgetUpdater {
         val streak = prefs.getString(KEY_META, "0 días") ?: "0 días"
 
         val profileIconAsset = prefs.getString(KEY_PROFILE_ICON_ASSET, "") ?: ""
+        val profileIconBase64 = prefs.getString(KEY_PROFILE_ICON_IMAGE_BASE64, "") ?: ""
 
         val launchIntent =
             context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
@@ -98,7 +102,12 @@ object FocusHomeWidgetUpdater {
             views.setTextViewText(R.id.widgetNote, note)
             views.setTextViewText(R.id.widgetUrgency, "")
             views.setTextViewText(R.id.widgetMeta, streak)
-            views.setImageViewResource(R.id.widgetMascotImage, mascotForProfile(profileIconAsset))
+            val customBitmap = bitmapFromBase64(profileIconBase64)
+            if (customBitmap != null) {
+                views.setImageViewBitmap(R.id.widgetMascotImage, customBitmap)
+            } else {
+                views.setImageViewResource(R.id.widgetMascotImage, mascotForProfile(profileIconAsset))
+            }
             views.setOnClickPendingIntent(R.id.widgetRoot, pendingIntent)
 
             views.setViewVisibility(
@@ -186,6 +195,16 @@ object FocusHomeWidgetUpdater {
             "assets/profile_icons/focus_orange_travel.png" -> R.drawable.focus_profile_orange_travel
             "assets/profile_icons/focus_yellow_gym.png" -> R.drawable.focus_profile_yellow_gym
             else -> R.drawable.focus_profile_scholar
+        }
+    }
+
+    private fun bitmapFromBase64(value: String): android.graphics.Bitmap? {
+        if (value.isBlank()) return null
+        return try {
+            val bytes = Base64.decode(value, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        } catch (_: Exception) {
+            null
         }
     }
 

@@ -133,6 +133,7 @@ class MainActivity : FlutterActivity() {
                                 ?: 0L,
                             meta = call.argument<String>("meta").orEmpty(),
                             profileIconAsset = call.argument<String>("profileIconAsset").orEmpty(),
+                            profileIconBase64 = call.argument<String>("profileIconBase64").orEmpty(),
                         )
                         result.success(null)
                     }
@@ -140,6 +141,7 @@ class MainActivity : FlutterActivity() {
                     "updateWidgetProfileIcon" -> {
                         updateWidgetProfileIcon(
                             profileIconAsset = call.argument<String>("profileIconAsset").orEmpty(),
+                            profileIconBase64 = call.argument<String>("profileIconBase64").orEmpty(),
                         )
                         result.success(null)
                     }
@@ -172,6 +174,7 @@ class MainActivity : FlutterActivity() {
         examAtMillis: Long,
         meta: String,
         profileIconAsset: String,
+        profileIconBase64: String,
     ) {
         val prefs = getSharedPreferences(FocusHomeWidgetUpdater.PREFS_NAME, Context.MODE_PRIVATE)
         prefs
@@ -185,16 +188,18 @@ class MainActivity : FlutterActivity() {
             .putLong(FocusHomeWidgetUpdater.KEY_EXAM_AT_MILLIS, examAtMillis)
             .putString(FocusHomeWidgetUpdater.KEY_META, meta)
             .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_ASSET, profileIconAsset)
+            .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_IMAGE_BASE64, profileIconBase64)
             .commit()
 
         refreshHomeWidgets()
     }
 
-    private fun updateWidgetProfileIcon(profileIconAsset: String) {
+    private fun updateWidgetProfileIcon(profileIconAsset: String, profileIconBase64: String) {
         val prefs = getSharedPreferences(FocusHomeWidgetUpdater.PREFS_NAME, Context.MODE_PRIVATE)
         prefs
             .edit()
             .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_ASSET, profileIconAsset)
+            .putString(FocusHomeWidgetUpdater.KEY_PROFILE_ICON_IMAGE_BASE64, profileIconBase64)
             .commit()
 
         refreshHomeWidgets()

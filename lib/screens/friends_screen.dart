@@ -1,5 +1,5 @@
-import 'dart:math' as math;
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +12,7 @@ import '../models/ranking_profile.dart';
 import '../providers/app_provider.dart';
 import '../services/custom_profile_icon_service.dart';
 import '../services/friends_service.dart';
+import '../services/giphy_sticker_service.dart';
 import '../services/ranking_service.dart';
 import '../services/widget_sync_service.dart';
 import '../utils/badge_assets.dart';
@@ -835,6 +836,7 @@ class _DuolingoFriendsHeader extends StatefulWidget {
 class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
   late int _themeIndex;
   late int _profileIconIndex;
+  String? _profileIconAssetOverride;
 
   @override
   void initState() {
@@ -849,15 +851,31 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
   }
 
   @override
+  void didUpdateWidget(covariant _DuolingoFriendsHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.profile.uid != widget.profile.uid) {
+      _profileIconAssetOverride = null;
+      _themeIndex = _safeIndex(
+        widget.profile.stats['socialThemeIndex'],
+        _socialThemes.length,
+      );
+      _profileIconIndex = _safeProfileIconIndex(
+        widget.profile.stats['socialMascotIndex'],
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final profile = widget.profile;
     final code = RankingService.friendCodeForUid(profile.uid);
     final theme = _socialThemes[_themeIndex];
-    final profileIconAsset = _profileAssetForProfile(
-      profile,
-      fallbackIndex: _profileIconIndex,
-      allowCurrentUserCustom: true,
-    );
+    final profileIconAsset = _profileIconAssetOverride ??
+        _profileAssetForProfile(
+          profile,
+          fallbackIndex: _profileIconIndex,
+          allowCurrentUserCustom: true,
+        );
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: const Duration(milliseconds: 520),
@@ -1048,13 +1066,35 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
           try {
             await RankingService.updateSocialStyle(
               themeIndex: themeIndex,
-              profileIconAsset: customProfileIconAsset,
+              profileIconAsset: defaultProfileIconAsset,
             );
             await WidgetSyncService.syncProfileIconAsset(
                 defaultProfileIconAsset);
           } catch (error) {
             if (!mounted) return;
             setState(() => _themeIndex = previousThemeIndex);
+            rethrow;
+          }
+        },
+        onGiphySelected: (stickerUrl, themeIndex) async {
+          final previousThemeIndex = _themeIndex;
+          final previousAssetOverride = _profileIconAssetOverride;
+          setState(() {
+            _themeIndex = themeIndex;
+            _profileIconAssetOverride = stickerUrl;
+          });
+          try {
+            await RankingService.updateSocialStyle(
+              themeIndex: themeIndex,
+              profileIconAsset: stickerUrl,
+            );
+            await WidgetSyncService.syncProfileIconAsset(stickerUrl);
+          } catch (error) {
+            if (!mounted) return;
+            setState(() {
+              _themeIndex = previousThemeIndex;
+              _profileIconAssetOverride = previousAssetOverride;
+            });
             rethrow;
           }
         },
@@ -1071,10 +1111,12 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
           }
           final previousIndex = _profileIconIndex;
           final previousThemeIndex = _themeIndex;
+          final previousAssetOverride = _profileIconAssetOverride;
           final config = FocusAvatarConfig.fromProfileIndex(index);
           setState(() {
             _profileIconIndex = index;
             _themeIndex = themeIndex;
+            _profileIconAssetOverride = _profileIcons[index].asset;
           });
           try {
             await RankingService.updateSocialStyle(
@@ -1091,6 +1133,7 @@ class _DuolingoFriendsHeaderState extends State<_DuolingoFriendsHeader> {
             setState(() {
               _profileIconIndex = previousIndex;
               _themeIndex = previousThemeIndex;
+              _profileIconAssetOverride = previousAssetOverride;
             });
             ScaffoldMessenger.of(this.context).showSnackBar(
               SnackBar(
@@ -1968,12 +2011,15 @@ class _ProfileIconPickerSheet extends StatefulWidget {
   final int selectedThemeIndex;
   final Future<void> Function(int index, int themeIndex) onSelected;
   final Future<void> Function(int themeIndex) onCustomSelected;
+  final Future<void> Function(String stickerUrl, int themeIndex)
+      onGiphySelected;
 
   const _ProfileIconPickerSheet({
     required this.selectedIndex,
     required this.selectedThemeIndex,
     required this.onSelected,
     required this.onCustomSelected,
+    required this.onGiphySelected,
   });
 
   @override
@@ -2087,34 +2133,11 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
               ],
             ),
             const SizedBox(height: 14),
-            OutlinedButton.icon(
-              onPressed: _saving
-                  ? null
-                  : () async {
-                      try {
-                        final bytes =
-                            await CustomProfileIconService.pickAndSavePng();
-                        if (bytes == null) return;
-                        setState(() => _saving = true);
-                        await widget.onCustomSelected(_selectedThemeIndex);
-                        if (!context.mounted) return;
-                        Navigator.pop(context);
-                      } catch (error) {
-                        if (!context.mounted) return;
-                        setState(() => _saving = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              RankingService.friendlyRankingError(error),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-              icon: const Icon(Icons.upload_file_rounded),
-              label: const Text('Cargar PNG propio'),
+            _CuteStickerHeroButton(
+              enabled: !_saving,
+              onTap: () => _showGiphyStickerPicker(context),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
               height: 236,
               decoration: BoxDecoration(
@@ -2279,6 +2302,382 @@ class _ProfileIconPickerSheetState extends State<_ProfileIconPickerSheet> {
       ),
     );
   }
+
+  void _showGiphyStickerPicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => _GiphyStickerPickerSheet(
+        onSelected: (sticker) async {
+          setState(() => _saving = true);
+          await widget.onGiphySelected(
+            sticker.originalUrl,
+            _selectedThemeIndex,
+          );
+          if (!mounted) return;
+          setState(() => _saving = false);
+        },
+      ),
+    );
+  }
+}
+
+class _GiphyStickerPickerSheet extends StatefulWidget {
+  final Future<void> Function(GiphySticker sticker) onSelected;
+
+  const _GiphyStickerPickerSheet({
+    required this.onSelected,
+  });
+
+  @override
+  State<_GiphyStickerPickerSheet> createState() =>
+      _GiphyStickerPickerSheetState();
+}
+
+class _CuteStickerHeroButton extends StatelessWidget {
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _CuteStickerHeroButton({
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Opacity(
+      opacity: enabled ? 1 : 0.58,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(26),
+        onTap: enabled ? onTap : null,
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: const LinearGradient(
+              colors: [
+                FocusPalette.primary,
+                FocusPalette.teal,
+                FocusPalette.mint,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: FocusPalette.primary.withValues(alpha: 0.20),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.28),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Buscar sticker cute',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            height: 1,
+                          ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'Encuentra un personaje adorable con GIPHY.',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.86),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: colorScheme.shadow.withValues(alpha: 0.12),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.arrow_forward_rounded,
+                  color: FocusPalette.primary,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GiphyStickerPickerSheetState extends State<_GiphyStickerPickerSheet> {
+  final TextEditingController _controller = TextEditingController(
+    text: 'estudio',
+  );
+  List<GiphySticker> _stickers = const [];
+  bool _loading = false;
+  bool _saving = false;
+  String? _error;
+
+  static const List<String> _quickStickerTerms = [
+    'estudio',
+    'perro',
+    'gato',
+    'robot',
+    'medicina',
+    'programacion',
+    'rana',
+    'libro',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _search();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search() async {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final stickers = await GiphyStickerService.searchCuteStickers(
+        _controller.text,
+      );
+      if (!mounted) return;
+      setState(() => _stickers = stickers);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _stickers = const [];
+        _error = RankingService.friendlyRankingError(error);
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _select(GiphySticker sticker) async {
+    setState(() => _saving = true);
+    try {
+      await widget.onSelected(sticker);
+      if (!mounted) return;
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      navigator.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sticker de perfil guardado.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(RankingService.friendlyRankingError(error))),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(18, 0, 18, 18 + bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Sticker cute',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Busca algo simple. Focus lo convierte en sticker tierno.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _search(),
+                    decoration: const InputDecoration(
+                      hintText: 'perro, libro, medicina...',
+                      prefixIcon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
+                  onPressed: _loading || _saving ? null : _search,
+                  child: const Text('Buscar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _quickStickerTerms.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final term = _quickStickerTerms[index];
+                  final selected =
+                      _controller.text.trim().toLowerCase() == term;
+                  return ChoiceChip(
+                    label: Text(term),
+                    selected: selected,
+                    onSelected: _loading || _saving
+                        ? null
+                        : (_) {
+                            _controller.text = term;
+                            _search();
+                          },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 310,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                child: _body(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _body() {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return FocusProfileEmptyState(
+        icon: Icons.auto_awesome_rounded,
+        iconKind: FocusAppIconKind.profile,
+        title: 'No se pudo buscar',
+        message: _error!,
+        action: TextButton.icon(
+          onPressed: _search,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Reintentar'),
+        ),
+      );
+    }
+    if (_stickers.isEmpty) {
+      return FocusProfileEmptyState(
+        icon: Icons.auto_awesome_rounded,
+        iconKind: FocusAppIconKind.profile,
+        title: 'Sin stickers',
+        message: 'Prueba con perro, libro, estudio o ciencia.',
+        action: TextButton.icon(
+          onPressed: _search,
+          icon: const Icon(Icons.refresh_rounded),
+          label: const Text('Buscar otra vez'),
+        ),
+      );
+    }
+    return GridView.builder(
+      key: ValueKey(_stickers.length),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+      ),
+      itemCount: _stickers.length,
+      itemBuilder: (context, index) {
+        final sticker = _stickers[index];
+        return InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: _saving ? null : () => _select(sticker),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.58),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outlineVariant
+                    .withValues(alpha: 0.55),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Image.network(
+                sticker.previewUrl,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.high,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => Icon(
+                  Icons.image_not_supported_rounded,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _ProfileIconArtwork extends StatefulWidget {
@@ -2309,11 +2708,9 @@ class _ProfileIconArtworkState extends State<_ProfileIconArtwork>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 2400),
     );
-    if (widget.animate) {
-      _controller.repeat();
-    }
+    if (widget.animate) _controller.repeat();
   }
 
   @override
@@ -2335,99 +2732,55 @@ class _ProfileIconArtworkState extends State<_ProfileIconArtwork>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final progress = widget.animate ? _controller.value : 0.0;
-        final wave = math.sin(progress * math.pi * 2);
-        final bounce = widget.celebrate
-            ? -math.sin(progress * math.pi * 2).abs() * widget.size * 0.05
-            : 0.0;
-        final drift = widget.animate ? wave * widget.size * 0.012 : 0.0;
-        final scale = widget.celebrate
-            ? 1 + wave * 0.014
-            : widget.selected
-                ? 1.02 + wave * 0.01
-                : 1 + wave * 0.006;
+    final accent = _profileIconAccent(widget.asset);
+    final glowAlpha = widget.selected || widget.celebrate ? 0.16 : 0.08;
 
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              bottom: widget.size * 0.06,
-              child: Container(
-                width: widget.size * 0.46,
-                height: widget.size * 0.08,
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(widget.size),
-                ),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned(
+          bottom: widget.size * 0.06,
+          child: Container(
+            width: widget.size * 0.46,
+            height: widget.size * 0.08,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(widget.size),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                colors: [
+                  accent.withValues(alpha: glowAlpha),
+                  accent.withValues(alpha: glowAlpha * 0.36),
+                  Colors.transparent,
+                ],
               ),
             ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: RadialGradient(
-                    colors: [
-                      _profileIconAccent(widget.asset).withValues(
-                        alpha:
-                            widget.selected || widget.celebrate ? 0.22 : 0.10,
-                      ),
-                      _profileIconAccent(widget.asset).withValues(
-                        alpha:
-                            widget.selected || widget.celebrate ? 0.10 : 0.04,
-                      ),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final progress = widget.animate ? _controller.value : 0.0;
+            final breath = 1 + math.sin(progress * math.pi * 2) * 0.012;
+            return Transform.scale(scale: breath, child: child);
+          },
+          child: Padding(
+            padding: EdgeInsets.all(widget.size * 0.05),
+            child: FocusProfileIconImage(
+              asset: widget.asset,
+              width: widget.size,
+              height: widget.size,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.high,
             ),
-            if (widget.selected || widget.celebrate)
-              ...List.generate(widget.celebrate ? 6 : 4, (index) {
-                final angle = progress * math.pi * 2 + (index * math.pi / 3);
-                final radius = widget.size * (widget.celebrate ? 0.34 : 0.28);
-                return Positioned(
-                  left: widget.size / 2 +
-                      math.cos(angle) * radius -
-                      widget.size * 0.035,
-                  top: widget.size / 2 +
-                      math.sin(angle) * radius -
-                      widget.size * 0.035,
-                  child: Icon(
-                    index.isEven
-                        ? Icons.auto_awesome_rounded
-                        : Icons.circle_rounded,
-                    size: widget.size * (widget.celebrate ? 0.07 : 0.045),
-                    color: index.isEven
-                        ? FocusPalette.amber.withValues(
-                            alpha: widget.celebrate ? 0.85 : 0.68,
-                          )
-                        : Colors.white.withValues(
-                            alpha: widget.celebrate ? 0.78 : 0.52,
-                          ),
-                  ),
-                );
-              }),
-            Transform.translate(
-              offset: Offset(0, bounce + drift),
-              child: Transform.scale(
-                scale: scale,
-                child: Padding(
-                  padding: EdgeInsets.all(widget.size * 0.05),
-                  child: FocusProfileIconImage(
-                    asset: widget.asset,
-                    width: widget.size,
-                    height: widget.size,
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.high,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 }

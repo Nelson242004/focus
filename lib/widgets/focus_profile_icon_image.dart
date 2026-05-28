@@ -25,6 +25,26 @@ class FocusProfileIconImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (isGiphyProfileIconAsset(asset)) {
+      return Image.network(
+        asset,
+        width: width,
+        height: height,
+        fit: fit,
+        filterQuality: filterQuality,
+        gaplessPlayback: true,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return placeholderBuilder?.call(context) ??
+              _fallback(context, Icons.auto_awesome_rounded);
+        },
+        errorBuilder: (_, __, ___) => _fallback(
+          context,
+          Icons.image_not_supported_rounded,
+        ),
+      );
+    }
+
     if (asset == customProfileIconAsset) {
       return FutureBuilder<Uint8List?>(
         future: CustomProfileIconService.loadBytes(),
