@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +11,6 @@ import 'package:provider/provider.dart';
 import 'database/database_helper.dart';
 import 'models/app_settings.dart';
 import 'providers/app_provider.dart';
-import 'screens/app_tutorial_screen.dart';
 import 'screens/auth_gate_screen.dart';
 import 'screens/friends_screen.dart';
 import 'screens/main_navigation_screen.dart';
@@ -827,37 +829,44 @@ class OnboardingScreen extends StatefulWidget {
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends State<OnboardingScreen>
+    with SingleTickerProviderStateMixin {
   int _page = 0;
+  bool _finishing = false;
   late final PageController _controller;
+  late final AnimationController _motion;
 
   static const _pages = [
     (
-      badge: 'Organiza',
-      icon: Icons.dashboard_customize_rounded,
-      title: 'Tu semestre en una pantalla',
-      text:
-          'Clases, exámenes, tareas y hábitos conectados para saber qué hacer ahora.',
-      highlights: ['Próxima clase', 'Examen cercano', 'Acción sugerida'],
-      colors: [Color(0xFF1D4ED8), Color(0xFF06B6D4)],
+      eyebrow: 'Focus Study OS',
+      title: 'Todo tu semestre con calma.',
+      text: 'Clases, exámenes y tareas ordenados para saber qué toca ahora.',
+      stat: 'Hoy',
+      statValue: 'Clase + examen',
+      asset: 'assets/profile_icons/focus_programmer.png',
+      colors: [Color(0xFF2563EB), Color(0xFF14B8A6), Color(0xFFF59E0B)],
+      rows: ['Próxima clase', 'Examen cercano', 'Tarea urgente'],
     ),
     (
-      badge: 'Enfócate',
-      icon: Icons.timer_rounded,
-      title: 'Bloques de estudio que se sienten vivos',
+      eyebrow: 'Modo enfoque',
+      title: 'Estudia sin pelear con el celular.',
       text:
-          'Pomodoro, descansos y bloqueo total trabajan juntos para proteger tu atención.',
-      highlights: ['25 min', 'Descanso', 'Bloqueo total'],
-      colors: [Color(0xFF0F766E), Color(0xFF22C55E)],
+          'Pomodoro, descansos y bloqueo total se sienten claros desde el primer toque.',
+      stat: 'Sesión',
+      statValue: '25:00',
+      asset: 'assets/profile_icons/focus_green_tech.png',
+      colors: [Color(0xFF2563EB), Color(0xFF0EA5E9), Color(0xFF10B981)],
+      rows: ['Enfoque activo', 'Bloqueo listo', 'Descanso corto'],
     ),
     (
-      badge: 'Avanza',
-      icon: Icons.emoji_events_rounded,
-      title: 'Progreso con personaje, puntos y amigos',
-      text:
-          'Personaliza tu perfil, sube puntos, desbloquea insignias y compite cuando quieras.',
-      highlights: ['Perfil', 'Ranking', 'Logros'],
-      colors: [Color(0xFFF59E0B), Color(0xFFEC4899)],
+      eyebrow: 'Perfil y ranking',
+      title: 'Haz que tu progreso se vea tuyo.',
+      text: 'Personaje, puntos, insignias y amigos con un estilo más Focus.',
+      stat: 'Liga',
+      statValue: 'Top 20',
+      asset: 'assets/profile_icons/focus_champion_female.png',
+      colors: [Color(0xFF2563EB), Color(0xFF14B8A6), Color(0xFFF59E0B)],
+      rows: ['1240 puntos', 'Racha 7 días', 'Insignia nueva'],
     ),
   ];
 
@@ -865,85 +874,97 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void initState() {
     super.initState();
     _controller = PageController();
+    _motion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5200),
+    )..repeat();
   }
 
   @override
   void dispose() {
+    _motion.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _finishOnboarding() async {
+    if (_finishing) return;
+    setState(() => _finishing = true);
+    unawaited(widget.onComplete());
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+    if (mounted) {
+      setState(() => _finishing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final page = _pages[_page];
     final size = MediaQuery.of(context).size;
-    final isCompact = size.height < 740 || size.width < 380;
+    final isCompact = size.height < 760 || size.width < 380;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : FocusPalette.ink;
+    final mutedColor = isDark ? const Color(0xFFB6C2D2) : FocusPalette.muted;
     return Scaffold(
       body: AnimatedContainer(
         duration: const Duration(milliseconds: 320),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              page.colors.first.withValues(alpha: 0.12),
-              Theme.of(context).scaffoldBackgroundColor,
-              page.colors.last.withValues(alpha: 0.08),
+              isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
+              Color.lerp(
+                isDark ? const Color(0xFF030712) : const Color(0xFFFFFFFF),
+                page.colors[1],
+                isDark ? 0.16 : 0.10,
+              )!,
+              Color.lerp(
+                isDark ? const Color(0xFF020617) : const Color(0xFFF6F8FC),
+                page.colors[2],
+                isDark ? 0.14 : 0.08,
+              )!,
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
         child: SafeArea(
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              isCompact ? 18 : 24,
+              isCompact ? 18 : 22,
+              isCompact ? 12 : 18,
+              isCompact ? 18 : 22,
               isCompact ? 14 : 20,
-              isCompact ? 18 : 24,
-              isCompact ? 16 : 22,
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 9),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surface
-                            .withValues(alpha: 0.78),
-                        border: Border.all(
-                          color: page.colors.first.withValues(alpha: 0.18),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            'assets/icon.png',
-                            width: 24,
-                            height: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Focus',
-                            style: TextStyle(
-                              color: page.colors.first,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
+                    Image.asset('assets/icon.png', width: 32, height: 32),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Focus',
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
                       ),
                     ),
                     const Spacer(),
-                    TextButton(
-                      onPressed: () async => widget.onComplete(),
-                      child: const Text('Saltar'),
+                    TextButton.icon(
+                      onPressed: _finishing ? null : _finishOnboarding,
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('Saltar'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: mutedColor,
+                        visualDensity: VisualDensity.compact,
+                      ),
                     ),
                   ],
                 ),
+                SizedBox(height: isCompact ? 10 : 18),
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
@@ -951,126 +972,117 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     itemCount: _pages.length,
                     itemBuilder: (context, index) {
                       final item = _pages[index];
-                      return SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _OnboardingShowcase(
-                              page: index,
-                              icon: item.icon,
+                      return Column(
+                        key: ValueKey(index),
+                        children: [
+                          Expanded(
+                            child: _OnboardingPremiumHero(
+                              asset: item.asset,
                               colors: item.colors,
+                              rows: item.rows,
+                              stat: item.stat,
+                              statValue: item.statValue,
                               compact: isCompact,
+                              animation: _motion,
                             ),
-                            SizedBox(height: isCompact ? 18 : 26),
-                            _OnboardingPill(
-                              label: item.badge,
-                              color: item.colors.first,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              item.title,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.02,
-                                    fontSize: isCompact ? 25 : 31,
-                                  ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              item.text,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyLarge
-                                  ?.copyWith(
-                                    fontSize: isCompact ? 15 : 16,
-                                    height: 1.45,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
-                                  ),
-                            ),
-                            const SizedBox(height: 18),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              children: item.highlights
-                                  .map(
-                                    (highlight) => _OnboardingMiniFeature(
-                                      label: highlight,
-                                      color: item.colors.first,
-                                    ),
-                                  )
-                                  .toList(),
-                            ),
-                            SizedBox(height: isCompact ? 18 : 24),
-                          ],
-                        ),
+                          ),
+                          SizedBox(height: isCompact ? 16 : 24),
+                          _OnboardingTextPanel(
+                            eyebrow: item.eyebrow,
+                            title: item.title,
+                            text: item.text,
+                            accent: item.colors.first,
+                            textColor: textColor,
+                            mutedColor: mutedColor,
+                            compact: isCompact,
+                          ),
+                        ],
                       );
                     },
                   ),
                 ),
+                SizedBox(height: isCompact ? 18 : 22),
                 Row(
-                  children: List.generate(_pages.length, (index) {
-                    final selected = index == _page;
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      margin: const EdgeInsets.only(right: 8),
-                      width: selected ? 30 : 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: selected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).dividerColor,
+                  children: [
+                    ...List.generate(_pages.length, (index) {
+                      final selected = index == _page;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 220),
+                        margin: const EdgeInsets.only(right: 8),
+                        width: selected ? 34 : 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          color: selected
+                              ? page.colors.first
+                              : mutedColor.withValues(alpha: 0.28),
+                        ),
+                      );
+                    }),
+                    const Spacer(),
+                    Text(
+                      '${_page + 1}/${_pages.length}',
+                      style: TextStyle(
+                        color: mutedColor,
+                        fontWeight: FontWeight.w800,
                       ),
-                    );
-                  }),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 18),
-                if (_page == _pages.length - 1) ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AppTutorialScreen(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.play_lesson_rounded),
-                      label: const Text('Ver tutorial'),
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: isCompact ? VisualDensity.compact : null,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: isCompact ? 8 : 12),
-                ],
                 SizedBox(
                   width: double.infinity,
+                  height: 54,
                   child: FilledButton(
-                    onPressed: () async {
-                      if (_page == _pages.length - 1) {
-                        await widget.onComplete();
-                      } else {
-                        await _controller.nextPage(
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeOutCubic,
-                        );
-                      }
-                    },
+                    onPressed: _finishing
+                        ? null
+                        : () async {
+                            if (_page == _pages.length - 1) {
+                              await _finishOnboarding();
+                            } else {
+                              await _controller.nextPage(
+                                duration: const Duration(milliseconds: 320),
+                                curve: Curves.easeOutCubic,
+                              );
+                            }
+                          },
                     style: FilledButton.styleFrom(
-                      visualDensity: isCompact ? VisualDensity.compact : null,
+                      backgroundColor: page.colors.first,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 0,
                     ),
-                    child: Text(
-                      _page == _pages.length - 1
-                          ? 'Continuar al inicio de sesión'
-                          : 'Continuar',
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 180),
+                      child: _finishing
+                          ? const SizedBox(
+                              key: ValueKey('loading'),
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Row(
+                              key: ValueKey(_page),
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _page == _pages.length - 1
+                                      ? 'Ir al inicio de sesión'
+                                      : 'Continuar',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_rounded),
+                              ],
+                            ),
                     ),
                   ),
                 ),
@@ -1083,93 +1095,195 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-class _OnboardingShowcase extends StatelessWidget {
-  final int page;
-  final IconData icon;
+class _OnboardingPremiumHero extends StatelessWidget {
+  final String asset;
   final List<Color> colors;
+  final List<String> rows;
+  final String stat;
+  final String statValue;
+  final bool compact;
+  final Animation<double> animation;
+
+  const _OnboardingPremiumHero({
+    required this.asset,
+    required this.colors,
+    required this.rows,
+    required this.stat,
+    required this.statValue,
+    required this.compact,
+    required this.animation,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        final heroSize = (height * 0.62).clamp(168.0, compact ? 230.0 : 290.0);
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, _) {
+            final t = animation.value * math.pi * 2;
+            final drift = math.sin(t);
+            final slowDrift = math.cos(t * 0.72);
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  top: compact ? 6 : 10,
+                  bottom: compact ? 4 : 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(34),
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [
+                                Color.lerp(const Color(0xFF07111F),
+                                    colors.first, 0.28)!,
+                                Color.lerp(
+                                    const Color(0xFF0B1726), colors[1], 0.26)!,
+                                Color.lerp(
+                                    const Color(0xFF101827), colors[2], 0.16)!,
+                              ]
+                            : [
+                                Color.lerp(Colors.white, colors.first, 0.22)!,
+                                Color.lerp(Colors.white, colors[1], 0.28)!,
+                                Color.lerp(
+                                    const Color(0xFFF8FAFC), colors[2], 0.18)!,
+                              ],
+                        begin: Alignment(-0.85 + drift * 0.08, -1),
+                        end: Alignment(0.9 + slowDrift * 0.06, 1),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.first
+                              .withValues(alpha: isDark ? 0.22 : 0.14),
+                          blurRadius: 30,
+                          offset: const Offset(0, 18),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: Colors.white
+                            .withValues(alpha: isDark ? 0.08 : 0.72),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  top: compact ? 6 : 10,
+                  bottom: compact ? 4 : 8,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(34),
+                    child: CustomPaint(
+                      painter: _OnboardingImmersivePatternPainter(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        progress: animation.value,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 18 + slowDrift * 4,
+                  top: (compact ? 24 : 32) + drift * 3,
+                  child: _OnboardingGlassStat(
+                    label: stat,
+                    value: statValue,
+                  ),
+                ),
+                Positioned(
+                  left: (compact ? 10 : 22) + drift * 5,
+                  bottom: (compact ? 4 : 10) + slowDrift * 7,
+                  child: Image.asset(
+                    asset,
+                    width: heroSize * 1.03,
+                    height: heroSize * 1.03,
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                Positioned(
+                  right: (compact ? 12 : 20) + slowDrift * 5,
+                  bottom: (compact ? 18 : 28) - drift * 5,
+                  child: _OnboardingMiniPanel(rows: rows, color: colors.first),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _OnboardingTextPanel extends StatelessWidget {
+  final String eyebrow;
+  final String title;
+  final String text;
+  final Color accent;
+  final Color textColor;
+  final Color mutedColor;
   final bool compact;
 
-  const _OnboardingShowcase({
-    required this.page,
-    required this.icon,
-    required this.colors,
+  const _OnboardingTextPanel({
+    required this.eyebrow,
+    required this.title,
+    required this.text,
+    required this.accent,
+    required this.textColor,
+    required this.mutedColor,
     required this.compact,
   });
 
   @override
   Widget build(BuildContext context) {
-    final height = compact ? 254.0 : 326.0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      height: height,
-      margin: EdgeInsets.only(top: compact ? 16 : 24),
+      padding:
+          EdgeInsets.fromLTRB(18, compact ? 16 : 18, 18, compact ? 16 : 18),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(36),
-        gradient: LinearGradient(
-          colors: colors,
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        borderRadius: BorderRadius.circular(26),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.045)
+            : Colors.white.withValues(alpha: 0.76),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : FocusPalette.border.withValues(alpha: 0.70),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: colors.first.withValues(alpha: 0.25),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
       ),
-      clipBehavior: Clip.antiAlias,
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _OnboardingPatternPainter(
-                color: Colors.white.withValues(alpha: 0.16),
-              ),
+          Text(
+            eyebrow,
+            style: TextStyle(
+              color: accent,
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              letterSpacing: 0,
             ),
           ),
-          Positioned(
-            left: 22,
-            top: 22,
-            child: Container(
-              width: compact ? 58 : 66,
-              height: compact ? 58 : 66,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                color: Colors.white.withValues(alpha: 0.18),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.22),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            textAlign: TextAlign.left,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.w900,
+                  height: 1.02,
+                  fontSize: compact ? 28 : 34,
+                  letterSpacing: 0,
                 ),
-              ),
-              child: Icon(icon, color: Colors.white, size: compact ? 30 : 34),
-            ),
           ),
-          Positioned(
-            right: compact ? 14 : 24,
-            bottom: compact ? 14 : 24,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 280),
-              child: _OnboardingPhonePreview(
-                key: ValueKey(page),
-                page: page,
-                colors: colors,
-                compact: compact,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            bottom: compact ? 24 : 32,
-            child: Image.asset(
-              page == 2
-                  ? 'assets/profile_icons/focus_champion.png'
-                  : page == 1
-                      ? 'assets/profile_icons/focus_calm.png'
-                      : 'assets/illustrations/focus_mascot.png',
-              width: compact ? 124 : 156,
-              height: compact ? 124 : 156,
-              fit: BoxFit.contain,
-            ),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: mutedColor,
+                  fontSize: compact ? 14 : 15,
+                  height: 1.42,
+                ),
           ),
         ],
       ),
@@ -1177,77 +1291,48 @@ class _OnboardingShowcase extends StatelessWidget {
   }
 }
 
-class _OnboardingPhonePreview extends StatelessWidget {
-  final int page;
-  final List<Color> colors;
-  final bool compact;
+class _OnboardingGlassStat extends StatelessWidget {
+  final String label;
+  final String value;
 
-  const _OnboardingPhonePreview({
-    super.key,
-    required this.page,
-    required this.colors,
-    required this.compact,
+  const _OnboardingGlassStat({
+    required this.label,
+    required this.value,
   });
 
   @override
   Widget build(BuildContext context) {
-    final width = compact ? 142.0 : 172.0;
-    final rows = switch (page) {
-      1 => const ['25:00', 'Enfoque', 'Bloqueo listo'],
-      2 => const ['1240 pts', 'Oro', 'Racha 7 dias'],
-      _ => const ['Clase 10:00', 'Examen manana', 'Habito pendiente'],
-    };
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final valueColor = isDark ? Colors.white : FocusPalette.ink;
+    final labelColor = isDark ? Colors.white70 : FocusPalette.muted;
     return Container(
-      width: width,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        color: Colors.white.withValues(alpha: isDark ? 0.16 : 0.82),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: isDark ? 0.20 : 0.70),
+        ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 8,
-            width: 46,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(99),
-              color: colors.first.withValues(alpha: 0.2),
-            ),
-          ),
-          const SizedBox(height: 14),
-          ...rows.map(
-            (row) => Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                color: colors.first.withValues(alpha: 0.1),
-              ),
-              child: Text(
-                row,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: colors.first,
-                  fontWeight: FontWeight.w900,
-                  fontSize: compact ? 11 : 12,
-                ),
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              color: labelColor,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
           ),
           const SizedBox(height: 2),
-          LinearProgressIndicator(
-            value: page == 1
-                ? 0.68
-                : page == 2
-                    ? 0.84
-                    : 0.42,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(99),
-            color: colors.last,
-            backgroundColor: colors.last.withValues(alpha: 0.18),
+          Text(
+            value,
+            style: TextStyle(
+              color: valueColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
           ),
         ],
       ),
@@ -1255,91 +1340,119 @@ class _OnboardingPhonePreview extends StatelessWidget {
   }
 }
 
-class _OnboardingMiniFeature extends StatelessWidget {
-  final String label;
+class _OnboardingMiniPanel extends StatelessWidget {
+  final List<String> rows;
   final Color color;
 
-  const _OnboardingMiniFeature({
-    required this.label,
+  const _OnboardingMiniPanel({
+    required this.rows,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      width: 154,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.55),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white.withValues(alpha: 0.94),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_rounded, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+          ...rows.asMap().entries.map(
+                (entry) => Padding(
+                  padding: EdgeInsets.only(
+                      bottom: entry.key == rows.length - 1 ? 0 : 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          entry.key == 0
+                              ? Icons.school_rounded
+                              : entry.key == 1
+                                  ? Icons.timer_rounded
+                                  : Icons.check_rounded,
+                          color: color,
+                          size: 16,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          entry.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: FocusPalette.ink,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
         ],
       ),
     );
   }
 }
 
-class _OnboardingPatternPainter extends CustomPainter {
+class _OnboardingImmersivePatternPainter extends CustomPainter {
   final Color color;
+  final double progress;
 
-  const _OnboardingPatternPainter({required this.color});
+  const _OnboardingImmersivePatternPainter({
+    required this.color,
+    required this.progress,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    for (var i = -2; i < 9; i++) {
-      final x = size.width * 0.18 + i * 34;
+      ..strokeWidth = 1.1;
+    final phase = progress * math.pi * 2;
+    for (var i = 0; i < 8; i++) {
+      final y = size.height * (0.16 + i * 0.12);
+      final wave = math.sin(phase + i * 0.6) * size.width * 0.025;
       canvas.drawLine(
-        Offset(x, size.height * 0.08),
-        Offset(x + size.width * 0.34, size.height * 0.92),
+        Offset(size.width * 0.08 + wave, y),
+        Offset(size.width * 0.92 + wave, y + size.height * 0.075),
         paint,
       );
+    }
+    final dotPaint = Paint()..color = Colors.white.withValues(alpha: 0.18);
+    for (var i = 0; i < 22; i++) {
+      final column = i % 7;
+      final row = i ~/ 7;
+      final x =
+          size.width * (0.07 + column * 0.145 + math.sin(phase + i) * 0.006);
+      final y =
+          size.height * (0.10 + row * 0.25 + math.cos(phase * 0.8 + i) * 0.008);
+      canvas.drawCircle(Offset(x, y), 1.9 + (i % 3) * 0.35, dotPaint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _OnboardingPatternPainter oldDelegate) {
-    return oldDelegate.color != color;
-  }
-}
-
-class _OnboardingPill extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _OnboardingPill({
-    required this.label,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: color.withValues(alpha: 0.12),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-        ),
-      ),
-    );
+  bool shouldRepaint(covariant _OnboardingImmersivePatternPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.progress != progress;
   }
 }

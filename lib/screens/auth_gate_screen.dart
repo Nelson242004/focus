@@ -273,20 +273,33 @@ class _FocusLoginBackdrop extends StatelessWidget {
         gradient: LinearGradient(
           colors: isDark
               ? const [
-                  FocusPalette.darkSurfaceTop,
-                  FocusPalette.darkCard,
-                  FocusPalette.darkSurfaceTint,
+                  Color(0xFF030712),
+                  Color(0xFF07111F),
+                  Color(0xFF0B1726),
                 ]
               : const [
-                  FocusPalette.surfaceTop,
-                  FocusPalette.surfaceMid,
-                  FocusPalette.surfaceTint,
+                  Color(0xFFF8FAFC),
+                  Color(0xFFEFF6FF),
+                  Color(0xFFEFFCF8),
                 ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
       ),
-      child: child,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _LoginImmersivePatternPainter(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.035)
+                    : FocusPalette.primary.withValues(alpha: 0.055),
+              ),
+            ),
+          ),
+          child,
+        ],
+      ),
     );
   }
 }
@@ -339,7 +352,9 @@ class _LoginChoiceStep extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(24, 18, 24, 34),
       children: [
         _LoginTopBar(enabled: !loading && canPop, onBack: onBack),
-        SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
+        SizedBox(height: MediaQuery.sizeOf(context).height * 0.035),
+        const _LoginImmersiveHero(),
+        const SizedBox(height: 18),
         _LoginSurfaceCard(
           child: Column(
             children: [
@@ -380,6 +395,177 @@ class _LoginChoiceStep extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _LoginImmersiveHero extends StatelessWidget {
+  const _LoginImmersiveHero();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = _loginIsDark(context);
+    return Container(
+      height: 210,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [
+                  Color(0xFF07111F),
+                  Color(0xFF0B1B2D),
+                  Color(0xFF10251F),
+                ]
+              : const [
+                  Color(0xFFDCEBFF),
+                  Color(0xFFDFF8F1),
+                  Color(0xFFFFF4D9),
+                ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.white.withValues(alpha: 0.78),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _LoginImmersivePatternPainter(
+                color: Colors.white.withValues(alpha: isDark ? 0.06 : 0.28),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 18,
+            top: 18,
+            child: _LoginHeroBadge(
+              title: 'Focus',
+              subtitle: 'Perfil y ranking',
+            ),
+          ),
+          Positioned(
+            right: 8,
+            bottom: -10,
+            child: Image.asset(
+              'assets/profile_icons/focus_champion_female.png',
+              width: 190,
+              height: 190,
+              fit: BoxFit.contain,
+            ),
+          ),
+          Positioned(
+            left: 18,
+            bottom: 18,
+            child: _LoginHeroMetric(label: 'Top', value: '20'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginHeroBadge extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _LoginHeroBadge({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        color:
+            Colors.white.withValues(alpha: _loginIsDark(context) ? 0.12 : 0.82),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset('assets/icon.png', width: 28, height: 28),
+          const SizedBox(width: 9),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: _loginText(context),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: _loginMuted(context),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginHeroMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _LoginHeroMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color:
+            Colors.white.withValues(alpha: _loginIsDark(context) ? 0.12 : 0.82),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.42)),
+      ),
+      child: Text(
+        '$label $value',
+        style: TextStyle(
+          color: _loginText(context),
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginImmersivePatternPainter extends CustomPainter {
+  final Color color;
+
+  const _LoginImmersivePatternPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1;
+    for (var i = 0; i < 9; i++) {
+      final y = size.height * (0.08 + i * 0.12);
+      canvas.drawLine(
+        Offset(size.width * 0.06, y),
+        Offset(size.width * 0.94, y + size.height * 0.06),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoginImmersivePatternPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

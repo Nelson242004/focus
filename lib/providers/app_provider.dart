@@ -963,9 +963,14 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> completeOnboarding() async {
-    await updateSettings(
-      _settingsCopy(onboardingCompleted: true),
-      syncNotifications: false,
+    settings = _settingsCopy(onboardingCompleted: true);
+    notifyListeners();
+    await db.updateSettings(settings);
+    unawaited(
+      _runOptionalCloudSync(
+        () => FirebaseUserDataService.saveSettings(settings),
+        'save onboarding settings',
+      ),
     );
   }
 
