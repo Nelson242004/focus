@@ -301,6 +301,36 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  Future<void> _linkTaskForPomodoro(StudyTask task) async {
+    final taskId = task.id;
+    if (taskId == null) return;
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final subject = provider.getSubjectById(task.subjectId);
+    if (mounted) {
+      setState(() {
+        _linkedTaskId = taskId;
+        _linkedTaskTitle = task.title;
+        if (subject != null) _selectedSubject = subject.name;
+        if (!_isRunning) {
+          _mode = 'focus';
+          _setRemainingFromMode();
+        }
+      });
+    } else {
+      _linkedTaskId = taskId;
+      _linkedTaskTitle = task.title;
+    }
+    await _persistState();
+    unawaited(_syncPomodoroWidget(provider, force: true));
+    if (!mounted) return;
+    showFocusFeedback(
+      context,
+      message: 'Tarea vinculada: "${task.title}".',
+      type: FocusFeedbackType.info,
+      icon: Icons.task_alt_rounded,
+    );
+  }
+
   Future<void> _loadFocusModeConfig() async {
     final config = await FocusModeService.loadConfig();
     final permissionGranted = await _refreshFocusModePermissionState();
@@ -1150,6 +1180,198 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  Future<void> _showFocusTaskSheet([BuildContext? sheetHostContext]) async {
+    final titleController = TextEditingController();
+    try {
+      await showModalBottomSheet<void>(
+        context: sheetHostContext ?? context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, refreshSheet) {
+              return Consumer<AppProvider>(
+                builder: (context, provider, _) {
+                  final tasks = provider.activeStudyTasks.take(8).toList();
+                  final bottom = MediaQuery.of(sheetContext).viewInsets.bottom;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(18, 0, 18, bottom + 18),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              FocusAssetBadge(
+                                kind: FocusAppIconKind.tasks,
+                                color: FocusPalette.primary,
+                                fallback: Icons.task_alt_rounded,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Tarea de enfoque',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleLarge
+                                      ?.copyWith(fontWeight: FontWeight.w900),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Elige, crea o marca avance sin salir del Pomodoro.',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: titleController,
+                            textInputAction: TextInputAction.done,
+                            decoration: InputDecoration(
+                              labelText: 'Nueva tarea rápida',
+                              prefixIcon: const Icon(Icons.add_task_rounded),
+                              suffixIcon: IconButton(
+                                tooltip: 'Crear y vincular',
+                                icon: const Icon(Icons.arrow_forward_rounded),
+                                onPressed: () async {
+                                  final created = await _createQuickFocusTask(
+                                    provider,
+                                    titleController.text,
+                                  );
+                                  if (created == null) return;
+                                  titleController.clear();
+                                  await _linkTaskForPomodoro(created);
+                                  refreshSheet(() {});
+                                },
+                              ),
+                            ),
+                            onSubmitted: (value) async {
+                              final created =
+                                  await _createQuickFocusTask(provider, value);
+                              if (created == null) return;
+                              titleController.clear();
+                              await _linkTaskForPomodoro(created);
+                              refreshSheet(() {});
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          if (_linkedTaskId != null &&
+                              _linkedTaskTitle.trim().isNotEmpty)
+                            _CurrentFocusTaskTile(
+                              title: _linkedTaskTitle,
+                              onClear: () async {
+                                await _clearLinkedTask();
+                                refreshSheet(() {});
+                              },
+                              onComplete: () async {
+                                final task = _studyTaskById(
+                                  provider,
+                                  _linkedTaskId!,
+                                );
+                                if (task == null) {
+                                  await _clearLinkedTask();
+                                } else {
+                                  await provider.completeStudyTask(task, true);
+                                  await _clearLinkedTask();
+                                }
+                                refreshSheet(() {});
+                              },
+                            ),
+                          if (_linkedTaskId != null &&
+                              _linkedTaskTitle.trim().isNotEmpty)
+                            const SizedBox(height: 12),
+                          Text(
+                            'Pendientes',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 8),
+                          if (tasks.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: FocusInsets.card,
+                              decoration: BoxDecoration(
+                                borderRadius:
+                                    BorderRadius.circular(FocusRadii.card),
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.38),
+                              ),
+                              child: const Text('Sin tareas pendientes.'),
+                            )
+                          else
+                            ...tasks.map(
+                              (task) => _FocusTaskSheetTile(
+                                task: task,
+                                selected: task.id == _linkedTaskId,
+                                subjectName: provider
+                                    .getSubjectById(task.subjectId)
+                                    ?.name,
+                                onSelect: () async {
+                                  await _linkTaskForPomodoro(task);
+                                  refreshSheet(() {});
+                                },
+                                onComplete: () async {
+                                  await provider.completeStudyTask(task, true);
+                                  if (task.id == _linkedTaskId) {
+                                    await _clearLinkedTask();
+                                  }
+                                  refreshSheet(() {});
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      titleController.dispose();
+    }
+  }
+
+  Future<StudyTask?> _createQuickFocusTask(
+    AppProvider provider,
+    String rawTitle,
+  ) async {
+    final title = rawTitle.trim();
+    if (title.isEmpty) return null;
+    final task = StudyTask(
+      subjectId: _subjectIdForCurrentPomodoro(provider),
+      title: title,
+      dueDate: DateTime.now(),
+      priority: 'medium',
+      status: 'inProgress',
+    );
+    await provider.addStudyTask(task);
+    final created = provider.studyTasks
+        .where((item) =>
+            item.title == title && item.status == 'inProgress' && !item.isDone)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return created.isEmpty ? null : created.first;
+  }
+
+  int? _subjectIdForCurrentPomodoro(AppProvider provider) {
+    final selected = _selectedSubject.trim().toLowerCase();
+    if (selected.isEmpty) return null;
+    for (final subject in provider.subjects) {
+      if (subject.name.trim().toLowerCase() == selected) return subject.id;
+    }
+    return null;
+  }
+
   StudyTask? _studyTaskById(AppProvider provider, int taskId) {
     for (final task in provider.studyTasks) {
       if (task.id == taskId) return task;
@@ -1585,142 +1807,152 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, refreshSheet) {
             final activeTheme = _horizontalThemes[_horizontalThemeIndex];
+            final media = MediaQuery.of(sheetContext);
+            final maxHeight = media.size.height * 0.86;
             return SafeArea(
-              child: Container(
-                margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      activeTheme.backgroundStart.withValues(alpha: 0.96),
-                      activeTheme.backgroundEnd.withValues(alpha: 0.96),
-                      Colors.black.withValues(alpha: 0.94),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: activeTheme.glow.withValues(alpha: 0.22),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: activeTheme.glow.withValues(alpha: 0.18),
-                      blurRadius: 36,
-                      offset: const Offset(0, 14),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeight),
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        activeTheme.backgroundStart.withValues(alpha: 0.96),
+                        activeTheme.backgroundEnd.withValues(alpha: 0.96),
+                        Colors.black.withValues(alpha: 0.94),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _HorizontalSettingsHeader(theme: activeTheme),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Temas',
-                      style: TextStyle(
-                        color: activeTheme.textColor,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: activeTheme.glow.withValues(alpha: 0.22),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeTheme.glow.withValues(alpha: 0.18),
+                        blurRadius: 36,
+                        offset: const Offset(0, 14),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (var index = 0;
-                              index < _horizontalThemes.length;
-                              index++)
-                            Padding(
-                              padding: EdgeInsets.only(
-                                right: index == _horizontalThemes.length - 1
-                                    ? 0
-                                    : 10,
-                              ),
-                              child: _HorizontalThemeOption(
-                                theme: _horizontalThemes[index],
-                                selected: index == _horizontalThemeIndex,
-                                onTap: () {
-                                  _setHorizontalTheme(index);
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _HorizontalSettingsHeader(theme: activeTheme),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Temas',
+                          style: TextStyle(
+                            color: activeTheme.textColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              for (var index = 0;
+                                  index < _horizontalThemes.length;
+                                  index++)
+                                Padding(
+                                  padding: EdgeInsets.only(
+                                    right: index == _horizontalThemes.length - 1
+                                        ? 0
+                                        : 10,
+                                  ),
+                                  child: _HorizontalThemeOption(
+                                    theme: _horizontalThemes[index],
+                                    selected: index == _horizontalThemeIndex,
+                                    onTap: () {
+                                      _setHorizontalTheme(index);
+                                      refreshSheet(() {});
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Animación del reloj',
+                          style: TextStyle(
+                            color: activeTheme.textColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (var index = 0;
+                                index < _horizontalAnimations.length;
+                                index++)
+                              ChoiceChip(
+                                selected: index == _horizontalAnimationIndex,
+                                label: Text(_horizontalAnimations[index].label),
+                                avatar: Icon(
+                                  _horizontalAnimations[index].icon,
+                                  size: 18,
+                                  color: index == _horizontalAnimationIndex
+                                      ? Colors.black
+                                      : Colors.white70,
+                                ),
+                                selectedColor:
+                                    _horizontalThemes[_horizontalThemeIndex]
+                                        .glow,
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.08),
+                                side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.10),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: index == _horizontalAnimationIndex
+                                      ? Colors.black
+                                      : Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                onSelected: (_) {
+                                  _setHorizontalAnimation(index);
                                   refreshSheet(() {});
                                 },
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Animación del reloj',
-                      style: TextStyle(
-                        color: activeTheme.textColor,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 15,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (var index = 0;
-                            index < _horizontalAnimations.length;
-                            index++)
-                          ChoiceChip(
-                            selected: index == _horizontalAnimationIndex,
-                            label: Text(_horizontalAnimations[index].label),
-                            avatar: Icon(
-                              _horizontalAnimations[index].icon,
-                              size: 18,
-                              color: index == _horizontalAnimationIndex
-                                  ? Colors.black
-                                  : Colors.white70,
-                            ),
-                            selectedColor:
-                                _horizontalThemes[_horizontalThemeIndex].glow,
-                            backgroundColor:
-                                Colors.white.withValues(alpha: 0.08),
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.10),
-                            ),
-                            labelStyle: TextStyle(
-                              color: index == _horizontalAnimationIndex
-                                  ? Colors.black
-                                  : Colors.white,
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          value: !_horizontalTickMuted,
+                          activeColor:
+                              _horizontalThemes[_horizontalThemeIndex].glow,
+                          title: const Text(
+                            'Sonido del reloj',
+                            style: TextStyle(
+                              color: Colors.white,
                               fontWeight: FontWeight.w800,
                             ),
-                            onSelected: (_) {
-                              _setHorizontalAnimation(index);
-                              refreshSheet(() {});
-                            },
                           ),
+                          onChanged: (_) {
+                            _toggleHorizontalTickSound();
+                            refreshSheet(() {});
+                          },
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: !_horizontalTickMuted,
-                      activeColor:
-                          _horizontalThemes[_horizontalThemeIndex].glow,
-                      title: const Text(
-                        'Sonido del reloj',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      onChanged: (_) {
-                        _toggleHorizontalTickSound();
-                        refreshSheet(() {});
-                      },
-                    ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -1848,6 +2080,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               isRunning: _isRunning,
               tickMuted: _horizontalTickMuted,
               onTheme: () => _showHorizontalSettings(routeContext),
+              onTasks: () => _showFocusTaskSheet(routeContext),
               onTickSound: _toggleHorizontalTickSound,
               onToggle: _isRunning ? _pauseTimer : () => _startTimer(),
               onReset: _resetHorizontalTimer,
@@ -1977,6 +2210,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               : Icons.music_note_rounded,
                         ),
                         color: ambientEnabled ? ambientOption.color : null,
+                      ),
+                      IconButton(
+                        tooltip: 'Tareas',
+                        onPressed: _showFocusTaskSheet,
+                        icon: const Icon(Icons.task_alt_rounded),
+                        color:
+                            _linkedTaskId == null ? null : FocusPalette.primary,
                       ),
                       if (_isRunning)
                         IconButton.filledTonal(
@@ -2350,7 +2590,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             subtitle:
                                 '${sheetProvider.settings.focusTime}/${sheetProvider.settings.shortBreakTime}/${sheetProvider.settings.longBreakTime} min',
                             accent: FocusPalette.primary,
-                            initiallyExpanded: true,
                             child: Column(
                               children: [
                                 _TimerSlider(
@@ -3123,6 +3362,159 @@ class _LinkedTaskStrip extends StatelessWidget {
   }
 }
 
+class _CurrentFocusTaskTile extends StatelessWidget {
+  final String title;
+  final Future<void> Function() onClear;
+  final Future<void> Function() onComplete;
+
+  const _CurrentFocusTaskTile({
+    required this.title,
+    required this.onClear,
+    required this.onComplete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color: FocusPalette.primary.withValues(alpha: 0.10),
+        border: Border.all(color: FocusPalette.primary.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.radio_button_checked_rounded,
+              color: FocusPalette.primary),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Completar',
+            icon: const Icon(Icons.check_circle_rounded),
+            color: FocusPalette.mint,
+            onPressed: () => unawaited(onComplete()),
+          ),
+          IconButton(
+            tooltip: 'Quitar',
+            icon: const Icon(Icons.close_rounded),
+            onPressed: () => unawaited(onClear()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FocusTaskSheetTile extends StatelessWidget {
+  final StudyTask task;
+  final bool selected;
+  final String? subjectName;
+  final Future<void> Function() onSelect;
+  final Future<void> Function() onComplete;
+
+  const _FocusTaskSheetTile({
+    required this.task,
+    required this.selected,
+    required this.subjectName,
+    required this.onSelect,
+    required this.onComplete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final subject = subjectName?.trim();
+    final detail = [
+      if (subject != null && subject.isNotEmpty) subject,
+      formatDate(task.dueDate),
+      task.priorityLabel,
+    ].join(' · ');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        onTap: () => unawaited(onSelect()),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(FocusRadii.card),
+            color: selected
+                ? FocusPalette.primary.withValues(alpha: 0.10)
+                : Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest
+                    .withValues(alpha: 0.28),
+            border: Border.all(
+              color: selected
+                  ? FocusPalette.primary.withValues(alpha: 0.28)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                selected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                color: selected
+                    ? FocusPalette.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      task.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    if (detail.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        detail,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Completar',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.check_rounded),
+                color: FocusPalette.mint,
+                onPressed: () => unawaited(onComplete()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ModePill extends StatelessWidget {
   final String label;
   final bool selected;
@@ -3438,6 +3830,7 @@ class _HorizontalToolRail extends StatelessWidget {
   final bool isRunning;
   final bool tickMuted;
   final VoidCallback onTheme;
+  final VoidCallback onTasks;
   final VoidCallback onTickSound;
   final VoidCallback onToggle;
   final VoidCallback onReset;
@@ -3447,6 +3840,7 @@ class _HorizontalToolRail extends StatelessWidget {
     required this.isRunning,
     required this.tickMuted,
     required this.onTheme,
+    required this.onTasks,
     required this.onTickSound,
     required this.onToggle,
     required this.onReset,
@@ -3459,6 +3853,12 @@ class _HorizontalToolRail extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         _RailButton(icon: Icons.palette_rounded, onTap: onTheme, theme: theme),
+        const SizedBox(height: 12),
+        _RailButton(
+          icon: Icons.task_alt_rounded,
+          onTap: onTasks,
+          theme: theme,
+        ),
         const SizedBox(height: 12),
         _RailButton(
           icon: tickMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
@@ -3524,7 +3924,6 @@ class _PomodoroSettingsSection extends StatelessWidget {
   final String subtitle;
   final Color accent;
   final Widget child;
-  final bool initiallyExpanded;
 
   const _PomodoroSettingsSection({
     required this.icon,
@@ -3532,7 +3931,6 @@ class _PomodoroSettingsSection extends StatelessWidget {
     required this.subtitle,
     required this.accent,
     required this.child,
-    this.initiallyExpanded = false,
   });
 
   @override
@@ -3549,7 +3947,7 @@ class _PomodoroSettingsSection extends StatelessWidget {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          initiallyExpanded: initiallyExpanded,
+          initiallyExpanded: false,
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
           childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
           leading: Container(
