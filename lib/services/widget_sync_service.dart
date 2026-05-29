@@ -70,6 +70,7 @@ class WidgetSyncService {
     required int remainingSeconds,
     required int totalSeconds,
     required String subject,
+    String taskTitle = '',
     required int currentStreak,
   }) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
@@ -87,8 +88,13 @@ class WidgetSyncService {
         : mode == 'longBreak'
             ? 'Descanso largo'
             : 'Descanso corto';
+    final cleanTaskTitle = taskTitle.trim();
     final title = mode == 'focus'
-        ? (subject.trim().isEmpty ? 'General' : subject.trim())
+        ? (cleanTaskTitle.isNotEmpty
+            ? 'Enfoque: $cleanTaskTitle'
+            : subject.trim().isEmpty
+                ? 'General'
+                : subject.trim())
         : 'Recarga energía';
     final profileIconAsset = await _storedProfileIconAsset();
     final profileIconBase64 = await _currentProfileIconBase64(

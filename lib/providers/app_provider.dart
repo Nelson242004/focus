@@ -59,7 +59,6 @@ class AppProvider extends ChangeNotifier {
       ]);
       await _removeUntouchedDemoSubjects();
       _syncExamSubjectNames();
-      await _syncExamNotifications();
     } catch (error, stackTrace) {
       lastLoadError = error;
       debugPrint('Focus loadAllData error: $error');
@@ -68,7 +67,8 @@ class AppProvider extends ChangeNotifier {
     } finally {
       isLoaded = true;
       notifyListeners();
-      await WidgetSyncService.syncFromProvider(this);
+      unawaited(_syncExamNotifications());
+      unawaited(WidgetSyncService.syncFromProvider(this));
     }
   }
 
@@ -379,7 +379,7 @@ class AppProvider extends ChangeNotifier {
     return getSubjectById(exam.subjectId)?.name ?? exam.subject;
   }
 
-  Future<void> addPomodoro(Pomodoro p) async {
+  Future<Pomodoro> addPomodoro(Pomodoro p) async {
     final id = await db.insertPomodoro(p);
     p.id = id;
     await _loadPomodoros();
@@ -389,6 +389,7 @@ class AppProvider extends ChangeNotifier {
     );
     _queueSocialProgressSync();
     await _notifyAndSyncWidget();
+    return p;
   }
 
   Future<void> deletePomodoro(int id) async {
@@ -492,7 +493,7 @@ class AppProvider extends ChangeNotifier {
     await _notifyAndSyncWidget();
   }
 
-  Future<void> addStudyTask(StudyTask task) async {
+  Future<StudyTask> addStudyTask(StudyTask task) async {
     final normalized = _normalizeStudyTask(task);
     final id = await db.insertStudyTask(normalized);
     normalized.id = id;
@@ -502,6 +503,7 @@ class AppProvider extends ChangeNotifier {
       'save study task',
     );
     await _notifyAndSyncWidget();
+    return normalized;
   }
 
   Future<void> updateStudyTask(StudyTask task) async {
@@ -893,10 +895,8 @@ class AppProvider extends ChangeNotifier {
       sound: sound ?? settings.sound,
       ambientSound: ambientSound ?? settings.ambientSound,
       ambientVolume: ambientVolume ?? settings.ambientVolume,
-      ambientDuringFocus:
-          ambientDuringFocus ?? settings.ambientDuringFocus,
-      ambientDuringBreaks:
-          ambientDuringBreaks ?? settings.ambientDuringBreaks,
+      ambientDuringFocus: ambientDuringFocus ?? settings.ambientDuringFocus,
+      ambientDuringBreaks: ambientDuringBreaks ?? settings.ambientDuringBreaks,
       selectedIdentity: selectedIdentity ?? settings.selectedIdentity,
       startScreen: startScreen ?? settings.startScreen,
       textScale: textScale ?? settings.textScale,

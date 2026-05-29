@@ -32,10 +32,10 @@ Future<void> main() async {
   }
   await Firebase.initializeApp();
   if (!kIsWeb) {
-    await RankingService.initializeGoogleSignIn();
+    unawaited(RankingService.initializeGoogleSignIn());
   }
-  await DatabaseHelper.instance.database;
-  await NotificationService.initialize();
+  unawaited(DatabaseHelper.instance.database);
+  unawaited(NotificationService.initialize());
   runApp(const MyApp());
 }
 

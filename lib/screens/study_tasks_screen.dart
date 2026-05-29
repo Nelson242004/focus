@@ -321,9 +321,15 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
                         task: task,
                         subjectName:
                             provider.getSubjectById(task.subjectId)?.name,
+                        pomodoroStats: _taskPomodoroStats(provider, task),
                         onToggle: (done) =>
                             provider.completeStudyTask(task, done),
                         onStartPomodoro: () => _startPomodoroForTask(task),
+                        onStartPomodoroWithMinutes: (minutes) =>
+                            _startPomodoroForTask(
+                          task,
+                          focusMinutes: minutes,
+                        ),
                         onEdit: () => _showTaskDialog(task: task),
                         onDelete: () => _deleteTask(task),
                       ),
@@ -342,9 +348,69 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
     );
   }
 
-  void _startPomodoroForTask(StudyTask task) {
-    PomodoroTaskLaunchService.startFromTask(task);
+  Future<void> _startPomodoroForTask(
+    StudyTask task, {
+    int? focusMinutes,
+  }) async {
+    final selectedMinutes =
+        focusMinutes == -1 ? await _askCustomPomodoroMinutes() : focusMinutes;
+    if (focusMinutes == -1 && selectedMinutes == null) return;
+    if (!mounted) return;
+    PomodoroTaskLaunchService.startFromTask(
+      task,
+      focusMinutes: selectedMinutes,
+    );
     FocusMainNavigationScope.maybeOf(context)?.call(1);
+  }
+
+  Future<int?> _askCustomPomodoroMinutes() async {
+    final controller = TextEditingController(text: '25');
+    try {
+      return showDialog<int>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Pomodoro personalizado'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Minutos',
+              prefixIcon: Icon(Icons.timer_rounded),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final minutes =
+                    int.tryParse(controller.text.trim())?.clamp(5, 120);
+                Navigator.pop(dialogContext, minutes);
+              },
+              child: const Text('Usar'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  String _taskPomodoroStats(AppProvider provider, StudyTask task) {
+    final taskId = task.id;
+    if (taskId == null) return '0 sesiones';
+    final sessions =
+        provider.pomodoros.where((pomodoro) => pomodoro.taskId == taskId);
+    final count = sessions.length;
+    final minutes = sessions.fold<int>(
+      0,
+      (sum, pomodoro) => sum + pomodoro.duration,
+    );
+    if (count == 0) return '0 sesiones';
+    return '$count ${count == 1 ? 'sesión' : 'sesiones'} · $minutes min';
   }
 }
 
@@ -404,16 +470,20 @@ class _TaskHero extends StatelessWidget {
 class _TaskCard extends StatelessWidget {
   final StudyTask task;
   final String? subjectName;
+  final String pomodoroStats;
   final ValueChanged<bool> onToggle;
   final VoidCallback onStartPomodoro;
+  final ValueChanged<int?> onStartPomodoroWithMinutes;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _TaskCard({
     required this.task,
     required this.subjectName,
+    required this.pomodoroStats,
     required this.onToggle,
     required this.onStartPomodoro,
+    required this.onStartPomodoroWithMinutes,
     required this.onEdit,
     required this.onDelete,
   });
@@ -440,6 +510,7 @@ class _TaskCard extends StatelessWidget {
       if (subject != null && subject.isNotEmpty) subject,
       formatDate(task.dueDate),
       task.priorityLabel,
+      pomodoroStats,
     ].join(' · ');
 
     final compactSecondary = secondary.replaceAll(' \u00C2\u00B7 ', ' | ');
@@ -507,12 +578,23 @@ class _TaskCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               if (!task.isDone)
-                IconButton(
+                PopupMenuButton<int>(
                   tooltip: 'Iniciar Pomodoro para esta tarea',
-                  visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.timer_rounded, size: 21),
                   color: FocusPalette.primary,
-                  onPressed: onStartPomodoro,
+                  onSelected: (value) {
+                    if (value == 0) {
+                      onStartPomodoro();
+                    } else {
+                      onStartPomodoroWithMinutes(value);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 0, child: Text('Usar actual')),
+                    PopupMenuItem(value: 25, child: Text('25 min')),
+                    PopupMenuItem(value: 50, child: Text('50 min')),
+                    PopupMenuItem(value: -1, child: Text('Personalizado')),
+                  ],
                 ),
               _TaskStatusDot(label: statusLabel, color: accent),
               PopupMenuButton<String>(

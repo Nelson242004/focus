@@ -33,19 +33,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   bool _showDock = true;
   bool _startScreenApplied = false;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    PomodoroScreen(),
-    SubjectsScreen(showAppBar: false),
-    HabitsScreen(showAppBar: false),
-    ExamsScreen(showAppBar: false),
-    StudyTasksScreen(showAppBar: false),
-    ResourcesScreen(showAppBar: false),
-    GlobalRankingScreen(showAppBar: false),
-    FriendsScreen(showAppBar: false),
-    AchievementsScreen(showAppBar: false),
-    SettingsScreen(showAppBar: false),
+  late final List<Widget Function()> _screenBuilders = [
+    () => const DashboardScreen(),
+    () => const PomodoroScreen(),
+    () => const SubjectsScreen(showAppBar: false),
+    () => const HabitsScreen(showAppBar: false),
+    () => const ExamsScreen(showAppBar: false),
+    () => const StudyTasksScreen(showAppBar: false),
+    () => const ResourcesScreen(showAppBar: false),
+    () => const GlobalRankingScreen(showAppBar: false),
+    () => const FriendsScreen(showAppBar: false),
+    () => const AchievementsScreen(showAppBar: false),
+    () => const SettingsScreen(showAppBar: false),
   ];
+  late final List<Widget?> _screenCache =
+      List<Widget?>.filled(_screenBuilders.length, null);
 
   @override
   void didChangeDependencies() {
@@ -67,16 +69,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           'settings' => 10,
           _ => 0,
         };
-    if (_selectedIndex >= _screens.length) _selectedIndex = 0;
+    if (_selectedIndex >= _screenBuilders.length) _selectedIndex = 0;
     _startScreenApplied = true;
   }
 
   void _selectTab(int index) {
-    if (index < 0 || index >= _screens.length) return;
+    if (index < 0 || index >= _screenBuilders.length) return;
     setState(() {
       _selectedIndex = index;
       _showDock = true;
     });
+  }
+
+  Widget _screenAt(int index) {
+    return _screenCache[index] ??= _screenBuilders[index]();
   }
 
   @override
@@ -107,24 +113,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               }
               return false;
             },
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 260),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (child, animation) {
-                final offset = Tween<Offset>(
-                  begin: const Offset(0.035, 0),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: offset, child: child),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(_selectedIndex),
-                child: _screens[_selectedIndex],
-              ),
+            child: Stack(
+              children: [
+                for (var index = 0; index < _screenBuilders.length; index++)
+                  if (_screenCache[index] != null || index == _selectedIndex)
+                    Offstage(
+                      offstage: index != _selectedIndex,
+                      child: TickerMode(
+                        enabled: index == _selectedIndex,
+                        child: _screenAt(index),
+                      ),
+                    ),
+              ],
             ),
           ),
         ),

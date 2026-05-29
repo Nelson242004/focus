@@ -12,7 +12,6 @@ import '../models/focus_shield_app.dart';
 import '../models/app_settings.dart';
 import '../models/pomodoro.dart';
 import '../models/study_task.dart';
-import '../models/subject.dart';
 import '../providers/app_provider.dart';
 import '../services/focus_mode_service.dart';
 import '../services/notification_service.dart';
@@ -47,6 +46,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   static const _horizontalTickMutedKey = 'pomodoro_horizontal_tick_muted';
   static const _linkedTaskIdKey = 'pomodoro_linked_task_id';
   static const _linkedTaskTitleKey = 'pomodoro_linked_task_title';
+  static const _sessionGoalKey = 'pomodoro_session_goal';
+  static const _focusSessionMinutesOverrideKey =
+      'pomodoro_focus_session_minutes_override';
   static const _maxAutoRecoveryDuration = Duration(hours: 8);
   static const List<_AmbientSoundOption> _ambientSoundOptions = [
     _AmbientSoundOption(
@@ -163,6 +165,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   late final AudioPlayer _ambientPlayer;
   late final AudioPlayer _ambientPreviewPlayer;
   late final AudioPlayer _horizontalTickPlayer;
+  late final TextEditingController _sessionGoalController;
   String? _loadedAmbientSound;
   String? _previewingAmbientSound;
   Timer? _ambientPreviewTimer;
@@ -179,6 +182,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   bool _isTogglingFocusMode = false;
   int? _linkedTaskId;
   String _linkedTaskTitle = '';
+  String _sessionGoal = '';
+  int? _focusSessionMinutesOverride;
   VoidCallback? _refreshPomodoroSettingsSheet;
 
   Future<void> _updatePomodoroSettings({
@@ -255,6 +260,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _ambientPlayer = AudioPlayer();
     _ambientPreviewPlayer = AudioPlayer();
     _horizontalTickPlayer = AudioPlayer();
+    _sessionGoalController = TextEditingController();
     unawaited(_horizontalTickPlayer.setAsset('assets/sounds/clock_tick.mp3'));
     unawaited(_horizontalTickPlayer.setVolume(0.24));
     PomodoroTaskLaunchService.request.addListener(_handleTaskLaunchRequest);
@@ -263,10 +269,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
   Future<void> _loadInitialData() async {
     await _restoreState();
-    await _loadFocusModeConfig();
     _handleTaskLaunchRequest();
     if (!mounted) return;
     setState(() => _isLoading = false);
+    unawaited(_loadFocusModeConfig());
   }
 
   void _handleTaskLaunchRequest() {
@@ -286,6 +292,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _linkedTaskTitle = request.title;
       _mode = 'focus';
       _selectedSubject = subject?.name ?? '';
+      _focusSessionMinutesOverride = request.focusMinutes;
       _isRunning = false;
       _setRemainingFromMode();
     });
@@ -380,7 +387,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       case 'longBreak':
         return safeMinutesToSeconds(provider.settings.longBreakTime);
       default:
-        return safeMinutesToSeconds(provider.settings.focusTime);
+        return safeMinutesToSeconds(
+          _focusSessionMinutesOverride ?? provider.settings.focusTime,
+        );
     }
   }
 
@@ -422,6 +431,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _linkedTaskId = linkedTaskId;
       _linkedTaskTitle = linkedTaskTitle;
     }
+    _sessionGoal = prefs.getString(_sessionGoalKey) ?? '';
+    _sessionGoalController.text = _sessionGoal;
+    _focusSessionMinutesOverride =
+        prefs.getInt(_focusSessionMinutesOverrideKey);
     _remainingSeconds =
         prefs.getInt(_remainingKey) ?? _totalSecondsForMode(provider);
     final wasRunning = prefs.getBool(_runningKey) ?? false;
@@ -498,6 +511,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } else {
       await prefs.remove(_linkedTaskIdKey);
       await prefs.remove(_linkedTaskTitleKey);
+    }
+    await prefs.setString(_sessionGoalKey, _sessionGoal);
+    final override = _focusSessionMinutesOverride;
+    if (override == null) {
+      await prefs.remove(_focusSessionMinutesOverrideKey);
+    } else {
+      await prefs.setInt(_focusSessionMinutesOverrideKey, override);
     }
   }
 
@@ -581,6 +601,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       remainingSeconds: _remainingSeconds,
       totalSeconds: _totalSecondsForMode(provider),
       subject: _activeSubjectName(provider),
+      taskTitle: _linkedTaskTitle,
       currentStreak: provider.currentStreak,
     );
   }
@@ -921,9 +942,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       final completedAt = DateTime.now();
       final blockedAttempts = _focusModeStatus.blockedAttempts;
       final subjectName = _activeSubjectName(provider);
-      final completedFocusDuration = provider.settings.focusTime;
+      final completedFocusDuration =
+          _focusSessionMinutesOverride ?? provider.settings.focusTime;
       final linkedTaskId = _linkedTaskId;
       final linkedTaskTitle = _linkedTaskTitle;
+      final completedSessionGoal = _sessionGoal.trim();
 
       unawaited(_playBell());
 
@@ -954,6 +977,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             subjectName: subjectName,
             durationMinutes: completedFocusDuration,
             distractionFree: blockedAttempts == 0,
+            taskId: linkedTaskId,
+            taskTitle: linkedTaskTitle,
+            sessionGoal: completedSessionGoal,
           ),
         );
         unawaited(
@@ -966,14 +992,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         if (mounted) {
           showFocusFeedback(
             context,
-            message:
-                'Enfoque completado. Empieza ${nextMode == 'longBreak' ? 'el descanso largo' : 'el descanso corto'}.',
+            message: '+20 puntos · 1 Pomodoro guardado.',
             type: FocusFeedbackType.success,
             icon: Icons.emoji_events_rounded,
             celebration: true,
           );
           unawaited(
-            _askTaskProgressAfterFocus(linkedTaskId, linkedTaskTitle),
+            _askTaskProgressAfterFocus(
+              linkedTaskId,
+              linkedTaskTitle,
+              completedSessionGoal,
+            ),
           );
         }
       } else {
@@ -1013,6 +1042,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     required String subjectName,
     required int durationMinutes,
     required bool distractionFree,
+    required int? taskId,
+    required String taskTitle,
+    required String sessionGoal,
   }) async {
     try {
       await provider.addPomodoro(
@@ -1020,6 +1052,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           date: completedAt.toIso8601String(),
           subject: subjectName,
           duration: durationMinutes,
+          taskId: taskId,
+          taskTitle: taskTitle.trim(),
+          sessionGoal: sessionGoal.trim(),
         ),
       );
     } catch (error) {
@@ -1068,96 +1103,150 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   Future<void> _askTaskProgressAfterFocus(
     int? taskId,
     String taskTitle,
+    String sessionGoal,
   ) async {
-    if (taskId == null || taskTitle.trim().isEmpty) return;
     await Future<void>.delayed(const Duration(milliseconds: 420));
     if (!mounted) return;
 
     final provider = Provider.of<AppProvider>(context, listen: false);
-    final task = _studyTaskById(provider, taskId);
-    if (task == null || task.isDone) {
+    final task = taskId == null ? null : _studyTaskById(provider, taskId);
+    if (taskId != null && (task == null || task.isDone)) {
       await _clearLinkedTask();
       return;
     }
+    final noteController = TextEditingController();
+    var goalDone = false;
 
     final action = await showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
       builder: (sheetContext) {
         final theme = Theme.of(sheetContext);
+        final bottom = MediaQuery.of(sheetContext).viewInsets.bottom;
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    FocusAssetBadge(
-                      kind: FocusAppIconKind.tasks,
-                      color: FocusPalette.primary,
-                      fallback: Icons.task_alt_rounded,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        '¿Marcar avance?',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
+            padding: EdgeInsets.fromLTRB(20, 0, 20, bottom + 20),
+            child: StatefulBuilder(
+              builder: (context, refreshSheet) {
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          FocusAssetBadge(
+                            kind: FocusAppIconKind.pomodoro,
+                            color: FocusPalette.primary,
+                            fallback: Icons.emoji_events_rounded,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Sesión completada',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  taskTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
+                      const SizedBox(height: 10),
+                      if (taskTitle.trim().isNotEmpty)
+                        Text(
+                          taskTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      if (sessionGoal.trim().isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: goalDone,
+                          onChanged: (value) =>
+                              refreshSheet(() => goalDone = value ?? false),
+                          title: const Text('¿Lograste el objetivo?'),
+                          subtitle: Text(sessionGoal),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.edit_note_rounded),
+                        title: const Text('Agregar nota rápida'),
+                        children: [
+                          TextField(
+                            controller: noteController,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              labelText: 'Nota opcional',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      if (task != null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () =>
+                                Navigator.pop(sheetContext, 'completed'),
+                            icon: const Icon(Icons.check_circle_rounded),
+                            label: const Text('Completar tarea'),
+                          ),
+                        ),
+                      if (task != null) const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          if (task != null)
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  Navigator.pop(sheetContext, 'inProgress'),
+                              icon: const Icon(Icons.trending_up_rounded),
+                              label: const Text('En progreso'),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: () =>
+                                Navigator.pop(sheetContext, 'another'),
+                            icon: const Icon(Icons.replay_rounded),
+                            label: const Text('Otro bloque'),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(sheetContext, 'later'),
+                        child: const Text('Seguir después'),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Terminaste un bloque de enfoque para esta tarea.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.pop(sheetContext, 'completed'),
-                    icon: const Icon(Icons.check_circle_rounded),
-                    label: const Text('Marcar completada'),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(sheetContext, 'inProgress'),
-                    icon: const Icon(Icons.trending_up_rounded),
-                    label: const Text('Dejar en progreso'),
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(sheetContext, 'later'),
-                  child: const Text('Seguir después'),
-                ),
-              ],
+                );
+              },
             ),
           ),
         );
       },
     );
 
-    if (!mounted || action == null || action == 'later') return;
+    if (!mounted || action == null || action == 'later') {
+      noteController.dispose();
+      return;
+    }
 
-    if (action == 'completed') {
+    if (task != null) {
+      await _appendQuickTaskNoteIfNeeded(task, noteController.text);
+    }
+    noteController.dispose();
+    if (goalDone) await _clearSessionGoal();
+
+    if (action == 'completed' && task != null) {
       await provider.completeStudyTask(task, true);
       await _clearLinkedTask();
       if (!mounted) return;
@@ -1170,6 +1259,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       return;
     }
 
+    if (action == 'another') {
+      if (task != null && !task.isDone) {
+        await provider.updateStudyTask(_taskWithStatus(task, 'inProgress'));
+      }
+      if (!mounted) return;
+      setState(() {
+        _mode = 'focus';
+        _setRemainingFromMode();
+      });
+      _startTimer();
+      return;
+    }
+
+    if (task == null) return;
     await provider.updateStudyTask(_taskWithStatus(task, 'inProgress'));
     if (!mounted) return;
     showFocusFeedback(
@@ -1181,164 +1284,259 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _showFocusTaskSheet([BuildContext? sheetHostContext]) async {
+    final hostContext = sheetHostContext ?? context;
     final titleController = TextEditingController();
+    final media = MediaQuery.of(hostContext);
+    final isLandscape = media.size.width > media.size.height;
     try {
+      if (isLandscape) {
+        await showGeneralDialog<void>(
+          context: hostContext,
+          barrierDismissible: true,
+          barrierLabel: 'Cerrar tareas',
+          barrierColor: Colors.black.withValues(alpha: 0.34),
+          transitionDuration: const Duration(milliseconds: 180),
+          pageBuilder: (dialogContext, animation, secondaryAnimation) {
+            return SafeArea(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 84, 12),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: math.min(430.0, media.size.width * 0.48),
+                        maxHeight: media.size.height - 24,
+                      ),
+                      child: _buildFocusTaskPanel(
+                        dialogContext,
+                        titleController,
+                        compact: true,
+                        onClose: () => Navigator.of(dialogContext).maybePop(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+          transitionBuilder: (context, animation, secondaryAnimation, child) {
+            return SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.08, 0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
+              child: FadeTransition(opacity: animation, child: child),
+            );
+          },
+        );
+        return;
+      }
+
       await showModalBottomSheet<void>(
-        context: sheetHostContext ?? context,
+        context: hostContext,
         isScrollControlled: true,
         useSafeArea: true,
         showDragHandle: true,
         builder: (sheetContext) {
-          return StatefulBuilder(
-            builder: (context, refreshSheet) {
-              return Consumer<AppProvider>(
-                builder: (context, provider, _) {
-                  final tasks = provider.activeStudyTasks.take(8).toList();
-                  final bottom = MediaQuery.of(sheetContext).viewInsets.bottom;
-                  return Padding(
-                    padding: EdgeInsets.fromLTRB(18, 0, 18, bottom + 18),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              FocusAssetBadge(
-                                kind: FocusAppIconKind.tasks,
-                                color: FocusPalette.primary,
-                                fallback: Icons.task_alt_rounded,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Tarea de enfoque',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleLarge
-                                      ?.copyWith(fontWeight: FontWeight.w900),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Elige, crea o marca avance sin salir del Pomodoro.',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 14),
-                          TextField(
-                            controller: titleController,
-                            textInputAction: TextInputAction.done,
-                            decoration: InputDecoration(
-                              labelText: 'Nueva tarea rápida',
-                              prefixIcon: const Icon(Icons.add_task_rounded),
-                              suffixIcon: IconButton(
-                                tooltip: 'Crear y vincular',
-                                icon: const Icon(Icons.arrow_forward_rounded),
-                                onPressed: () async {
-                                  final created = await _createQuickFocusTask(
-                                    provider,
-                                    titleController.text,
-                                  );
-                                  if (created == null) return;
-                                  titleController.clear();
-                                  await _linkTaskForPomodoro(created);
-                                  refreshSheet(() {});
-                                },
-                              ),
-                            ),
-                            onSubmitted: (value) async {
-                              final created =
-                                  await _createQuickFocusTask(provider, value);
-                              if (created == null) return;
-                              titleController.clear();
-                              await _linkTaskForPomodoro(created);
-                              refreshSheet(() {});
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          if (_linkedTaskId != null &&
-                              _linkedTaskTitle.trim().isNotEmpty)
-                            _CurrentFocusTaskTile(
-                              title: _linkedTaskTitle,
-                              onClear: () async {
-                                await _clearLinkedTask();
-                                refreshSheet(() {});
-                              },
-                              onComplete: () async {
-                                final task = _studyTaskById(
-                                  provider,
-                                  _linkedTaskId!,
-                                );
-                                if (task == null) {
-                                  await _clearLinkedTask();
-                                } else {
-                                  await provider.completeStudyTask(task, true);
-                                  await _clearLinkedTask();
-                                }
-                                refreshSheet(() {});
-                              },
-                            ),
-                          if (_linkedTaskId != null &&
-                              _linkedTaskTitle.trim().isNotEmpty)
-                            const SizedBox(height: 12),
-                          Text(
-                            'Pendientes',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 8),
-                          if (tasks.isEmpty)
-                            Container(
-                              width: double.infinity,
-                              padding: FocusInsets.card,
-                              decoration: BoxDecoration(
-                                borderRadius:
-                                    BorderRadius.circular(FocusRadii.card),
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.38),
-                              ),
-                              child: const Text('Sin tareas pendientes.'),
-                            )
-                          else
-                            ...tasks.map(
-                              (task) => _FocusTaskSheetTile(
-                                task: task,
-                                selected: task.id == _linkedTaskId,
-                                subjectName: provider
-                                    .getSubjectById(task.subjectId)
-                                    ?.name,
-                                onSelect: () async {
-                                  await _linkTaskForPomodoro(task);
-                                  refreshSheet(() {});
-                                },
-                                onComplete: () async {
-                                  await provider.completeStudyTask(task, true);
-                                  if (task.id == _linkedTaskId) {
-                                    await _clearLinkedTask();
-                                  }
-                                  refreshSheet(() {});
-                                },
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
+          final bottom = MediaQuery.of(sheetContext).viewInsets.bottom;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, bottom + 16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: media.size.height * 0.82),
+              child: _buildFocusTaskPanel(sheetContext, titleController),
+            ),
           );
         },
       );
     } finally {
       titleController.dispose();
     }
+  }
+
+  Widget _buildFocusTaskPanel(
+    BuildContext panelContext,
+    TextEditingController titleController, {
+    bool compact = false,
+    VoidCallback? onClose,
+  }) {
+    return StatefulBuilder(
+      builder: (context, refreshPanel) {
+        return Consumer<AppProvider>(
+          builder: (context, provider, _) {
+            final tasks =
+                provider.activeStudyTasks.take(compact ? 6 : 10).toList();
+            return DecoratedBox(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(compact ? 24 : 28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.16),
+                    blurRadius: 28,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(compact ? 24 : 28),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 14 : 18,
+                    compact ? 14 : 4,
+                    compact ? 14 : 18,
+                    compact ? 14 : 18,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          FocusAssetBadge(
+                            kind: FocusAppIconKind.tasks,
+                            color: FocusPalette.primary,
+                            fallback: Icons.task_alt_rounded,
+                            size: compact ? 36 : 42,
+                            iconSize: compact ? 20 : 23,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Tarea de enfoque',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                          ),
+                          if (onClose != null)
+                            IconButton(
+                              tooltip: 'Cerrar',
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: onClose,
+                            ),
+                        ],
+                      ),
+                      if (!compact) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          'Elige, crea o marca avance sin salir del Pomodoro.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: titleController,
+                        textInputAction: TextInputAction.done,
+                        decoration: InputDecoration(
+                          labelText: 'Nueva tarea rápida',
+                          prefixIcon: const Icon(Icons.add_task_rounded),
+                          suffixIcon: IconButton(
+                            tooltip: 'Crear y vincular',
+                            icon: const Icon(Icons.arrow_forward_rounded),
+                            onPressed: () async {
+                              final created = await _createQuickFocusTask(
+                                provider,
+                                titleController.text,
+                              );
+                              if (created == null) return;
+                              titleController.clear();
+                              await _linkTaskForPomodoro(created);
+                              refreshPanel(() {});
+                            },
+                          ),
+                        ),
+                        onSubmitted: (value) async {
+                          final created =
+                              await _createQuickFocusTask(provider, value);
+                          if (created == null) return;
+                          titleController.clear();
+                          await _linkTaskForPomodoro(created);
+                          refreshPanel(() {});
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      if (_linkedTaskId != null &&
+                          _linkedTaskTitle.trim().isNotEmpty) ...[
+                        _CurrentFocusTaskTile(
+                          title: _linkedTaskTitle,
+                          onClear: () async {
+                            await _clearLinkedTask();
+                            refreshPanel(() {});
+                          },
+                          onComplete: () async {
+                            final task =
+                                _studyTaskById(provider, _linkedTaskId!);
+                            if (task == null) {
+                              await _clearLinkedTask();
+                            } else {
+                              await provider.completeStudyTask(task, true);
+                              await _clearLinkedTask();
+                            }
+                            refreshPanel(() {});
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Text(
+                        'Pendientes',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 8),
+                      if (tasks.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: FocusInsets.card,
+                          decoration: BoxDecoration(
+                            borderRadius:
+                                BorderRadius.circular(FocusRadii.card),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest
+                                .withValues(alpha: 0.38),
+                          ),
+                          child: const Text('Sin tareas pendientes.'),
+                        )
+                      else
+                        ...tasks.map(
+                          (task) => _FocusTaskSheetTile(
+                            task: task,
+                            selected: task.id == _linkedTaskId,
+                            subjectName:
+                                provider.getSubjectById(task.subjectId)?.name,
+                            stats: _taskPomodoroHistoryLabel(provider, task),
+                            onSelect: () async {
+                              await _linkTaskForPomodoro(task);
+                              refreshPanel(() {});
+                            },
+                            onComplete: () async {
+                              await provider.completeStudyTask(task, true);
+                              if (task.id == _linkedTaskId) {
+                                await _clearLinkedTask();
+                              }
+                              refreshPanel(() {});
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<StudyTask?> _createQuickFocusTask(
@@ -1354,13 +1552,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       priority: 'medium',
       status: 'inProgress',
     );
-    await provider.addStudyTask(task);
-    final created = provider.studyTasks
-        .where((item) =>
-            item.title == title && item.status == 'inProgress' && !item.isDone)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return created.isEmpty ? null : created.first;
+    return provider.addStudyTask(task);
   }
 
   int? _subjectIdForCurrentPomodoro(AppProvider provider) {
@@ -1370,6 +1562,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       if (subject.name.trim().toLowerCase() == selected) return subject.id;
     }
     return null;
+  }
+
+  String _taskPomodoroHistoryLabel(AppProvider provider, StudyTask task) {
+    final taskId = task.id;
+    if (taskId == null) return '0 sesiones';
+    final sessions =
+        provider.pomodoros.where((pomodoro) => pomodoro.taskId == taskId);
+    final count = sessions.length;
+    final minutes = sessions.fold<int>(
+      0,
+      (sum, pomodoro) => sum + pomodoro.duration,
+    );
+    if (count == 0) return '0 sesiones';
+    return '$count ${count == 1 ? 'sesión' : 'sesiones'} · $minutes min';
   }
 
   StudyTask? _studyTaskById(AppProvider provider, int taskId) {
@@ -1394,6 +1600,33 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     );
   }
 
+  Future<void> _appendQuickTaskNoteIfNeeded(
+    StudyTask task,
+    String rawNote,
+  ) async {
+    final note = rawNote.trim();
+    if (note.isEmpty) return;
+    final timestamp = formatDateTime(DateTime.now());
+    final nextNotes = [
+      if (task.notes.trim().isNotEmpty) task.notes.trim(),
+      'Pomodoro $timestamp: $note',
+    ].join('\n');
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    await provider.updateStudyTask(
+      StudyTask(
+        id: task.id,
+        subjectId: task.subjectId,
+        title: task.title,
+        notes: nextNotes,
+        dueDate: task.dueDate,
+        priority: task.priority,
+        status: task.status,
+        createdAt: task.createdAt,
+        completedAt: task.completedAt,
+      ),
+    );
+  }
+
   Future<void> _clearLinkedTask() async {
     if (mounted) {
       setState(() {
@@ -1403,6 +1636,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } else {
       _linkedTaskId = null;
       _linkedTaskTitle = '';
+    }
+    await _persistState();
+  }
+
+  Future<void> _clearSessionGoal() async {
+    _sessionGoalController.clear();
+    if (mounted) {
+      setState(() => _sessionGoal = '');
+    } else {
+      _sessionGoal = '';
     }
     await _persistState();
   }
@@ -1605,7 +1848,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Activar bloqueo de apps',
+                  'Activar permisos',
                   style: Theme.of(sheetContext)
                       .textTheme
                       .headlineSmall
@@ -1613,7 +1856,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Solo necesitas estos permisos si quieres que Focus bloquee distracciones durante el Pomodoro.',
+                  'Para proteger sesión necesitás activar estos permisos.',
                   style: Theme.of(sheetContext).textTheme.bodyMedium,
                 ),
                 FocusGap.lg,
@@ -1781,25 +2024,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     setState(() => _horizontalAnimationIndex =
         index.clamp(0, _horizontalAnimations.length - 1).toInt());
     _horizontalRefresh.value++;
-    _persistState();
-  }
-
-  void _resetHorizontalTimer() {
-    final provider = Provider.of<AppProvider>(context, listen: false);
-    _timer?.cancel();
-    _lastPomodoroNotificationSignature = null;
-    unawaited(NotificationService.cancelPomodoroTimerNotification());
-    unawaited(_horizontalTickPlayer.stop());
-    setState(() {
-      _isRunning = false;
-      _setRemainingFromMode();
-    });
-    _lastWidgetSyncBucket = null;
-    _refreshHorizontalMode();
-    unawaited(_stopFocusModeShield());
-    unawaited(_stopAmbientSound());
-    unawaited(RankingService.updatePresence(status: 'idle'));
-    unawaited(WidgetSyncService.syncFromProvider(provider));
     _persistState();
   }
 
@@ -1990,19 +2214,28 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 1.15,
-                  colors: [
-                    horizontalTheme.glow.withValues(alpha: 0.22),
-                    horizontalTheme.backgroundStart,
-                    horizontalTheme.backgroundEnd,
-                    Colors.black,
-                  ],
-                ),
-              ),
+            child: AnimatedBuilder(
+              animation: _timerAuraController,
+              builder: (context, child) {
+                final breath = 0.5 +
+                    math.sin(_timerAuraController.value * math.pi * 2) * 0.5;
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: Alignment(0, -0.18 + breath * 0.08),
+                      radius: 1.06 + breath * 0.12,
+                      colors: [
+                        horizontalTheme.glow.withValues(
+                          alpha: 0.16 + breath * 0.10,
+                        ),
+                        horizontalTheme.backgroundStart,
+                        horizontalTheme.backgroundEnd,
+                        Colors.black,
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           SafeArea(
@@ -2012,15 +2245,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        tooltip: 'Salir',
-                        onPressed: onExit,
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white70,
-                          size: 30,
-                        ),
-                      ),
                       Expanded(
                         child: Text(
                           modeLabel,
@@ -2034,7 +2258,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 48),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -2051,6 +2274,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           remainingSeconds: _remainingSeconds,
                           numberSize: numberSize,
                           modeLabel: modeLabel,
+                          sessionGoal: _sessionGoal.trim(),
                           progress: progress.clamp(0, 1),
                         );
                       },
@@ -2079,11 +2303,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               theme: horizontalTheme,
               isRunning: _isRunning,
               tickMuted: _horizontalTickMuted,
-              onTheme: () => _showHorizontalSettings(routeContext),
               onTasks: () => _showFocusTaskSheet(routeContext),
               onTickSound: _toggleHorizontalTickSound,
               onToggle: _isRunning ? _pauseTimer : () => _startTimer(),
-              onReset: _resetHorizontalTimer,
+              onExit: onExit,
             ),
           ),
         ],
@@ -2121,6 +2344,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _ambientPlayer.dispose();
     _ambientPreviewPlayer.dispose();
     _horizontalTickPlayer.dispose();
+    _sessionGoalController.dispose();
     PomodoroTaskLaunchService.request.removeListener(_handleTaskLaunchRequest);
     WidgetsBinding.instance.removeObserver(this);
     unawaited(
@@ -2138,7 +2362,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
-    final subjects = provider.subjects;
 
     if (_isLoading) {
       return const FocusSkeletonList(
@@ -2212,24 +2435,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         color: ambientEnabled ? ambientOption.color : null,
                       ),
                       IconButton(
-                        tooltip: 'Tareas',
-                        onPressed: _showFocusTaskSheet,
-                        icon: const Icon(Icons.task_alt_rounded),
-                        color:
-                            _linkedTaskId == null ? null : FocusPalette.primary,
+                        tooltip: 'Más',
+                        onPressed: () => _showPomodoroMoreSheet(provider),
+                        icon: const Icon(Icons.more_horiz_rounded),
                       ),
-                      if (_isRunning)
-                        IconButton.filledTonal(
-                          tooltip: 'Voltear pantalla',
-                          onPressed: _toggleHorizontalFocusMode,
-                          icon: const Icon(Icons.screen_rotation_alt_rounded),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Ajustes de Pomodoro',
-                          onPressed: () => _showPomodoroSettingsSheet(provider),
-                          icon: const Icon(Icons.tune_rounded),
-                        ),
                     ],
                   ),
                   AnimatedSwitcher(
@@ -2277,13 +2486,26 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             ],
                           ),
                   ),
-                  if (_linkedTaskId != null &&
-                      _linkedTaskTitle.trim().isNotEmpty) ...[
-                    FocusGap.sm,
-                    _LinkedTaskStrip(
-                      title: _linkedTaskTitle,
+                  if (!_isRunning && _mode == 'focus') ...[
+                    FocusGap.md,
+                    _PrepareSessionCard(
+                      taskTitle: _linkedTaskTitle,
+                      subject: _selectedSubject.trim().isEmpty
+                          ? 'General'
+                          : _selectedSubject.trim(),
+                      ambientLabel: ambientOption.label,
+                      protectEnabled: _focusModeConfig.enabled,
+                      goalController: _sessionGoalController,
                       accent: themePalette.accent,
-                      onClear: _isRunning ? null : _clearLinkedTask,
+                      onTasks: _showFocusTaskSheet,
+                      onSubject: () => _showSubjectQuickPicker(provider),
+                      onAmbient: () => _showAmbientSoundSheet(provider),
+                      onProtect: () =>
+                          _toggleFocusModeEnabled(!_focusModeConfig.enabled),
+                      onGoalChanged: (value) {
+                        _sessionGoal = value.trim();
+                        unawaited(_persistState());
+                      },
                     ),
                   ],
                   FocusGap.lg,
@@ -2405,6 +2627,31 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.lg,
+                  if (_linkedTaskId != null &&
+                      _linkedTaskTitle.trim().isNotEmpty) ...[
+                    _LinkedTaskStrip(
+                      title: _linkedTaskTitle,
+                      accent: themePalette.accent,
+                      onComplete: () async {
+                        final task = _studyTaskById(provider, _linkedTaskId!);
+                        if (task == null) {
+                          await _clearLinkedTask();
+                        } else {
+                          await provider.completeStudyTask(task, true);
+                          await _clearLinkedTask();
+                        }
+                      },
+                      onClear: _isRunning ? null : _clearLinkedTask,
+                    ),
+                    FocusGap.sm,
+                  ],
+                  if (_isRunning && _sessionGoal.trim().isNotEmpty) ...[
+                    _GoalStrip(
+                      goal: _sessionGoal.trim(),
+                      accent: themePalette.accent,
+                    ),
+                    FocusGap.sm,
+                  ],
                   FocusMicroPop(
                     trigger: 'pomodoro-button-$_isRunning-$_mode',
                     fromScale: 0.97,
@@ -2443,10 +2690,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.sm,
-                  if (!_isRunning && _mode == 'focus') ...[
-                    _subjectSelector(provider, subjects),
-                    FocusGap.sm,
-                  ],
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 220),
                     child: _isRunning
@@ -2697,6 +2940,75 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
   }
 
+  Future<void> _showPomodoroMoreSheet(AppProvider provider) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _PomodoroMoreAction(
+                  icon: Icons.task_alt_rounded,
+                  title: 'Tareas',
+                  subtitle: _linkedTaskTitle.trim().isEmpty
+                      ? 'Elegir o crear tarea'
+                      : _linkedTaskTitle,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showFocusTaskSheet();
+                  },
+                ),
+                _PomodoroMoreAction(
+                  icon: _focusModeConfig.enabled
+                      ? Icons.shield_rounded
+                      : Icons.shield_outlined,
+                  title: 'Proteger sesión',
+                  subtitle: 'Evita distracciones mientras estudias.',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _toggleFocusModeEnabled(!_focusModeConfig.enabled);
+                  },
+                ),
+                if (_isRunning)
+                  _PomodoroMoreAction(
+                    icon: Icons.screen_rotation_alt_rounded,
+                    title: 'Modo horizontal',
+                    subtitle: 'Vista inmersiva del reloj',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _toggleHorizontalFocusMode();
+                    },
+                  ),
+                _PomodoroMoreAction(
+                  icon: Icons.palette_rounded,
+                  title: 'Apariencia horizontal',
+                  subtitle: 'Tema y animación del reloj',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showHorizontalSettings(context);
+                  },
+                ),
+                _PomodoroMoreAction(
+                  icon: Icons.tune_rounded,
+                  title: 'Ajustes',
+                  subtitle: 'Tiempo, sonidos y avanzado',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showPomodoroSettingsSheet(provider);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _showAmbientSoundSheet(AppProvider provider) async {
     try {
       await showModalBottomSheet<void>(
@@ -2907,52 +3219,51 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ];
   }
 
-  Widget _subjectSelector(AppProvider provider, List<Subject> subjects) {
-    return DropdownButtonFormField<String>(
-      key: ValueKey(_selectedSubject),
-      initialValue: subjects.any(
-        (subject) => subject.name == _selectedSubject,
-      )
-          ? _selectedSubject
-          : '',
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: 'Materia asociada',
-        prefixIcon: Icon(Icons.menu_book_rounded),
-      ),
-      items: [
-        const DropdownMenuItem(
-          value: '',
-          child: Text('General'),
-        ),
-        ...subjects.map(
-          (subject) => DropdownMenuItem<String>(
-            value: subject.name,
-            child: Text(
-              subject.name,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ],
-      onChanged: (value) {
-        setState(() => _selectedSubject = value ?? '');
-        if (_isRunning) {
-          unawaited(_showPomodoroNotification(provider));
-          unawaited(_syncPomodoroWidget(provider, force: true));
-          if (_mode == 'focus') {
-            unawaited(_syncFocusModeShield(provider));
-            unawaited(
-              RankingService.updatePresence(
-                status: 'pomodoro',
-                subject: _activeSubjectName(provider),
+  Future<void> _showSubjectQuickPicker(AppProvider provider) async {
+    final subjects = provider.subjects;
+    if (subjects.isEmpty) {
+      setState(() => _selectedSubject = '');
+      await _persistState();
+      return;
+    }
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              Text(
+                'Materia',
+                style: Theme.of(sheetContext)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w900),
               ),
-            );
-          }
-        }
-        _persistState();
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.layers_clear_rounded),
+                title: const Text('General'),
+                onTap: () => Navigator.pop(sheetContext, ''),
+              ),
+              for (final subject in subjects)
+                ListTile(
+                  leading: const Icon(Icons.menu_book_rounded),
+                  title: Text(subject.name),
+                  selected: subject.name == _selectedSubject,
+                  onTap: () => Navigator.pop(sheetContext, subject.name),
+                ),
+            ],
+          ),
+        );
       },
     );
+    if (selected == null || !mounted) return;
+    setState(() => _selectedSubject = selected);
+    await _persistState();
+    unawaited(_syncPomodoroWidget(provider, force: true));
   }
 
   Widget _buildFocusModeTotalCard(AppProvider provider) {
@@ -2991,7 +3302,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Bloqueo total',
+                  'Proteger sesión',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -3007,7 +3318,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
           FocusGap.sm,
           Text(
-            appsLabel,
+            isEnabled
+                ? 'Evita distracciones mientras estudias. $appsLabel'
+                : 'Evita distracciones mientras estudias.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w700,
@@ -3311,14 +3624,242 @@ class _ActiveSessionStrip extends StatelessWidget {
   }
 }
 
+class _PrepareSessionCard extends StatelessWidget {
+  final String taskTitle;
+  final String subject;
+  final String ambientLabel;
+  final bool protectEnabled;
+  final TextEditingController goalController;
+  final Color accent;
+  final VoidCallback onTasks;
+  final VoidCallback onSubject;
+  final VoidCallback onAmbient;
+  final VoidCallback onProtect;
+  final ValueChanged<String> onGoalChanged;
+
+  const _PrepareSessionCard({
+    required this.taskTitle,
+    required this.subject,
+    required this.ambientLabel,
+    required this.protectEnabled,
+    required this.goalController,
+    required this.accent,
+    required this.onTasks,
+    required this.onSubject,
+    required this.onAmbient,
+    required this.onProtect,
+    required this.onGoalChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.task_alt_rounded, color: accent, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  taskTitle.trim().isEmpty ? 'Elegir tarea' : taskTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: onTasks,
+                child: const Text('Cambiar'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: goalController,
+            minLines: 1,
+            maxLines: 2,
+            onChanged: onGoalChanged,
+            decoration: const InputDecoration(
+              isDense: true,
+              labelText: '¿Qué vas a lograr en este bloque?',
+              hintText: 'Resolver 5 ejercicios',
+              prefixIcon: Icon(Icons.flag_rounded),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _SessionMiniAction(
+                icon: Icons.menu_book_rounded,
+                label: subject,
+                onTap: onSubject,
+              ),
+              _SessionMiniAction(
+                icon: Icons.music_note_rounded,
+                label: ambientLabel,
+                onTap: onAmbient,
+              ),
+              _SessionMiniAction(
+                icon: protectEnabled
+                    ? Icons.shield_rounded
+                    : Icons.shield_outlined,
+                label: protectEnabled ? 'Protegida' : 'Proteger',
+                onTap: onProtect,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionMiniAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SessionMiniAction({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onSurfaceVariant;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: Theme.of(context)
+              .colorScheme
+              .surfaceContainerHighest
+              .withValues(alpha: 0.42),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 5),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 118),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PomodoroMoreAction extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _PomodoroMoreAction({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(
+        title,
+        style: const TextStyle(fontWeight: FontWeight.w900),
+      ),
+      subtitle: Text(
+        subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _GoalStrip extends StatelessWidget {
+  final String goal;
+  final Color accent;
+
+  const _GoalStrip({
+    required this.goal,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.flag_rounded, color: accent, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Objetivo: $goal',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _LinkedTaskStrip extends StatelessWidget {
   final String title;
   final Color accent;
+  final Future<void> Function()? onComplete;
   final Future<void> Function()? onClear;
 
   const _LinkedTaskStrip({
     required this.title,
     required this.accent,
+    this.onComplete,
     this.onClear,
   });
 
@@ -3341,7 +3882,7 @@ class _LinkedTaskStrip extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              title,
+              'Trabajando en: $title',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -3349,6 +3890,14 @@ class _LinkedTaskStrip extends StatelessWidget {
                   ),
             ),
           ),
+          if (onComplete != null)
+            IconButton(
+              tooltip: 'Completar tarea',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.check_circle_rounded, size: 20),
+              color: FocusPalette.mint,
+              onPressed: () => unawaited(onComplete!()),
+            ),
           if (onClear != null)
             IconButton(
               tooltip: 'Quitar tarea',
@@ -3419,6 +3968,7 @@ class _FocusTaskSheetTile extends StatelessWidget {
   final StudyTask task;
   final bool selected;
   final String? subjectName;
+  final String stats;
   final Future<void> Function() onSelect;
   final Future<void> Function() onComplete;
 
@@ -3426,6 +3976,7 @@ class _FocusTaskSheetTile extends StatelessWidget {
     required this.task,
     required this.selected,
     required this.subjectName,
+    required this.stats,
     required this.onSelect,
     required this.onComplete,
   });
@@ -3437,6 +3988,7 @@ class _FocusTaskSheetTile extends StatelessWidget {
       if (subject != null && subject.isNotEmpty) subject,
       formatDate(task.dueDate),
       task.priorityLabel,
+      stats,
     ].join(' · ');
 
     return Padding(
@@ -3562,6 +4114,7 @@ class _HorizontalTimerBody extends StatelessWidget {
   final int remainingSeconds;
   final double numberSize;
   final String modeLabel;
+  final String sessionGoal;
   final double progress;
 
   const _HorizontalTimerBody({
@@ -3572,6 +4125,7 @@ class _HorizontalTimerBody extends StatelessWidget {
     required this.remainingSeconds,
     required this.numberSize,
     required this.modeLabel,
+    required this.sessionGoal,
     required this.progress,
   });
 
@@ -3624,6 +4178,33 @@ class _HorizontalTimerBody extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        );
+      case _HorizontalTimerLayout.objective:
+        return Row(
+          children: [
+            Expanded(
+              flex: 6,
+              child: _TimePanel(
+                value: fullTime,
+                topLabel: '',
+                numberSize: numberSize * 0.72,
+                theme: theme,
+                animationStyle: animation,
+                pulseKey: remainingSeconds,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 4,
+              child: _HorizontalMiniCard(
+                theme: theme,
+                label: 'Objetivo',
+                value: sessionGoal.trim().isEmpty
+                    ? 'Respira y sigue'
+                    : sessionGoal.trim(),
               ),
             ),
           ],
@@ -3797,26 +4378,34 @@ class _TimePanel extends StatelessWidget {
       curve: animationStyle.curve,
       builder: (context, animation, child) {
         switch (animationStyle.id) {
-          case 'pulse':
-            return Transform.scale(
-              scale: 1 + (1 - animation) * 0.045,
-              child: child,
-            );
-          case 'tilt':
+          case 'flip':
             return Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
-                ..rotateZ((1 - animation) * 0.035)
-                ..scale(0.985 + animation * 0.015),
+                ..setEntry(3, 2, 0.0012)
+                ..rotateX((1 - animation) * 0.34),
+              child: child,
+            );
+          case 'float':
+            return Opacity(
+              opacity: (0.55 + animation * 0.45).clamp(0.0, 1.0),
+              child: Transform.translate(
+                offset: Offset(0, math.sin((1 - animation) * math.pi) * -18),
+                child: child,
+              ),
+            );
+          case 'bounce':
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..rotateZ(math.sin((1 - animation) * math.pi) * 0.025)
+                ..scale(0.94 + animation * 0.06),
               child: child,
             );
           default:
             return Transform.translate(
-              offset: Offset(0, (1 - animation) * 10),
-              child: Transform.scale(
-                scale: 0.982 + animation * 0.018,
-                child: child,
-              ),
+              offset: Offset(0, (1 - animation) * 18),
+              child: child,
             );
         }
       },
@@ -3829,52 +4418,56 @@ class _HorizontalToolRail extends StatelessWidget {
   final _HorizontalTheme theme;
   final bool isRunning;
   final bool tickMuted;
-  final VoidCallback onTheme;
   final VoidCallback onTasks;
   final VoidCallback onTickSound;
   final VoidCallback onToggle;
-  final VoidCallback onReset;
+  final VoidCallback onExit;
 
   const _HorizontalToolRail({
     required this.theme,
     required this.isRunning,
     required this.tickMuted,
-    required this.onTheme,
     required this.onTasks,
     required this.onTickSound,
     required this.onToggle,
-    required this.onReset,
+    required this.onExit,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _RailButton(icon: Icons.palette_rounded, onTap: onTheme, theme: theme),
-        const SizedBox(height: 12),
-        _RailButton(
-          icon: Icons.task_alt_rounded,
-          onTap: onTasks,
-          theme: theme,
-        ),
-        const SizedBox(height: 12),
-        _RailButton(
-          icon: tickMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-          onTap: onTickSound,
-          theme: theme,
-          selected: !tickMuted,
-        ),
-        const SizedBox(height: 12),
-        _RailButton(
-          icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-          onTap: onToggle,
-          theme: theme,
-        ),
-        const SizedBox(height: 12),
-        _RailButton(icon: Icons.refresh_rounded, onTap: onReset, theme: theme),
-      ],
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _RailButton(
+            icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
+            onTap: onToggle,
+            theme: theme,
+          ),
+          const SizedBox(height: 8),
+          _RailButton(
+            icon: Icons.task_alt_rounded,
+            onTap: onTasks,
+            theme: theme,
+          ),
+          const SizedBox(height: 8),
+          _RailButton(
+            icon:
+                tickMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+            onTap: onTickSound,
+            theme: theme,
+            selected: !tickMuted,
+          ),
+          const SizedBox(height: 8),
+          _RailButton(
+            icon: Icons.close_rounded,
+            onTap: onExit,
+            theme: theme,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3905,12 +4498,12 @@ class _RailButton extends StatelessWidget {
             BorderRadius.circular((theme.panelRadius * 0.48).clamp(12, 22)),
         onTap: onTap,
         child: SizedBox(
-          width: 50,
-          height: 50,
+          width: 44,
+          height: 44,
           child: Icon(
             icon,
             color: theme.textColor.withValues(alpha: 0.78),
-            size: 25,
+            size: 23,
           ),
         ),
       ),
@@ -4564,6 +5157,14 @@ class _HorizontalThemeMock extends StatelessWidget {
             block(flex: 0.32, alpha: 0.42),
           ],
         );
+      case _HorizontalTimerLayout.objective:
+        return Row(
+          children: [
+            block(flex: 0.62, alpha: 0.62),
+            const SizedBox(width: 6),
+            block(flex: 0.38, alpha: 0.48),
+          ],
+        );
       case _HorizontalTimerLayout.split:
         return Row(
           children: [
@@ -4581,99 +5182,70 @@ String _horizontalLayoutLabel(_HorizontalTimerLayout layout) {
     _HorizontalTimerLayout.simple => 'Minimal',
     _HorizontalTimerLayout.split => 'Doble tarjeta',
     _HorizontalTimerLayout.dashboard => 'Con panel lateral',
+    _HorizontalTimerLayout.objective => 'Con objetivo',
   };
 }
 
 const List<_HorizontalTheme> _horizontalThemes = [
   _HorizontalTheme(
-    label: 'Simple',
-    description: 'Oscuro, limpio y sin distracciones.',
-    icon: Icons.crop_square_rounded,
+    label: 'Zen negro',
+    description: 'Minimal, elegante y sin ruido visual.',
+    icon: Icons.nights_stay_rounded,
     layout: _HorizontalTimerLayout.simple,
-    backgroundStart: Color(0xFF050505),
-    backgroundEnd: Color(0xFF000000),
-    glow: Color(0xFFE5E7EB),
-    accent: Color(0xFF94A3B8),
-    textColor: Colors.white,
-    panelColor: Color(0xFF0E0E0E),
-    panelBorder: Color(0xFF2A2A2A),
-    panelRadius: 18,
-    shadowAlpha: 0.06,
+    backgroundStart: Color(0xFF10131C),
+    backgroundEnd: Color(0xFF02030A),
+    glow: Color(0xFFBFD7FF),
+    accent: Color(0xFF8EA7FF),
+    textColor: Color(0xFFF8FBFF),
+    panelColor: Color(0xE6111420),
+    panelBorder: Color(0x334B5563),
+    panelRadius: 22,
+    shadowAlpha: 0.12,
   ),
   _HorizontalTheme(
-    label: 'Algodón pop',
-    description: 'Rosa suave, brillante y cozy.',
+    label: 'Sakura',
+    description: 'Rosa suave, cute y calmado.',
     icon: Icons.favorite_rounded,
     layout: _HorizontalTimerLayout.dashboard,
-    backgroundStart: Color(0xFF5B214F),
-    backgroundEnd: Color(0xFF15051F),
-    glow: Color(0xFFFFB3D9),
-    accent: Color(0xFFFDE68A),
-    textColor: Color(0xFFFFF7FB),
-    panelColor: Color(0x3DFFFFFF),
-    panelBorder: Color(0x30FFE4F1),
-    panelRadius: 36,
-    shadowAlpha: 0.22,
-  ),
-  _HorizontalTheme(
-    label: 'Menta fresh',
-    description: 'Verde suave para estudiar tranquilo.',
-    icon: Icons.eco_rounded,
-    layout: _HorizontalTimerLayout.split,
-    backgroundStart: Color(0xFF084238),
-    backgroundEnd: Color(0xFF01110E),
-    glow: Color(0xFF34D399),
-    accent: Color(0xFFBAE6FD),
-    textColor: Color(0xFFE7FFF7),
-    panelColor: Color(0x24FFFFFF),
-    panelBorder: Color(0x34A7F3D0),
-    panelRadius: 42,
-    shadowAlpha: 0.18,
-  ),
-  _HorizontalTheme(
-    label: 'Atardecer',
-    description: 'Cálido, intenso y motivador.',
-    icon: Icons.wb_twilight_rounded,
-    layout: _HorizontalTimerLayout.dashboard,
-    backgroundStart: Color(0xFF4A1D08),
-    backgroundEnd: Color(0xFF130617),
-    glow: Color(0xFFFBBF24),
-    accent: Color(0xFFFB7185),
-    textColor: Color(0xFFFFF7ED),
-    panelColor: Color(0x2BFFFFFF),
-    panelBorder: Color(0x38FDE68A),
-    panelRadius: 26,
+    backgroundStart: Color(0xFF7C2D57),
+    backgroundEnd: Color(0xFF211022),
+    glow: Color(0xFFFFC7E8),
+    accent: Color(0xFFFFF0A8),
+    textColor: Color(0xFFFFF8FC),
+    panelColor: Color(0x33FFFFFF),
+    panelBorder: Color(0x40FFD6EA),
+    panelRadius: 34,
     shadowAlpha: 0.24,
   ),
   _HorizontalTheme(
-    label: 'Lila dream',
-    description: 'Violeta cute con brillo suave.',
-    icon: Icons.auto_awesome_rounded,
-    layout: _HorizontalTimerLayout.split,
-    backgroundStart: Color(0xFF312E81),
-    backgroundEnd: Color(0xFF080616),
-    glow: Color(0xFFC4B5FD),
-    accent: Color(0xFFF0ABFC),
-    textColor: Color(0xFFF5F3FF),
-    panelColor: Color(0x26FFFFFF),
-    panelBorder: Color(0x38C4B5FD),
-    panelRadius: 48,
-    shadowAlpha: 0.22,
+    label: 'Mochi mint',
+    description: 'Menta fresca para sesiones largas.',
+    icon: Icons.spa_rounded,
+    layout: _HorizontalTimerLayout.objective,
+    backgroundStart: Color(0xFF0B5C50),
+    backgroundEnd: Color(0xFF031514),
+    glow: Color(0xFF8EF6D2),
+    accent: Color(0xFFFFD6A5),
+    textColor: Color(0xFFF1FFF9),
+    panelColor: Color(0x2EFFFFFF),
+    panelBorder: Color(0x408EF6D2),
+    panelRadius: 40,
+    shadowAlpha: 0.20,
   ),
   _HorizontalTheme(
-    label: 'Cielo candy',
-    description: 'Azul claro con aire más luminoso.',
-    icon: Icons.cloud_rounded,
-    layout: _HorizontalTimerLayout.simple,
-    backgroundStart: Color(0xFF0C4A6E),
-    backgroundEnd: Color(0xFF061526),
-    glow: Color(0xFF7DD3FC),
-    accent: Color(0xFFA7F3D0),
-    textColor: Color(0xFFF0F9FF),
-    panelColor: Color(0x2EFFFFFF),
-    panelBorder: Color(0x367DD3FC),
-    panelRadius: 32,
-    shadowAlpha: 0.20,
+    label: 'Lofi lila',
+    description: 'Violeta chill con brillo suave.',
+    icon: Icons.auto_awesome_rounded,
+    layout: _HorizontalTimerLayout.split,
+    backgroundStart: Color(0xFF4338CA),
+    backgroundEnd: Color(0xFF10091F),
+    glow: Color(0xFFD8B4FE),
+    accent: Color(0xFF93C5FD),
+    textColor: Color(0xFFF5F3FF),
+    panelColor: Color(0x2BFFFFFF),
+    panelBorder: Color(0x44D8B4FE),
+    panelRadius: 44,
+    shadowAlpha: 0.22,
   ),
 ];
 
@@ -4689,26 +5261,19 @@ const List<_HorizontalAnimation> _horizontalAnimations = [
     id: 'slide',
     label: 'Suave',
     icon: Icons.keyboard_double_arrow_up_rounded,
-    durationMs: 420,
-    curve: Curves.easeOutBack,
-  ),
-  _HorizontalAnimation(
-    id: 'pulse',
-    label: 'Pulso',
-    icon: Icons.blur_circular_rounded,
-    durationMs: 260,
+    durationMs: 360,
     curve: Curves.easeOutCubic,
   ),
   _HorizontalAnimation(
-    id: 'tilt',
-    label: 'Rebote',
-    icon: Icons.screen_rotation_alt_rounded,
-    durationMs: 340,
+    id: 'bounce',
+    label: 'Dinámica',
+    icon: Icons.auto_awesome_motion_rounded,
+    durationMs: 390,
     curve: Curves.easeOutBack,
   ),
 ];
 
-enum _HorizontalTimerLayout { simple, split, dashboard }
+enum _HorizontalTimerLayout { simple, split, dashboard, objective }
 
 class _HorizontalTheme {
   final String label;

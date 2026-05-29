@@ -28,7 +28,7 @@ class DatabaseHelper {
     final path = join(await getDatabasesPath(), 'focus_app.db');
     return openDatabase(
       path,
-      version: 15,
+      version: 16,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -38,7 +38,12 @@ class DatabaseHelper {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
             subject TEXT NOT NULL,
-            duration INTEGER NOT NULL
+            duration INTEGER NOT NULL,
+            taskId INTEGER,
+            taskTitle TEXT NOT NULL DEFAULT '',
+            sessionGoal TEXT NOT NULL DEFAULT '',
+            goalAchieved INTEGER,
+            note TEXT NOT NULL DEFAULT ''
           )
         ''');
         await db.execute('''
@@ -227,6 +232,26 @@ class DatabaseHelper {
           await _safeAlter(
             db,
             'ALTER TABLE habits ADD COLUMN createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP',
+          );
+        }
+        if (oldVersion < 16) {
+          await _safeAlter(
+              db, 'ALTER TABLE pomodoros ADD COLUMN taskId INTEGER');
+          await _safeAlter(
+            db,
+            "ALTER TABLE pomodoros ADD COLUMN taskTitle TEXT NOT NULL DEFAULT ''",
+          );
+          await _safeAlter(
+            db,
+            "ALTER TABLE pomodoros ADD COLUMN sessionGoal TEXT NOT NULL DEFAULT ''",
+          );
+          await _safeAlter(
+            db,
+            'ALTER TABLE pomodoros ADD COLUMN goalAchieved INTEGER',
+          );
+          await _safeAlter(
+            db,
+            "ALTER TABLE pomodoros ADD COLUMN note TEXT NOT NULL DEFAULT ''",
           );
         }
       },
