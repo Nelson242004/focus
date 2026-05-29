@@ -41,6 +41,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   static const _endAtKey = 'pomodoro_end_at';
   static const _cycleCountKey = 'pomodoro_cycle_count';
   static const _horizontalThemeKey = 'pomodoro_horizontal_theme';
+  static const _horizontalTickMutedKey = 'pomodoro_horizontal_tick_muted';
   static const _maxAutoRecoveryDuration = Duration(hours: 8);
   static const List<_AmbientSoundOption> _ambientSoundOptions = [
     _AmbientSoundOption(
@@ -149,11 +150,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   String _selectedSubject = '';
   int _completedFocusSessions = 0;
   int _horizontalThemeIndex = 0;
+  bool _horizontalTickMuted = false;
   final ValueNotifier<int> _horizontalRefresh = ValueNotifier<int>(0);
   late final AnimationController _timerAuraController;
   late final AudioPlayer _audioPlayer;
   late final AudioPlayer _ambientPlayer;
   late final AudioPlayer _ambientPreviewPlayer;
+  late final AudioPlayer _horizontalTickPlayer;
   String? _loadedAmbientSound;
   String? _previewingAmbientSound;
   Timer? _ambientPreviewTimer;
@@ -243,6 +246,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _audioPlayer = AudioPlayer();
     _ambientPlayer = AudioPlayer();
     _ambientPreviewPlayer = AudioPlayer();
+    _horizontalTickPlayer = AudioPlayer();
+    unawaited(_horizontalTickPlayer.setAsset('assets/sounds/clock_tick.mp3'));
+    unawaited(_horizontalTickPlayer.setVolume(0.24));
     _loadInitialData();
   }
 
@@ -334,6 +340,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ?? 0)
         .clamp(0, _horizontalThemes.length - 1)
         .toInt();
+    _horizontalTickMuted = prefs.getBool(_horizontalTickMutedKey) ?? false;
     _remainingSeconds =
         prefs.getInt(_remainingKey) ?? _totalSecondsForMode(provider);
     final wasRunning = prefs.getBool(_runningKey) ?? false;
@@ -401,6 +408,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     await prefs.setInt(_cycleCountKey, _completedFocusSessions);
     await prefs.setInt(_horizontalThemeKey, _horizontalThemeIndex);
+    await prefs.setBool(_horizontalTickMutedKey, _horizontalTickMuted);
   }
 
   void _startTimer({bool restored = false}) {
@@ -460,6 +468,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       } else {
         _remainingSeconds--;
       }
+      unawaited(_playHorizontalTick());
       _refreshHorizontalMode();
       unawaited(_showPomodoroNotification(provider));
       unawaited(_syncPomodoroWidget(provider));
@@ -533,6 +542,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!_isDisposed && _isHorizontalFocusMode) {
       _horizontalRefresh.value++;
     }
+  }
+
+  Future<void> _playHorizontalTick() async {
+    if (!_isHorizontalFocusMode || _horizontalTickMuted || !_isRunning) return;
+    try {
+      await _horizontalTickPlayer.stop();
+      await _horizontalTickPlayer.seek(Duration.zero);
+      await _horizontalTickPlayer.play();
+    } catch (_) {}
   }
 
   void _pauseTimer() {
@@ -1283,6 +1301,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               final provider = Provider.of<AppProvider>(context, listen: false);
               final horizontalTheme = _horizontalThemes[_horizontalThemeIndex];
               return _buildCinematicHorizontalTimer(
+                routeContext,
                 horizontalTheme,
                 _totalSecondsForMode(provider),
                 onExit: () => Navigator.of(routeContext).maybePop(),
@@ -1303,9 +1322,59 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   void _setHorizontalTheme(int index) {
-    setState(() => _horizontalThemeIndex = index);
+    setState(() => _horizontalThemeIndex =
+        index.clamp(0, _horizontalThemes.length - 1).toInt());
     _horizontalRefresh.value++;
     _persistState();
+  }
+
+  void _toggleHorizontalTickSound() {
+    setState(() => _horizontalTickMuted = !_horizontalTickMuted);
+    _horizontalRefresh.value++;
+    _persistState();
+  }
+
+  Future<void> _showHorizontalThemePicker(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.86),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var index = 0; index < _horizontalThemes.length; index++)
+                    Padding(
+                      padding: EdgeInsets.only(
+                        right: index == _horizontalThemes.length - 1 ? 0 : 10,
+                      ),
+                      child: _HorizontalThemeOption(
+                        theme: _horizontalThemes[index],
+                        selected: index == _horizontalThemeIndex,
+                        onTap: () {
+                          _setHorizontalTheme(index);
+                          Navigator.of(sheetContext).pop();
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   String _formatTime(int seconds) {
@@ -1315,6 +1384,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Widget _buildCinematicHorizontalTimer(
+    BuildContext routeContext,
     _HorizontalTheme horizontalTheme,
     int totalSeconds, {
     required VoidCallback onExit,
@@ -1340,7 +1410,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   center: Alignment.center,
                   radius: 1.15,
                   colors: [
-                    horizontalTheme.glow.withValues(alpha: 0.16),
+                    horizontalTheme.glow.withValues(alpha: 0.22),
+                    horizontalTheme.backgroundStart,
                     horizontalTheme.backgroundEnd,
                     Colors.black,
                   ],
@@ -1397,6 +1468,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                     topLabel: '',
                                     numberSize: numberSize,
                                     theme: horizontalTheme,
+                                    pulseKey: minutes,
                                   ),
                                 ),
                                 const SizedBox(width: 18),
@@ -1406,6 +1478,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                     topLabel: '',
                                     numberSize: numberSize,
                                     theme: horizontalTheme,
+                                    pulseKey: seconds,
                                   ),
                                 ),
                               ],
@@ -1448,9 +1521,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             child: _HorizontalToolRail(
               theme: horizontalTheme,
               isRunning: _isRunning,
-              onTheme: () => _setHorizontalTheme(
-                (_horizontalThemeIndex + 1) % _horizontalThemes.length,
-              ),
+              tickMuted: _horizontalTickMuted,
+              onTheme: () => _showHorizontalThemePicker(routeContext),
+              onTickSound: _toggleHorizontalTickSound,
               onToggle: _isRunning ? _pauseTimer : () => _startTimer(),
               onReset: _resetTimer,
             ),
@@ -1489,6 +1562,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _audioPlayer.dispose();
     _ambientPlayer.dispose();
     _ambientPreviewPlayer.dispose();
+    _horizontalTickPlayer.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(
       SystemChrome.setEnabledSystemUIMode(
@@ -1963,7 +2037,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 _updatePomodoroSettings(longBreakTime: value),
                           ),
                           const SizedBox(height: 10),
-                          _CompletionSoundPicker(
+                          _CompactCompletionSoundPicker(
                             selected: _completionOptionFor(
                                 sheetProvider.settings.sound),
                             options: _completionSoundOptions,
@@ -2031,7 +2105,6 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 builder: (context, sheetProvider, _) {
                   final selected =
                       _ambientOptionFor(sheetProvider.settings.ambientSound);
-                  final colorScheme = Theme.of(context).colorScheme;
                   final isPreviewing = _previewingAmbientSound == selected.id &&
                       _ambientPreviewPlayer.playing;
                   return Padding(
@@ -2084,10 +2157,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             ],
                           ),
                           FocusGap.lg,
-                          _AmbientPreviewCard(
+                          _CompactAmbientPreviewCard(
                             option: selected,
                             enabled: selected.id != 'none',
                             isPreviewing: isPreviewing,
+                            options: _ambientSoundOptions,
+                            onSelected: (option) async {
+                              await _updatePomodoroSettings(
+                                ambientSound: option.id,
+                              );
+                              await _stopAmbientPreview();
+                              refreshSheet(() {});
+                            },
                             onPreview: selected.id == 'none'
                                 ? null
                                 : () async {
@@ -2095,43 +2176,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                     refreshSheet(() {});
                                   },
                           ),
-                          FocusGap.lg,
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              for (final option in _ambientSoundOptions)
-                                ChoiceChip(
-                                  selected: option.id ==
-                                      sheetProvider.settings.ambientSound,
-                                  avatar: Icon(
-                                    option.icon,
-                                    size: 18,
-                                    color: option.id ==
-                                            sheetProvider.settings.ambientSound
-                                        ? Colors.white
-                                        : option.color,
-                                  ),
-                                  label: Text(option.label),
-                                  selectedColor: option.color,
-                                  labelStyle: TextStyle(
-                                    color: option.id ==
-                                            sheetProvider.settings.ambientSound
-                                        ? Colors.white
-                                        : colorScheme.onSurface,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                  onSelected: (_) async {
-                                    await _updatePomodoroSettings(
-                                      ambientSound: option.id,
-                                    );
-                                    await _stopAmbientPreview();
-                                    refreshSheet(() {});
-                                  },
-                                ),
-                            ],
-                          ),
-                          FocusGap.lg,
+                          const SizedBox(height: 12),
                           Text(
                             'Volumen',
                             style: Theme.of(context)
@@ -2738,65 +2783,91 @@ class _TimePanel extends StatelessWidget {
   final String topLabel;
   final double numberSize;
   final _HorizontalTheme theme;
+  final int pulseKey;
 
   const _TimePanel({
     required this.value,
     required this.topLabel,
     required this.numberSize,
     required this.theme,
+    required this.pulseKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(42),
-        color: Colors.white.withValues(alpha: 0.045),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.045)),
-      ),
-      child: Stack(
-        children: [
-          if (topLabel.isNotEmpty)
-            Positioned(
-              top: 14,
-              left: 0,
-              right: 0,
-              child: Text(
-                topLabel,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: theme.textColor.withValues(alpha: 0.52),
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.3,
-                ),
-              ),
-            ),
-          Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                style: TextStyle(
-                  color: theme.textColor.withValues(alpha: 0.82),
-                  fontSize: numberSize,
-                  height: 0.86,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -10,
-                  shadows: [
-                    Shadow(
-                      color: theme.glow.withValues(alpha: 0.26),
-                      blurRadius: 34,
-                    ),
-                  ],
-                ),
-              ),
-            ),
+    return TweenAnimationBuilder<double>(
+      key: ValueKey('horizontal-panel-$pulseKey-$value'),
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 420),
+      curve: Curves.easeOutBack,
+      builder: (context, animation, child) {
+        final lift = (1 - animation) * 10;
+        final scale = 0.982 + animation * 0.018;
+        return Transform.translate(
+          offset: Offset(0, lift),
+          child: Transform.scale(
+            scale: scale,
+            child: child,
           ),
-        ],
+        );
+      },
+      child: Container(
+        height: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(42),
+          color: Colors.white.withValues(alpha: 0.055),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+          boxShadow: [
+            BoxShadow(
+              color: theme.glow.withValues(alpha: 0.10),
+              blurRadius: 36,
+              offset: const Offset(0, 20),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            if (topLabel.isNotEmpty)
+              Positioned(
+                top: 14,
+                left: 0,
+                right: 0,
+                child: Text(
+                  topLabel,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.textColor.withValues(alpha: 0.52),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.3,
+                  ),
+                ),
+              ),
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: theme.textColor.withValues(alpha: 0.86),
+                    fontSize: numberSize,
+                    height: 0.86,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -8,
+                    shadows: [
+                      Shadow(
+                        color: theme.glow.withValues(alpha: 0.32),
+                        blurRadius: 36,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2805,14 +2876,18 @@ class _TimePanel extends StatelessWidget {
 class _HorizontalToolRail extends StatelessWidget {
   final _HorizontalTheme theme;
   final bool isRunning;
+  final bool tickMuted;
   final VoidCallback onTheme;
+  final VoidCallback onTickSound;
   final VoidCallback onToggle;
   final VoidCallback onReset;
 
   const _HorizontalToolRail({
     required this.theme,
     required this.isRunning,
+    required this.tickMuted,
     required this.onTheme,
+    required this.onTickSound,
     required this.onToggle,
     required this.onReset,
   });
@@ -2823,7 +2898,14 @@ class _HorizontalToolRail extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _RailButton(icon: Icons.tune_rounded, onTap: onTheme, theme: theme),
+        _RailButton(icon: Icons.palette_rounded, onTap: onTheme, theme: theme),
+        const SizedBox(height: 12),
+        _RailButton(
+          icon: tickMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          onTap: onTickSound,
+          theme: theme,
+          selected: !tickMuted,
+        ),
         const SizedBox(height: 12),
         _RailButton(
           icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
@@ -2841,17 +2923,21 @@ class _RailButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final _HorizontalTheme theme;
+  final bool selected;
 
   const _RailButton({
     required this.icon,
     required this.onTap,
     required this.theme,
+    this.selected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.075),
+      color: selected
+          ? theme.glow.withValues(alpha: 0.22)
+          : Colors.white.withValues(alpha: 0.075),
       borderRadius: BorderRadius.circular(19),
       child: InkWell(
         borderRadius: BorderRadius.circular(19),
@@ -3028,13 +3114,13 @@ class _CompletionSoundOption {
   });
 }
 
-class _CompletionSoundPicker extends StatelessWidget {
+class _CompactCompletionSoundPicker extends StatelessWidget {
   final _CompletionSoundOption selected;
   final List<_CompletionSoundOption> options;
   final ValueChanged<_CompletionSoundOption> onSelected;
   final ValueChanged<_CompletionSoundOption> onPreview;
 
-  const _CompletionSoundPicker({
+  const _CompactCompletionSoundPicker({
     required this.selected,
     required this.options,
     required this.onSelected,
@@ -3046,7 +3132,7 @@ class _CompletionSoundPicker extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(FocusRadii.card),
@@ -3054,77 +3140,75 @@ class _CompletionSoundPicker extends StatelessWidget {
           color: colorScheme.outlineVariant.withValues(alpha: 0.36),
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: selected.color.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(selected.icon, color: selected.color),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Sonido al terminar',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      selected.id == 'none'
-                          ? 'Sin aviso sonoro'
-                          : 'Actual: ${selected.label}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton.filledTonal(
-                tooltip: 'Escuchar',
-                onPressed:
-                    selected.id == 'none' ? null : () => onPreview(selected),
-                style: IconButton.styleFrom(
-                  foregroundColor: selected.color,
-                  backgroundColor: selected.color.withValues(alpha: 0.12),
-                ),
-                icon: const Icon(Icons.play_arrow_rounded),
-              ),
-            ],
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: selected.color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(selected.icon, color: selected.color, size: 21),
           ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sonido al terminar',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  selected.id == 'none' ? 'Silencio' : selected.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Escuchar',
+            onPressed: selected.id == 'none' ? null : () => onPreview(selected),
+            color: selected.color,
+            icon: const Icon(Icons.play_arrow_rounded),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Cambiar sonido',
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            onSelected: (id) {
+              final option = options.firstWhere(
+                (item) => item.id == id,
+                orElse: () => selected,
+              );
+              onSelected(option);
+            },
+            itemBuilder: (context) => [
               for (final option in options)
-                ChoiceChip(
-                  selected: option.id == selected.id,
-                  avatar: Icon(
-                    option.icon,
-                    size: 17,
-                    color:
-                        option.id == selected.id ? Colors.white : option.color,
+                PopupMenuItem<String>(
+                  value: option.id,
+                  child: Row(
+                    children: [
+                      Icon(option.icon, color: option.color, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(option.label)),
+                      if (option.id == selected.id)
+                        Icon(
+                          Icons.check_rounded,
+                          color: option.color,
+                          size: 18,
+                        ),
+                    ],
                   ),
-                  label: Text(option.label),
-                  selectedColor: option.color,
-                  labelStyle: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: option.id == selected.id
-                        ? Colors.white
-                        : colorScheme.onSurface,
-                  ),
-                  onSelected: (_) => onSelected(option),
                 ),
             ],
           ),
@@ -3134,16 +3218,20 @@ class _CompletionSoundPicker extends StatelessWidget {
   }
 }
 
-class _AmbientPreviewCard extends StatelessWidget {
+class _CompactAmbientPreviewCard extends StatelessWidget {
   final _AmbientSoundOption option;
   final bool enabled;
   final bool isPreviewing;
+  final List<_AmbientSoundOption> options;
+  final ValueChanged<_AmbientSoundOption> onSelected;
   final VoidCallback? onPreview;
 
-  const _AmbientPreviewCard({
+  const _CompactAmbientPreviewCard({
     required this.option,
     required this.enabled,
     required this.isPreviewing,
+    required this.options,
+    required this.onSelected,
     required this.onPreview,
   });
 
@@ -3152,12 +3240,12 @@ class _AmbientPreviewCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final foreground = isDark ? Colors.white : theme.colorScheme.onSurface;
-    final subtle = foreground.withValues(alpha: isDark ? 0.74 : 0.64);
+    final subtle = foreground.withValues(alpha: isDark ? 0.72 : 0.62);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(FocusRadii.card),
         gradient: LinearGradient(
@@ -3176,15 +3264,15 @@ class _AmbientPreviewCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 58,
-            height: 58,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: option.color.withValues(alpha: isDark ? 0.22 : 0.14),
               shape: BoxShape.circle,
             ),
-            child: Icon(option.icon, color: option.color, size: 30),
+            child: Icon(option.icon, color: option.color, size: 23),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3193,34 +3281,57 @@ class _AmbientPreviewCard extends StatelessWidget {
                   option.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                     color: foreground,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
                   option.description,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(color: subtle),
                 ),
-                const SizedBox(height: 10),
-                _AmbientWaveform(color: option.color, active: isPreviewing),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          IconButton.filledTonal(
+          IconButton(
             tooltip: isPreviewing ? 'Detener preview' : 'Probar sonido',
             onPressed: enabled ? onPreview : null,
-            style: IconButton.styleFrom(
-              backgroundColor: option.color.withValues(alpha: 0.14),
-              foregroundColor: option.color,
-            ),
+            color: option.color,
             icon: Icon(
               isPreviewing ? Icons.stop_rounded : Icons.play_arrow_rounded,
             ),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Cambiar ambiente',
+            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+            onSelected: (id) {
+              final selected = options.firstWhere(
+                (item) => item.id == id,
+                orElse: () => option,
+              );
+              onSelected(selected);
+            },
+            itemBuilder: (context) => [
+              for (final item in options)
+                PopupMenuItem<String>(
+                  value: item.id,
+                  child: Row(
+                    children: [
+                      Icon(item.icon, color: item.color, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(item.label)),
+                      if (item.id == option.id)
+                        Icon(
+                          Icons.check_rounded,
+                          color: item.color,
+                          size: 18,
+                        ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -3228,38 +3339,72 @@ class _AmbientPreviewCard extends StatelessWidget {
   }
 }
 
-class _AmbientWaveform extends StatelessWidget {
-  final Color color;
-  final bool active;
+class _HorizontalThemeOption extends StatelessWidget {
+  final _HorizontalTheme theme;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _AmbientWaveform({
-    required this.color,
-    required this.active,
+  const _HorizontalThemeOption({
+    required this.theme,
+    required this.selected,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    const heights = [8.0, 16.0, 11.0, 22.0, 14.0, 18.0, 10.0, 20.0];
-    return SizedBox(
-      height: 24,
-      child: Row(
-        children: [
-          for (var index = 0; index < heights.length; index++) ...[
-            AnimatedContainer(
-              duration: Duration(milliseconds: 180 + index * 28),
-              curve: Curves.easeOutCubic,
-              width: 5,
-              height: active
-                  ? heights[(index + DateTime.now().second) % heights.length]
-                  : heights[index] * 0.62,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: active ? 0.9 : 0.34),
-                borderRadius: BorderRadius.circular(999),
+    return InkWell(
+      borderRadius: BorderRadius.circular(22),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 128,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            colors: [
+              theme.glow.withValues(alpha: 0.38),
+              theme.backgroundStart,
+              theme.backgroundEnd,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: selected
+                ? theme.glow.withValues(alpha: 0.88)
+                : Colors.white.withValues(alpha: 0.12),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(theme.icon, color: theme.textColor, size: 20),
+                const Spacer(),
+                if (selected)
+                  Icon(
+                    Icons.check_circle_rounded,
+                    color: theme.glow,
+                    size: 19,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Text(
+              theme.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: theme.textColor,
+                fontWeight: FontWeight.w900,
               ),
             ),
-            if (index != heights.length - 1) const SizedBox(width: 4),
           ],
-        ],
+        ),
       ),
     );
   }
@@ -3267,38 +3412,58 @@ class _AmbientWaveform extends StatelessWidget {
 
 const List<_HorizontalTheme> _horizontalThemes = [
   _HorizontalTheme(
-    backgroundStart: Color(0xFF000000),
-    backgroundEnd: Color(0xFF000000),
-    glow: Color(0xFF111827),
+    label: 'Noche',
+    icon: Icons.dark_mode_rounded,
+    backgroundStart: Color(0xFF070B18),
+    backgroundEnd: Color(0xFF010207),
+    glow: Color(0xFF38BDF8),
     textColor: Colors.white,
   ),
   _HorizontalTheme(
-    backgroundStart: Color(0xFF020617),
-    backgroundEnd: Color(0xFF050816),
-    glow: Color(0xFF2563EB),
-    textColor: Colors.white,
+    label: 'Algodón',
+    icon: Icons.favorite_rounded,
+    backgroundStart: Color(0xFF2B123B),
+    backgroundEnd: Color(0xFF090214),
+    glow: Color(0xFFF9A8D4),
+    textColor: Color(0xFFFFF1F7),
   ),
   _HorizontalTheme(
-    backgroundStart: Color(0xFF06140E),
-    backgroundEnd: Color(0xFF021510),
-    glow: Color(0xFF10B981),
+    label: 'Menta',
+    icon: Icons.eco_rounded,
+    backgroundStart: Color(0xFF062D25),
+    backgroundEnd: Color(0xFF01110E),
+    glow: Color(0xFF34D399),
     textColor: Color(0xFFE7FFF7),
   ),
   _HorizontalTheme(
-    backgroundStart: Color(0xFF1A0C02),
-    backgroundEnd: Color(0xFF180B19),
-    glow: Color(0xFFF59E0B),
+    label: 'Atardecer',
+    icon: Icons.wb_twilight_rounded,
+    backgroundStart: Color(0xFF301306),
+    backgroundEnd: Color(0xFF130617),
+    glow: Color(0xFFFBBF24),
     textColor: Color(0xFFFFF7ED),
+  ),
+  _HorizontalTheme(
+    label: 'Lila',
+    icon: Icons.auto_awesome_rounded,
+    backgroundStart: Color(0xFF1E1B4B),
+    backgroundEnd: Color(0xFF080616),
+    glow: Color(0xFFC4B5FD),
+    textColor: Color(0xFFF5F3FF),
   ),
 ];
 
 class _HorizontalTheme {
+  final String label;
+  final IconData icon;
   final Color backgroundStart;
   final Color backgroundEnd;
   final Color glow;
   final Color textColor;
 
   const _HorizontalTheme({
+    required this.label,
+    required this.icon,
     required this.backgroundStart,
     required this.backgroundEnd,
     required this.glow,

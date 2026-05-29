@@ -66,6 +66,7 @@ flutter:
     - assets/sounds/digital.mp3
     - assets/sounds/magic.mp3
     - assets/sounds/confirm.mp3
+    - assets/sounds/clock_tick.mp3
     - assets/sounds/ambient/
 flutter_icons:
   android: true

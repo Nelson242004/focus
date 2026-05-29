@@ -15,3 +15,4 @@ Completion sounds from Mixkit free sound effects.
 - digital.mp3: Mixkit SFX 2866, "Digital quick tone"
 - magic.mp3: Mixkit SFX 2344, "Magic notification ring"
 - confirm.mp3: Mixkit SFX 951, "Positive notification"
+- clock_tick.mp3: Mixkit SFX 1046, "Bell tick tock timer"
