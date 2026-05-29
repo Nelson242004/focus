@@ -861,6 +861,10 @@ class AppProvider extends ChangeNotifier {
     int? dailyHabitGoal,
     int? streakGoal,
     String? sound,
+    String? ambientSound,
+    double? ambientVolume,
+    bool? ambientDuringFocus,
+    bool? ambientDuringBreaks,
     String? selectedIdentity,
     String? startScreen,
     double? textScale,
@@ -887,6 +891,12 @@ class AppProvider extends ChangeNotifier {
       dailyHabitGoal: dailyHabitGoal ?? settings.dailyHabitGoal,
       streakGoal: streakGoal ?? settings.streakGoal,
       sound: sound ?? settings.sound,
+      ambientSound: ambientSound ?? settings.ambientSound,
+      ambientVolume: ambientVolume ?? settings.ambientVolume,
+      ambientDuringFocus:
+          ambientDuringFocus ?? settings.ambientDuringFocus,
+      ambientDuringBreaks:
+          ambientDuringBreaks ?? settings.ambientDuringBreaks,
       selectedIdentity: selectedIdentity ?? settings.selectedIdentity,
       startScreen: startScreen ?? settings.startScreen,
       textScale: textScale ?? settings.textScale,

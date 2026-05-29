@@ -42,6 +42,101 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   static const _cycleCountKey = 'pomodoro_cycle_count';
   static const _horizontalThemeKey = 'pomodoro_horizontal_theme';
   static const _maxAutoRecoveryDuration = Duration(hours: 8);
+  static const List<_AmbientSoundOption> _ambientSoundOptions = [
+    _AmbientSoundOption(
+      id: 'none',
+      label: 'Sin ambiente',
+      description: 'Pomodoro limpio, sin sonido de fondo.',
+      icon: Icons.volume_off_rounded,
+      color: Color(0xFF64748B),
+    ),
+    _AmbientSoundOption(
+      id: 'rain',
+      label: 'Lluvia',
+      description:
+          'Un fondo fresco y constante para estudiar sin ruido visual.',
+      icon: Icons.water_drop_rounded,
+      color: Color(0xFF2563EB),
+    ),
+    _AmbientSoundOption(
+      id: 'forest',
+      label: 'Bosque',
+      description: 'Ambiente natural y suave para sesiones largas.',
+      icon: Icons.forest_rounded,
+      color: Color(0xFF16A34A),
+    ),
+    _AmbientSoundOption(
+      id: 'cafe',
+      label: 'Café',
+      description: 'Murmullo cálido para sentir compañía mientras trabajas.',
+      icon: Icons.local_cafe_rounded,
+      color: Color(0xFFD97706),
+    ),
+    _AmbientSoundOption(
+      id: 'water',
+      label: 'Agua',
+      description: 'Movimiento tranquilo para bajar tensión y seguir enfocado.',
+      icon: Icons.waves_rounded,
+      color: Color(0xFF0891B2),
+    ),
+    _AmbientSoundOption(
+      id: 'white_noise',
+      label: 'Ruido blanco',
+      description: 'Sonido neutro para tapar distracciones del entorno.',
+      icon: Icons.graphic_eq_rounded,
+      color: Color(0xFF7C3AED),
+    ),
+  ];
+  static const List<_CompletionSoundOption> _completionSoundOptions = [
+    _CompletionSoundOption(
+      id: 'chime',
+      label: 'Campana',
+      icon: Icons.notifications_active_rounded,
+      color: Color(0xFF2563EB),
+    ),
+    _CompletionSoundOption(
+      id: 'bell',
+      label: 'Timbre',
+      icon: Icons.campaign_rounded,
+      color: Color(0xFFF59E0B),
+    ),
+    _CompletionSoundOption(
+      id: 'success',
+      label: 'Logro',
+      icon: Icons.emoji_events_rounded,
+      color: Color(0xFF16A34A),
+    ),
+    _CompletionSoundOption(
+      id: 'soft_bell',
+      label: 'Suave',
+      icon: Icons.self_improvement_rounded,
+      color: Color(0xFF0891B2),
+    ),
+    _CompletionSoundOption(
+      id: 'digital',
+      label: 'Digital',
+      icon: Icons.memory_rounded,
+      color: Color(0xFF7C3AED),
+    ),
+    _CompletionSoundOption(
+      id: 'magic',
+      label: 'Mágico',
+      icon: Icons.auto_awesome_rounded,
+      color: Color(0xFFDB2777),
+    ),
+    _CompletionSoundOption(
+      id: 'confirm',
+      label: 'Confirmar',
+      icon: Icons.check_circle_rounded,
+      color: Color(0xFF0F766E),
+    ),
+    _CompletionSoundOption(
+      id: 'none',
+      label: 'Silencio',
+      icon: Icons.volume_off_rounded,
+      color: Color(0xFF64748B),
+    ),
+  ];
 
   Timer? _timer;
   int _remainingSeconds = 25 * 60;
@@ -57,6 +152,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   final ValueNotifier<int> _horizontalRefresh = ValueNotifier<int>(0);
   late final AnimationController _timerAuraController;
   late final AudioPlayer _audioPlayer;
+  late final AudioPlayer _ambientPlayer;
+  late final AudioPlayer _ambientPreviewPlayer;
+  String? _loadedAmbientSound;
+  String? _previewingAmbientSound;
+  Timer? _ambientPreviewTimer;
   FocusModeConfig _focusModeConfig = const FocusModeConfig();
   FocusModeStatus _focusModeStatus = const FocusModeStatus();
   bool _focusModePermissionGranted = false;
@@ -75,6 +175,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     int? shortBreakTime,
     int? longBreakTime,
     String? sound,
+    String? ambientSound,
+    double? ambientVolume,
+    bool? ambientDuringFocus,
+    bool? ambientDuringBreaks,
     String? breakAfterFocus,
   }) async {
     final provider = Provider.of<AppProvider>(context, listen: false);
@@ -86,7 +190,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       shortBreakTime: shortBreakTime ?? provider.settings.shortBreakTime,
       longBreakTime: longBreakTime ?? provider.settings.longBreakTime,
       weeklyGoal: provider.settings.weeklyGoal,
+      weeklyFocusMinutesGoal: provider.settings.weeklyFocusMinutesGoal,
+      dailyHabitGoal: provider.settings.dailyHabitGoal,
+      streakGoal: provider.settings.streakGoal,
       sound: sound ?? provider.settings.sound,
+      ambientSound: ambientSound ?? provider.settings.ambientSound,
+      ambientVolume: ambientVolume ?? provider.settings.ambientVolume,
+      ambientDuringFocus:
+          ambientDuringFocus ?? provider.settings.ambientDuringFocus,
+      ambientDuringBreaks:
+          ambientDuringBreaks ?? provider.settings.ambientDuringBreaks,
       selectedIdentity: provider.settings.selectedIdentity,
       startScreen: provider.settings.startScreen,
       textScale: provider.settings.textScale,
@@ -115,6 +228,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (_isRunning) {
       unawaited(_showPomodoroNotification(provider));
     }
+    unawaited(_syncAmbientSound(provider));
     await _persistState();
   }
 
@@ -127,6 +241,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       duration: const Duration(milliseconds: 2400),
     )..repeat();
     _audioPlayer = AudioPlayer();
+    _ambientPlayer = AudioPlayer();
+    _ambientPreviewPlayer = AudioPlayer();
     _loadInitialData();
   }
 
@@ -301,6 +417,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     _refreshHorizontalMode();
     unawaited(_syncFocusModeShield(provider));
+    unawaited(_syncAmbientSound(provider));
     if (!restored) {
       _persistState();
       if (mounted) {
@@ -431,6 +548,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _lastWidgetSyncBucket = null;
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
+    unawaited(_stopAmbientSound());
     unawaited(RankingService.updatePresence(status: 'idle'));
     unawaited(WidgetSyncService.syncFromProvider(provider));
     _persistState();
@@ -459,6 +577,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     });
     _refreshHorizontalMode();
     unawaited(_stopFocusModeShield());
+    unawaited(_stopAmbientSound());
     unawaited(WidgetSyncService.syncFromProvider(
         Provider.of<AppProvider>(context, listen: false)));
     _persistState();
@@ -578,6 +697,112 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     } catch (_) {}
   }
 
+  Future<void> _previewCompletionSound(String soundId) async {
+    if (soundId == 'none') {
+      await _audioPlayer.stop();
+      return;
+    }
+    try {
+      await _audioPlayer.stop();
+      await _audioPlayer.setAsset('assets/sounds/$soundId.mp3');
+      await _audioPlayer.seek(Duration.zero);
+      await _audioPlayer.play();
+    } catch (error) {
+      debugPrint('[FocusPomodoro] Preview finalización omitido: $error');
+    }
+  }
+
+  _AmbientSoundOption _ambientOptionFor(String id) {
+    return _ambientSoundOptions.firstWhere(
+      (option) => option.id == id,
+      orElse: () => _ambientSoundOptions.first,
+    );
+  }
+
+  _CompletionSoundOption _completionOptionFor(String id) {
+    return _completionSoundOptions.firstWhere(
+      (option) => option.id == id,
+      orElse: () => _completionSoundOptions.first,
+    );
+  }
+
+  bool _shouldPlayAmbientSound(AppProvider provider) {
+    final settings = provider.settings;
+    if (!_isRunning || settings.ambientSound == 'none') return false;
+    if (_mode == 'focus') return settings.ambientDuringFocus;
+    return settings.ambientDuringBreaks;
+  }
+
+  Future<void> _syncAmbientSound(AppProvider provider) async {
+    try {
+      if (!_shouldPlayAmbientSound(provider)) {
+        await _ambientPlayer.pause();
+        return;
+      }
+
+      final selectedSound = provider.settings.ambientSound;
+      if (_loadedAmbientSound != selectedSound) {
+        await _ambientPlayer.stop();
+        await _ambientPlayer.setLoopMode(LoopMode.one);
+        await _ambientPlayer
+            .setAsset('assets/sounds/ambient/$selectedSound.mp3');
+        _loadedAmbientSound = selectedSound;
+      }
+      await _ambientPlayer.setVolume(provider.settings.ambientVolume);
+      if (!_ambientPlayer.playing) {
+        await _ambientPlayer.play();
+      }
+    } catch (error) {
+      _loadedAmbientSound = null;
+      debugPrint('[FocusPomodoro] Ambiente omitido: $error');
+    }
+  }
+
+  Future<void> _stopAmbientSound() async {
+    try {
+      await _ambientPlayer.pause();
+    } catch (_) {}
+  }
+
+  Future<void> _previewAmbientSound(String soundId) async {
+    if (soundId == 'none') {
+      await _stopAmbientPreview();
+      return;
+    }
+    try {
+      if (_previewingAmbientSound == soundId && _ambientPreviewPlayer.playing) {
+        await _stopAmbientPreview();
+        return;
+      }
+      _ambientPreviewTimer?.cancel();
+      await _ambientPreviewPlayer.stop();
+      await _ambientPreviewPlayer.setLoopMode(LoopMode.one);
+      await _ambientPreviewPlayer
+          .setAsset('assets/sounds/ambient/$soundId.mp3');
+      await _ambientPreviewPlayer.setVolume(0.55);
+      _previewingAmbientSound = soundId;
+      await _ambientPreviewPlayer.play();
+      _ambientPreviewTimer = Timer(
+        const Duration(seconds: 8),
+        () => unawaited(_stopAmbientPreview()),
+      );
+    } catch (error) {
+      _previewingAmbientSound = null;
+      debugPrint('[FocusPomodoro] Preview ambiente omitido: $error');
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _stopAmbientPreview() async {
+    _ambientPreviewTimer?.cancel();
+    _ambientPreviewTimer = null;
+    _previewingAmbientSound = null;
+    try {
+      await _ambientPreviewPlayer.stop();
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
   Future<void> _completeSession() async {
     if (_isCompletingSession) return;
     _isCompletingSession = true;
@@ -609,6 +834,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         }
         _refreshHorizontalMode();
         _startTimer();
+        unawaited(_syncAmbientSound(provider));
         await _persistState();
 
         unawaited(
@@ -651,6 +877,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         }
         _refreshHorizontalMode();
         _startTimer();
+        unawaited(_syncAmbientSound(provider));
         await _persistState();
 
         if (mounted) {
@@ -1256,9 +1483,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (!_isRunning || _mode != 'focus') {
       unawaited(FocusModeService.stopFocusSession());
     }
+    _ambientPreviewTimer?.cancel();
     _horizontalRefresh.dispose();
     _timerAuraController.dispose();
     _audioPlayer.dispose();
+    _ambientPlayer.dispose();
+    _ambientPreviewPlayer.dispose();
     WidgetsBinding.instance.removeObserver(this);
     unawaited(
       SystemChrome.setEnabledSystemUIMode(
@@ -1287,6 +1517,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final themePalette = _themePalette();
     final compact = MediaQuery.of(context).size.width < 390;
     final modeTitle = _currentModeTitle();
+    final ambientEnabled = provider.settings.ambientSound != 'none';
+    final ambientOption = _ambientOptionFor(provider.settings.ambientSound);
 
     return Container(
       decoration: BoxDecoration(
@@ -1335,6 +1567,16 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               .titleLarge
                               ?.copyWith(fontWeight: FontWeight.w900),
                         ),
+                      ),
+                      IconButton(
+                        tooltip: 'Ambiente',
+                        onPressed: () => _showAmbientSoundSheet(provider),
+                        icon: Icon(
+                          ambientEnabled
+                              ? ambientOption.icon
+                              : Icons.music_note_rounded,
+                        ),
+                        color: ambientEnabled ? ambientOption.color : null,
                       ),
                       if (_isRunning)
                         IconButton.filledTonal(
@@ -1721,25 +1963,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 _updatePomodoroSettings(longBreakTime: value),
                           ),
                           const SizedBox(height: 10),
-                          DropdownButtonFormField<String>(
-                            initialValue: sheetProvider.settings.sound,
-                            decoration: const InputDecoration(
-                              labelText: 'Sonido al terminar',
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'chime',
-                                child: Text('Campana'),
-                              ),
-                              DropdownMenuItem(
-                                  value: 'bell', child: Text('Timbre')),
-                              DropdownMenuItem(
-                                value: 'none',
-                                child: Text('Sin sonido'),
-                              ),
-                            ],
-                            onChanged: (value) =>
-                                _updatePomodoroSettings(sound: value ?? 'none'),
+                          _CompletionSoundPicker(
+                            selected: _completionOptionFor(
+                                sheetProvider.settings.sound),
+                            options: _completionSoundOptions,
+                            onSelected: (option) async {
+                              await _updatePomodoroSettings(sound: option.id);
+                              await _previewCompletionSound(option.id);
+                              refreshSheet(() {});
+                            },
+                            onPreview: (option) =>
+                                _previewCompletionSound(option.id),
                           ),
                           const SizedBox(height: 14),
                           DropdownButtonFormField<String>(
@@ -1780,6 +2014,193 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       );
     } finally {
       _refreshPomodoroSettingsSheet = null;
+    }
+  }
+
+  Future<void> _showAmbientSoundSheet(AppProvider provider) async {
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, refreshSheet) {
+              return Consumer<AppProvider>(
+                builder: (context, sheetProvider, _) {
+                  final selected =
+                      _ambientOptionFor(sheetProvider.settings.ambientSound);
+                  final colorScheme = Theme.of(context).colorScheme;
+                  final isPreviewing = _previewingAmbientSound == selected.id &&
+                      _ambientPreviewPlayer.playing;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      18,
+                      0,
+                      18,
+                      MediaQuery.of(sheetContext).viewInsets.bottom + 20,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: selected.color.withValues(alpha: 0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child:
+                                    Icon(selected.icon, color: selected.color),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Ambiente',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                    Text(
+                                      'Sonidos suaves para acompañar el Pomodoro.',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          FocusGap.lg,
+                          _AmbientPreviewCard(
+                            option: selected,
+                            enabled: selected.id != 'none',
+                            isPreviewing: isPreviewing,
+                            onPreview: selected.id == 'none'
+                                ? null
+                                : () async {
+                                    await _previewAmbientSound(selected.id);
+                                    refreshSheet(() {});
+                                  },
+                          ),
+                          FocusGap.lg,
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              for (final option in _ambientSoundOptions)
+                                ChoiceChip(
+                                  selected: option.id ==
+                                      sheetProvider.settings.ambientSound,
+                                  avatar: Icon(
+                                    option.icon,
+                                    size: 18,
+                                    color: option.id ==
+                                            sheetProvider.settings.ambientSound
+                                        ? Colors.white
+                                        : option.color,
+                                  ),
+                                  label: Text(option.label),
+                                  selectedColor: option.color,
+                                  labelStyle: TextStyle(
+                                    color: option.id ==
+                                            sheetProvider.settings.ambientSound
+                                        ? Colors.white
+                                        : colorScheme.onSurface,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                  onSelected: (_) async {
+                                    await _updatePomodoroSettings(
+                                      ambientSound: option.id,
+                                    );
+                                    await _stopAmbientPreview();
+                                    refreshSheet(() {});
+                                  },
+                                ),
+                            ],
+                          ),
+                          FocusGap.lg,
+                          Text(
+                            'Volumen',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                          Slider(
+                            value: sheetProvider.settings.ambientVolume,
+                            min: 0,
+                            max: 1,
+                            divisions: 10,
+                            activeColor: selected.color,
+                            label:
+                                '${(sheetProvider.settings.ambientVolume * 100).round()}%',
+                            onChanged:
+                                sheetProvider.settings.ambientSound == 'none'
+                                    ? null
+                                    : (value) {
+                                        _updatePomodoroSettings(
+                                          ambientVolume: value,
+                                        );
+                                        refreshSheet(() {});
+                                      },
+                          ),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: sheetProvider.settings.ambientDuringFocus,
+                            activeColor: selected.color,
+                            title: const Text('Reproducir en enfoque'),
+                            onChanged:
+                                sheetProvider.settings.ambientSound == 'none'
+                                    ? null
+                                    : (value) async {
+                                        await _updatePomodoroSettings(
+                                          ambientDuringFocus: value,
+                                        );
+                                        refreshSheet(() {});
+                                      },
+                          ),
+                          SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: sheetProvider.settings.ambientDuringBreaks,
+                            activeColor: selected.color,
+                            title: const Text('Reproducir en descansos'),
+                            onChanged:
+                                sheetProvider.settings.ambientSound == 'none'
+                                    ? null
+                                    : (value) async {
+                                        await _updatePomodoroSettings(
+                                          ambientDuringBreaks: value,
+                                        );
+                                        refreshSheet(() {});
+                                      },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      await _stopAmbientPreview();
     }
   }
 
@@ -2575,6 +2996,273 @@ class _PomodoroPalette {
     required this.backgroundEnd,
     required this.surfaceTint,
   });
+}
+
+class _AmbientSoundOption {
+  final String id;
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  const _AmbientSoundOption({
+    required this.id,
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class _CompletionSoundOption {
+  final String id;
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _CompletionSoundOption({
+    required this.id,
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class _CompletionSoundPicker extends StatelessWidget {
+  final _CompletionSoundOption selected;
+  final List<_CompletionSoundOption> options;
+  final ValueChanged<_CompletionSoundOption> onSelected;
+  final ValueChanged<_CompletionSoundOption> onPreview;
+
+  const _CompletionSoundPicker({
+    required this.selected,
+    required this.options,
+    required this.onSelected,
+    required this.onPreview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.36),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: selected.color.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(selected.icon, color: selected.color),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sonido al terminar',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      selected.id == 'none'
+                          ? 'Sin aviso sonoro'
+                          : 'Actual: ${selected.label}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Escuchar',
+                onPressed:
+                    selected.id == 'none' ? null : () => onPreview(selected),
+                style: IconButton.styleFrom(
+                  foregroundColor: selected.color,
+                  backgroundColor: selected.color.withValues(alpha: 0.12),
+                ),
+                icon: const Icon(Icons.play_arrow_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final option in options)
+                ChoiceChip(
+                  selected: option.id == selected.id,
+                  avatar: Icon(
+                    option.icon,
+                    size: 17,
+                    color:
+                        option.id == selected.id ? Colors.white : option.color,
+                  ),
+                  label: Text(option.label),
+                  selectedColor: option.color,
+                  labelStyle: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: option.id == selected.id
+                        ? Colors.white
+                        : colorScheme.onSurface,
+                  ),
+                  onSelected: (_) => onSelected(option),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmbientPreviewCard extends StatelessWidget {
+  final _AmbientSoundOption option;
+  final bool enabled;
+  final bool isPreviewing;
+  final VoidCallback? onPreview;
+
+  const _AmbientPreviewCard({
+    required this.option,
+    required this.enabled,
+    required this.isPreviewing,
+    required this.onPreview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final foreground = isDark ? Colors.white : theme.colorScheme.onSurface;
+    final subtle = foreground.withValues(alpha: isDark ? 0.74 : 0.64);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        gradient: LinearGradient(
+          colors: [
+            option.color.withValues(alpha: isDark ? 0.34 : 0.16),
+            option.color.withValues(alpha: isDark ? 0.12 : 0.06),
+            theme.colorScheme.surface.withValues(alpha: isDark ? 0.55 : 0.95),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: option.color.withValues(alpha: isDark ? 0.32 : 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: option.color.withValues(alpha: isDark ? 0.22 : 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(option.icon, color: option.color, size: 30),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    color: foreground,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  option.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(color: subtle),
+                ),
+                const SizedBox(height: 10),
+                _AmbientWaveform(color: option.color, active: isPreviewing),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filledTonal(
+            tooltip: isPreviewing ? 'Detener preview' : 'Probar sonido',
+            onPressed: enabled ? onPreview : null,
+            style: IconButton.styleFrom(
+              backgroundColor: option.color.withValues(alpha: 0.14),
+              foregroundColor: option.color,
+            ),
+            icon: Icon(
+              isPreviewing ? Icons.stop_rounded : Icons.play_arrow_rounded,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AmbientWaveform extends StatelessWidget {
+  final Color color;
+  final bool active;
+
+  const _AmbientWaveform({
+    required this.color,
+    required this.active,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const heights = [8.0, 16.0, 11.0, 22.0, 14.0, 18.0, 10.0, 20.0];
+    return SizedBox(
+      height: 24,
+      child: Row(
+        children: [
+          for (var index = 0; index < heights.length; index++) ...[
+            AnimatedContainer(
+              duration: Duration(milliseconds: 180 + index * 28),
+              curve: Curves.easeOutCubic,
+              width: 5,
+              height: active
+                  ? heights[(index + DateTime.now().second) % heights.length]
+                  : heights[index] * 0.62,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: active ? 0.9 : 0.34),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            if (index != heights.length - 1) const SizedBox(width: 4),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 const List<_HorizontalTheme> _horizontalThemes = [

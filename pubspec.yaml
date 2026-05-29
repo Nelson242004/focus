@@ -61,6 +61,12 @@ flutter:
     - assets/badges/
     - assets/sounds/chime.mp3
     - assets/sounds/bell.mp3
+    - assets/sounds/success.mp3
+    - assets/sounds/soft_bell.mp3
+    - assets/sounds/digital.mp3
+    - assets/sounds/magic.mp3
+    - assets/sounds/confirm.mp3
+    - assets/sounds/ambient/
 flutter_icons:
   android: true
   ios: true

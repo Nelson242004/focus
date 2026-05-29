@@ -18,6 +18,10 @@ class AppSettings {
   int dailyHabitGoal;
   int streakGoal;
   String sound;
+  String ambientSound;
+  double ambientVolume;
+  bool ambientDuringFocus;
+  bool ambientDuringBreaks;
   String selectedIdentity;
   String startScreen;
   double textScale;
@@ -43,6 +47,10 @@ class AppSettings {
     this.dailyHabitGoal = 3,
     this.streakGoal = 7,
     this.sound = 'chime',
+    this.ambientSound = 'none',
+    this.ambientVolume = 0.45,
+    this.ambientDuringFocus = true,
+    this.ambientDuringBreaks = false,
     this.selectedIdentity =
         'Soy una persona constante que cumple lo que se propone.',
     this.startScreen = 'dashboard',
@@ -71,6 +79,10 @@ class AppSettings {
       'dailyHabitGoal': dailyHabitGoal,
       'streakGoal': streakGoal,
       'sound': sound,
+      'ambientSound': ambientSound,
+      'ambientVolume': ambientVolume,
+      'ambientDuringFocus': ambientDuringFocus,
+      'ambientDuringBreaks': ambientDuringBreaks,
       'selectedIdentity': selectedIdentity,
       'startScreen': startScreen,
       'textScale': textScale,
@@ -104,6 +116,14 @@ class AppSettings {
       dailyHabitGoal: int.tryParse('${map['dailyHabitGoal'] ?? 3}') ?? 3,
       streakGoal: int.tryParse('${map['streakGoal'] ?? 7}') ?? 7,
       sound: '${map['sound'] ?? 'chime'}',
+      ambientSound: '${map['ambientSound'] ?? 'none'}',
+      ambientVolume:
+          (double.tryParse('${map['ambientVolume'] ?? 0.45}') ?? 0.45)
+              .clamp(0.0, 1.0),
+      ambientDuringFocus:
+          _boolFromMap(map['ambientDuringFocus'], fallback: true),
+      ambientDuringBreaks:
+          _boolFromMap(map['ambientDuringBreaks'], fallback: false),
       selectedIdentity: map['selectedIdentity']?.toString() ??
           'Soy una persona constante que cumple lo que se propone.',
       startScreen: '${map['startScreen'] ?? 'dashboard'}',
