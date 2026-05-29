@@ -8,6 +8,8 @@ class NotificationService {
   static Future<bool> ensurePermissions() async => true;
   static Future<bool> hasPermissions() async => true;
 
+  static Future<bool> hasNotificationPermission() async => true;
+
   static Future<void> showTestNotification() async {}
 
   static Future<int> pendingNotificationsCount() async => 0;

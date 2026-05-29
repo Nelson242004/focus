@@ -3,12 +3,14 @@ import 'package:provider/provider.dart';
 
 import '../models/study_task.dart';
 import '../providers/app_provider.dart';
+import '../services/pomodoro_task_launch_service.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_empty_state.dart';
 import '../widgets/focus_help_button.dart';
+import '../widgets/focus_main_navigation_scope.dart';
 
 class StudyTasksScreen extends StatefulWidget {
   final bool showAppBar;
@@ -321,6 +323,7 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
                             provider.getSubjectById(task.subjectId)?.name,
                         onToggle: (done) =>
                             provider.completeStudyTask(task, done),
+                        onStartPomodoro: () => _startPomodoroForTask(task),
                         onEdit: () => _showTaskDialog(task: task),
                         onDelete: () => _deleteTask(task),
                       ),
@@ -337,6 +340,11 @@ class _StudyTasksScreenState extends State<StudyTasksScreen> {
         label: const Text('Tarea'),
       ),
     );
+  }
+
+  void _startPomodoroForTask(StudyTask task) {
+    PomodoroTaskLaunchService.startFromTask(task);
+    FocusMainNavigationScope.maybeOf(context)?.call(1);
   }
 }
 
@@ -397,6 +405,7 @@ class _TaskCard extends StatelessWidget {
   final StudyTask task;
   final String? subjectName;
   final ValueChanged<bool> onToggle;
+  final VoidCallback onStartPomodoro;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -404,6 +413,7 @@ class _TaskCard extends StatelessWidget {
     required this.task,
     required this.subjectName,
     required this.onToggle,
+    required this.onStartPomodoro,
     required this.onEdit,
     required this.onDelete,
   });
@@ -496,6 +506,14 @@ class _TaskCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              if (!task.isDone)
+                IconButton(
+                  tooltip: 'Iniciar Pomodoro para esta tarea',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.timer_rounded, size: 21),
+                  color: FocusPalette.primary,
+                  onPressed: onStartPomodoro,
+                ),
               _TaskStatusDot(label: statusLabel, color: accent),
               PopupMenuButton<String>(
                 tooltip: 'Opciones',

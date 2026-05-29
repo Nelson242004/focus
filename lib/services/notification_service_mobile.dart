@@ -128,6 +128,27 @@ class NotificationService {
     return notificationsEnabled && exactAlarmAllowed && iosAllowed;
   }
 
+  static Future<bool> hasNotificationPermission() async {
+    await initialize();
+
+    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    final notificationsEnabled =
+        await androidPlugin?.areNotificationsEnabled() ?? true;
+
+    final iosPlugin = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    bool iosAllowed = true;
+    try {
+      final permissions = await iosPlugin?.checkPermissions();
+      iosAllowed = permissions?.isEnabled ?? true;
+    } catch (_) {
+      iosAllowed = true;
+    }
+
+    return notificationsEnabled && iosAllowed;
+  }
+
   static Future<void> showTestNotification() async {
     await initialize();
     await _plugin.show(
