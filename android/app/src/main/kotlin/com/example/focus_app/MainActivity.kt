@@ -103,6 +103,8 @@ class MainActivity : FlutterActivity() {
                             subject = call.argument<String>("subject") ?: "General",
                             remainingSeconds = call.argument<Int>("remainingSeconds") ?: 0,
                             totalSeconds = call.argument<Int>("totalSeconds") ?: 0,
+                            nextLabel = call.argument<String>("nextLabel") ?: "Descanso corto",
+                            nextTotalSeconds = call.argument<Int>("nextTotalSeconds") ?: 0,
                         )
                         result.success(null)
                     }
@@ -427,6 +429,8 @@ class MainActivity : FlutterActivity() {
         subject: String,
         remainingSeconds: Int,
         totalSeconds: Int,
+        nextLabel: String,
+        nextTotalSeconds: Int,
     ) {
         if (remainingSeconds <= 0 || totalSeconds <= 0) {
             stopService(Intent(this, PomodoroTimerService::class.java))
@@ -438,6 +442,8 @@ class MainActivity : FlutterActivity() {
             putExtra(PomodoroTimerService.EXTRA_SUBJECT, subject)
             putExtra(PomodoroTimerService.EXTRA_REMAINING_SECONDS, remainingSeconds)
             putExtra(PomodoroTimerService.EXTRA_TOTAL_SECONDS, totalSeconds)
+            putExtra(PomodoroTimerService.EXTRA_NEXT_LABEL, nextLabel)
+            putExtra(PomodoroTimerService.EXTRA_NEXT_TOTAL_SECONDS, nextTotalSeconds)
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

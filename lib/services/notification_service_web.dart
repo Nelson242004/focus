@@ -19,6 +19,8 @@ class NotificationService {
     required int remainingSeconds,
     required int totalSeconds,
     required String subject,
+    required String nextLabel,
+    required int nextTotalSeconds,
   }) async {}
 
   static Future<void> cancelPomodoroTimerNotification() async {}

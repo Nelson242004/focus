@@ -67,7 +67,7 @@ class NotificationService {
         _pomodoroChannelId,
         _pomodoroChannelName,
         description: _pomodoroChannelDescription,
-        importance: Importance.high,
+        importance: Importance.low,
         playSound: false,
         enableVibration: false,
         showBadge: false,
@@ -191,6 +191,8 @@ class NotificationService {
     required int remainingSeconds,
     required int totalSeconds,
     required String subject,
+    required String nextLabel,
+    required int nextTotalSeconds,
   }) async {
     await initialize();
     if (defaultTargetPlatform == TargetPlatform.android) {
@@ -199,6 +201,8 @@ class NotificationService {
         'remainingSeconds': remainingSeconds,
         'totalSeconds': totalSeconds,
         'subject': subject.trim().isEmpty ? 'General' : subject.trim(),
+        'nextLabel': nextLabel,
+        'nextTotalSeconds': nextTotalSeconds,
       });
       return;
     }
@@ -210,19 +214,21 @@ class NotificationService {
         : isLongBreak
             ? 'Descanso largo'
             : 'Descanso corto';
-    final timeLeft = _formatDuration(remainingSeconds);
     final progress = totalSeconds <= 0
         ? 0
         : ((1 - (remainingSeconds / totalSeconds)) * 100).clamp(0, 100).round();
-    final title = '$modeLabel · $timeLeft';
+    final minutesLeft = _formatRemainingMinutes(remainingSeconds);
+    final title = '$modeLabel · $minutesLeft';
     final body = isFocus
         ? (subject.trim().isEmpty ? 'Materia: General' : subject.trim())
         : 'Descanso activo';
+    final nextText =
+        'A continuación: $nextLabel (${_formatDuration(nextTotalSeconds)})';
 
     await _plugin.show(
       id: _pomodoroNotificationId,
       title: title,
-      body: body,
+      body: nextText,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           _pomodoroChannelId,
@@ -230,8 +236,8 @@ class NotificationService {
           icon: 'ic_stat_focus',
           largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
           channelDescription: _pomodoroChannelDescription,
-          importance: Importance.high,
-          priority: Priority.high,
+          importance: Importance.low,
+          priority: Priority.low,
           category: AndroidNotificationCategory.progress,
           visibility: NotificationVisibility.public,
           ongoing: true,
@@ -244,14 +250,14 @@ class NotificationService {
           usesChronometer: false,
           chronometerCountDown: false,
           ticker: 'Focus activo',
-          subText: body,
+          subText: modeLabel,
           color: isFocus ? const Color(0xFF2563EB) : const Color(0xFF10B981),
           playSound: false,
           enableVibration: false,
           styleInformation: BigTextStyleInformation(
-            body,
+            '$body\n$nextText',
             contentTitle: title,
-            summaryText: body,
+            summaryText: nextText,
           ),
         ),
         iOS: const DarwinNotificationDetails(
@@ -268,6 +274,12 @@ class NotificationService {
     final minutes = safeSeconds ~/ 60;
     final remaining = safeSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${remaining.toString().padLeft(2, '0')}';
+  }
+
+  static String _formatRemainingMinutes(int seconds) {
+    if (seconds < 60) return '< 1 min restante';
+    final minutes = seconds ~/ 60;
+    return minutes == 1 ? '1 min restante' : '$minutes min restantes';
   }
 
   static Future<void> cancelPomodoroTimerNotification() async {

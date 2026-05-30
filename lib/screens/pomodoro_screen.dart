@@ -633,7 +633,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
 
       final totalSeconds = _totalSecondsForMode(provider);
       final subject = _activeSubjectName(provider);
-      final signature = '$_mode|$totalSeconds|$subject';
+      final nextMode = _nextPomodoroMode(provider);
+      final nextLabel = _pomodoroModeLabel(nextMode);
+      final nextTotalSeconds = _totalSecondsForMode(provider, nextMode);
+      final signature =
+          '$_mode|$totalSeconds|$subject|$nextMode|$nextTotalSeconds';
       if (_lastPomodoroNotificationSignature == signature) return;
       _lastPomodoroNotificationSignature = signature;
 
@@ -642,6 +646,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         remainingSeconds: _remainingSeconds,
         totalSeconds: totalSeconds,
         subject: subject,
+        nextLabel: nextLabel,
+        nextTotalSeconds: nextTotalSeconds,
       );
     } catch (error) {
       _lastPomodoroNotificationSignature = null;
@@ -721,6 +727,18 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       default:
         return _completedFocusSessions % 4 == 0 ? 'longBreak' : 'shortBreak';
     }
+  }
+
+  String _nextPomodoroMode(AppProvider provider) {
+    return _mode == 'focus' ? _nextBreakMode(provider) : 'focus';
+  }
+
+  String _pomodoroModeLabel(String mode) {
+    return switch (mode) {
+      'shortBreak' => 'Descanso corto',
+      'longBreak' => 'Descanso largo',
+      _ => 'Enfoque',
+    };
   }
 
   Future<void> _recoverExpiredTimer(
@@ -1424,19 +1442,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             ),
                         ],
                       ),
-                      if (!compact) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Elige, crea o marca avance sin salir del Pomodoro.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: titleController,
                         textInputAction: TextInputAction.done,
                         decoration: InputDecoration(
-                          labelText: 'Nueva tarea rápida',
+                          labelText: 'Nueva tarea',
+                          isDense: true,
                           prefixIcon: const Icon(Icons.add_task_rounded),
                           suffixIcon: IconButton(
                             tooltip: 'Crear y vincular',
@@ -2133,20 +2145,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                   size: 18,
                                   color: index == _horizontalAnimationIndex
                                       ? Colors.black
-                                      : Colors.white70,
+                                      : activeTheme.textColor
+                                          .withValues(alpha: 0.70),
                                 ),
                                 selectedColor:
                                     _horizontalThemes[_horizontalThemeIndex]
                                         .glow,
-                                backgroundColor:
-                                    Colors.white.withValues(alpha: 0.08),
+                                backgroundColor: activeTheme.panelColor
+                                    .withValues(alpha: 0.24),
                                 side: BorderSide(
-                                  color: Colors.white.withValues(alpha: 0.10),
+                                  color: activeTheme.panelBorder,
                                 ),
                                 labelStyle: TextStyle(
                                   color: index == _horizontalAnimationIndex
                                       ? Colors.black
-                                      : Colors.white,
+                                      : activeTheme.textColor,
                                   fontWeight: FontWeight.w800,
                                 ),
                                 onSelected: (_) {
@@ -2162,10 +2175,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           value: !_horizontalTickMuted,
                           activeColor:
                               _horizontalThemes[_horizontalThemeIndex].glow,
-                          title: const Text(
+                          title: Text(
                             'Sonido del reloj',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: activeTheme.textColor,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -2208,9 +2221,14 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         : _mode == 'shortBreak'
             ? 'Descanso'
             : 'Descanso largo';
+    final modeIcon = _mode == 'focus'
+        ? Icons.psychology_rounded
+        : _mode == 'shortBreak'
+            ? Icons.local_cafe_rounded
+            : Icons.nightlight_round;
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: horizontalTheme.backgroundEnd,
       body: Stack(
         children: [
           Positioned.fill(
@@ -2226,11 +2244,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       radius: 1.06 + breath * 0.12,
                       colors: [
                         horizontalTheme.glow.withValues(
-                          alpha: 0.16 + breath * 0.10,
+                          alpha: 0.13 + breath * 0.08,
                         ),
                         horizontalTheme.backgroundStart,
                         horizontalTheme.backgroundEnd,
-                        Colors.black,
+                        horizontalTheme.vignetteColor,
                       ],
                     ),
                   ),
@@ -2243,24 +2261,27 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               padding: const EdgeInsets.fromLTRB(22, 14, 74, 18),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          modeLabel,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: horizontalTheme.textColor
-                                .withValues(alpha: 0.58),
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
+                  if (horizontalTheme.layout !=
+                      _HorizontalTimerLayout.fomodoro) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            modeLabel,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: horizontalTheme.textColor
+                                  .withValues(alpha: 0.58),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -2274,6 +2295,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           remainingSeconds: _remainingSeconds,
                           numberSize: numberSize,
                           modeLabel: modeLabel,
+                          modeIcon: modeIcon,
                           sessionGoal: _sessionGoal.trim(),
                           progress: progress.clamp(0, 1),
                         );
@@ -2814,115 +2836,112 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Ajustes de Pomodoro',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Tiempo, sonidos, bloqueo y opciones avanzadas.',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                          _PomodoroSettingsHeader(
+                            isRunning: _isRunning,
+                            modeTitle: _currentModeTitle(),
                           ),
                           FocusGap.lg,
-                          _PomodoroSettingsSection(
-                            icon: Icons.timer_rounded,
-                            title: 'Tiempo',
-                            subtitle:
-                                '${sheetProvider.settings.focusTime}/${sheetProvider.settings.shortBreakTime}/${sheetProvider.settings.longBreakTime} min',
-                            accent: FocusPalette.primary,
+                          ClipRRect(
+                            borderRadius:
+                                BorderRadius.circular(FocusRadii.panel),
                             child: Column(
                               children: [
-                                _TimerSlider(
-                                  label: 'Enfoque',
-                                  value: sheetProvider.settings.focusTime,
-                                  min: 5,
-                                  max: 90,
-                                  color: FocusPalette.primary,
-                                  onChanged: (value) =>
-                                      _updatePomodoroSettings(focusTime: value),
+                                _PomodoroSettingsSection(
+                                  icon: Icons.timer_rounded,
+                                  title: 'Tiempo',
+                                  subtitle:
+                                      '${sheetProvider.settings.focusTime}/${sheetProvider.settings.shortBreakTime}/${sheetProvider.settings.longBreakTime} min',
+                                  accent: FocusPalette.primary,
+                                  shape: _segmentedSettingsShape(0, 4),
+                                  child: _PomodoroTimeStepperGrid(
+                                    focusTime: sheetProvider.settings.focusTime,
+                                    shortBreakTime:
+                                        sheetProvider.settings.shortBreakTime,
+                                    longBreakTime:
+                                        sheetProvider.settings.longBreakTime,
+                                    onFocusChanged: (value) =>
+                                        _updatePomodoroSettings(
+                                      focusTime: value,
+                                    ),
+                                    onShortBreakChanged: (value) =>
+                                        _updatePomodoroSettings(
+                                      shortBreakTime: value,
+                                    ),
+                                    onLongBreakChanged: (value) =>
+                                        _updatePomodoroSettings(
+                                      longBreakTime: value,
+                                    ),
+                                  ),
                                 ),
-                                _TimerSlider(
-                                  label: 'Descanso corto',
-                                  value: sheetProvider.settings.shortBreakTime,
-                                  min: 1,
-                                  max: 30,
-                                  color: FocusPalette.mint,
-                                  onChanged: (value) => _updatePomodoroSettings(
-                                      shortBreakTime: value),
+                                const SizedBox(height: 2),
+                                _PomodoroSettingsSection(
+                                  icon: Icons.volume_up_rounded,
+                                  title: 'Sonidos',
+                                  subtitle: _completionOptionFor(
+                                    sheetProvider.settings.sound,
+                                  ).label,
+                                  accent: FocusPalette.teal,
+                                  shape: _segmentedSettingsShape(1, 4),
+                                  child: _CompactCompletionSoundPicker(
+                                    selected: _completionOptionFor(
+                                      sheetProvider.settings.sound,
+                                    ),
+                                    options: _completionSoundOptions,
+                                    onSelected: (option) async {
+                                      await _updatePomodoroSettings(
+                                        sound: option.id,
+                                      );
+                                      await _previewCompletionSound(option.id);
+                                      refreshSheet(() {});
+                                    },
+                                  ),
                                 ),
-                                _TimerSlider(
-                                  label: 'Descanso largo',
-                                  value: sheetProvider.settings.longBreakTime,
-                                  min: 5,
-                                  max: 60,
-                                  color: FocusPalette.amber,
-                                  onChanged: (value) => _updatePomodoroSettings(
-                                      longBreakTime: value),
+                                const SizedBox(height: 2),
+                                _PomodoroSettingsSection(
+                                  icon: Icons.shield_rounded,
+                                  title: 'Bloqueo',
+                                  subtitle: _focusModeConfig.enabled
+                                      ? '${_focusModeConfig.blockedApps.length} apps'
+                                      : 'Desactivado',
+                                  accent: FocusPalette.amber,
+                                  shape: _segmentedSettingsShape(2, 4),
+                                  child:
+                                      _buildFocusModeTotalCard(sheetProvider),
+                                ),
+                                const SizedBox(height: 2),
+                                _PomodoroSettingsSection(
+                                  icon: Icons.tune_rounded,
+                                  title: 'Avanzado',
+                                  subtitle: 'Descanso automático',
+                                  accent: FocusPalette.muted,
+                                  shape: _segmentedSettingsShape(3, 4),
+                                  child: DropdownButtonFormField<String>(
+                                    initialValue:
+                                        sheetProvider.settings.breakAfterFocus,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Después del enfoque',
+                                    ),
+                                    items: const [
+                                      DropdownMenuItem(
+                                        value: 'auto',
+                                        child: Text('Automático cada 4 ciclos'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'shortBreak',
+                                        child: Text('Siempre descanso corto'),
+                                      ),
+                                      DropdownMenuItem(
+                                        value: 'longBreak',
+                                        child: Text('Siempre descanso largo'),
+                                      ),
+                                    ],
+                                    onChanged: (value) =>
+                                        _updatePomodoroSettings(
+                                      breakAfterFocus: value ?? 'auto',
+                                    ),
+                                  ),
                                 ),
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _PomodoroSettingsSection(
-                            icon: Icons.volume_up_rounded,
-                            title: 'Sonidos',
-                            subtitle: _completionOptionFor(
-                                    sheetProvider.settings.sound)
-                                .label,
-                            accent: FocusPalette.teal,
-                            child: _CompactCompletionSoundPicker(
-                              selected: _completionOptionFor(
-                                  sheetProvider.settings.sound),
-                              options: _completionSoundOptions,
-                              onSelected: (option) async {
-                                await _updatePomodoroSettings(sound: option.id);
-                                await _previewCompletionSound(option.id);
-                                refreshSheet(() {});
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          _PomodoroSettingsSection(
-                            icon: Icons.shield_rounded,
-                            title: 'Bloqueo',
-                            subtitle: _focusModeConfig.enabled
-                                ? '${_focusModeConfig.blockedApps.length} apps'
-                                : 'Desactivado',
-                            accent: FocusPalette.amber,
-                            child: _buildFocusModeTotalCard(sheetProvider),
-                          ),
-                          const SizedBox(height: 10),
-                          _PomodoroSettingsSection(
-                            icon: Icons.tune_rounded,
-                            title: 'Avanzado',
-                            subtitle: 'Descanso automático',
-                            accent: FocusPalette.muted,
-                            child: DropdownButtonFormField<String>(
-                              initialValue:
-                                  sheetProvider.settings.breakAfterFocus,
-                              decoration: const InputDecoration(
-                                labelText: 'Después del enfoque',
-                              ),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'auto',
-                                  child: Text('Automático cada 4 ciclos'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'shortBreak',
-                                  child: Text('Siempre descanso corto'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'longBreak',
-                                  child: Text('Siempre descanso largo'),
-                                ),
-                              ],
-                              onChanged: (value) => _updatePomodoroSettings(
-                                breakAfterFocus: value ?? 'auto',
-                              ),
                             ),
                           ),
                         ],
@@ -3894,6 +3913,7 @@ class _LinkedTaskStrip extends StatelessWidget {
             IconButton(
               tooltip: 'Completar tarea',
               visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
               icon: const Icon(Icons.check_circle_rounded, size: 20),
               color: FocusPalette.mint,
               onPressed: () => unawaited(onComplete!()),
@@ -3902,6 +3922,7 @@ class _LinkedTaskStrip extends StatelessWidget {
             IconButton(
               tooltip: 'Quitar tarea',
               visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
               icon: const Icon(Icons.close_rounded, size: 18),
               onPressed: () => unawaited(onClear!()),
             ),
@@ -4114,6 +4135,7 @@ class _HorizontalTimerBody extends StatelessWidget {
   final int remainingSeconds;
   final double numberSize;
   final String modeLabel;
+  final IconData modeIcon;
   final String sessionGoal;
   final double progress;
 
@@ -4125,6 +4147,7 @@ class _HorizontalTimerBody extends StatelessWidget {
     required this.remainingSeconds,
     required this.numberSize,
     required this.modeLabel,
+    required this.modeIcon,
     required this.sessionGoal,
     required this.progress,
   });
@@ -4134,6 +4157,17 @@ class _HorizontalTimerBody extends StatelessWidget {
     final fullTime =
         '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
     switch (theme.layout) {
+      case _HorizontalTimerLayout.fomodoro:
+        return _FomodoroLandTimerBody(
+          theme: theme,
+          animation: animation,
+          value: fullTime,
+          modeLabel: modeLabel,
+          modeIcon: modeIcon,
+          numberSize: numberSize,
+          pulseKey: remainingSeconds,
+          sessionGoal: sessionGoal,
+        );
       case _HorizontalTimerLayout.simple:
         return _TimePanel(
           value: fullTime,
@@ -4244,6 +4278,164 @@ class _HorizontalTimerBody extends StatelessWidget {
   }
 }
 
+class _FomodoroLandTimerBody extends StatelessWidget {
+  final _HorizontalTheme theme;
+  final _HorizontalAnimation animation;
+  final String value;
+  final String modeLabel;
+  final IconData modeIcon;
+  final double numberSize;
+  final int pulseKey;
+  final String sessionGoal;
+
+  const _FomodoroLandTimerBody({
+    required this.theme,
+    required this.animation,
+    required this.value,
+    required this.modeLabel,
+    required this.modeIcon,
+    required this.numberSize,
+    required this.pulseKey,
+    required this.sessionGoal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final timer = _TimePanel(
+      value: value,
+      topLabel: '',
+      numberSize: numberSize * 0.78,
+      theme: theme,
+      animationStyle: animation,
+      pulseKey: pulseKey,
+      frameless: true,
+    );
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 860),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _FomodoroModePill(
+              theme: theme,
+              icon: modeIcon,
+              label: modeLabel,
+            ),
+            Transform.translate(
+              offset: const Offset(0, -12),
+              child: SizedBox(
+                height: (numberSize * 0.92).clamp(128.0, 250.0),
+                child: timer,
+              ),
+            ),
+            if (sessionGoal.trim().isNotEmpty)
+              Transform.translate(
+                offset: const Offset(0, -20),
+                child: _FomodoroInfoChip(
+                  theme: theme,
+                  icon: Icons.flag_rounded,
+                  label: sessionGoal.trim(),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FomodoroModePill extends StatelessWidget {
+  final _HorizontalTheme theme;
+  final IconData icon;
+  final String label;
+
+  const _FomodoroModePill({
+    required this.theme,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.accent,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [
+          BoxShadow(
+            color: theme.accent.withValues(alpha: 0.24),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: theme.chipTextColor, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            label,
+            style: TextStyle(
+              color: theme.chipTextColor,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FomodoroInfoChip extends StatelessWidget {
+  final _HorizontalTheme theme;
+  final IconData icon;
+  final String label;
+
+  const _FomodoroInfoChip({
+    required this.theme,
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Flexible(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: theme.panelColor.withValues(alpha: 0.84),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: theme.panelBorder),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon,
+                color: theme.textColor.withValues(alpha: 0.72), size: 17),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: theme.textColor.withValues(alpha: 0.78),
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _HorizontalMiniCard extends StatelessWidget {
   final _HorizontalTheme theme;
   final String label;
@@ -4300,6 +4492,7 @@ class _TimePanel extends StatelessWidget {
   final _HorizontalTheme theme;
   final _HorizontalAnimation animationStyle;
   final int pulseKey;
+  final bool frameless;
 
   const _TimePanel({
     required this.value,
@@ -4308,6 +4501,7 @@ class _TimePanel extends StatelessWidget {
     required this.theme,
     required this.animationStyle,
     required this.pulseKey,
+    this.frameless = false,
   });
 
   @override
@@ -4316,15 +4510,17 @@ class _TimePanel extends StatelessWidget {
       height: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(theme.panelRadius),
-        color: theme.panelColor,
-        border: Border.all(color: theme.panelBorder),
-        boxShadow: [
-          BoxShadow(
-            color: theme.glow.withValues(alpha: theme.shadowAlpha),
-            blurRadius: 36,
-            offset: const Offset(0, 20),
-          ),
-        ],
+        color: frameless ? Colors.transparent : theme.panelColor,
+        border: frameless ? null : Border.all(color: theme.panelBorder),
+        boxShadow: frameless
+            ? null
+            : [
+                BoxShadow(
+                  color: theme.glow.withValues(alpha: theme.shadowAlpha),
+                  blurRadius: 36,
+                  offset: const Offset(0, 20),
+                ),
+              ],
       ),
       child: Stack(
         children: [
@@ -4511,12 +4707,104 @@ class _RailButton extends StatelessWidget {
   }
 }
 
+BorderRadius _segmentedSettingsShape(int index, int count) {
+  const outer = Radius.circular(FocusRadii.card);
+  const inner = Radius.circular(8);
+  if (count <= 1) return BorderRadius.circular(FocusRadii.card);
+  if (index == 0) {
+    return const BorderRadius.only(
+      topLeft: outer,
+      topRight: outer,
+      bottomLeft: inner,
+      bottomRight: inner,
+    );
+  }
+  if (index == count - 1) {
+    return const BorderRadius.only(
+      topLeft: inner,
+      topRight: inner,
+      bottomLeft: outer,
+      bottomRight: outer,
+    );
+  }
+  return BorderRadius.circular(8);
+}
+
+class _PomodoroSettingsHeader extends StatelessWidget {
+  final bool isRunning;
+  final String modeTitle;
+
+  const _PomodoroSettingsHeader({
+    required this.isRunning,
+    required this.modeTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: FocusInsets.cardRelaxed,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(FocusRadii.panel),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: FocusPalette.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(FocusRadii.control),
+            ),
+            child: const Icon(
+              Icons.timer_rounded,
+              color: FocusPalette.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pomodoro',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isRunning
+                      ? '$modeTitle en curso. Algunos cambios se aplican al siguiente bloque.'
+                      : 'Tiempo, sonidos, bloqueo y comportamiento del ciclo.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _PomodoroSettingsSection extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final Color accent;
   final Widget child;
+  final BorderRadius shape;
 
   const _PomodoroSettingsSection({
     required this.icon,
@@ -4524,6 +4812,7 @@ class _PomodoroSettingsSection extends StatelessWidget {
     required this.subtitle,
     required this.accent,
     required this.child,
+    required this.shape,
   });
 
   @override
@@ -4531,10 +4820,10 @@ class _PomodoroSettingsSection extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: shape,
         border: Border.all(
-          color: colorScheme.outlineVariant.withValues(alpha: 0.32),
+          color: colorScheme.outlineVariant.withValues(alpha: 0.22),
         ),
       ),
       child: Theme(
@@ -4548,7 +4837,7 @@ class _PomodoroSettingsSection extends StatelessWidget {
             height: 36,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: accent, size: 20),
           ),
@@ -4568,7 +4857,80 @@ class _PomodoroSettingsSection extends StatelessWidget {
   }
 }
 
-class _TimerSlider extends StatelessWidget {
+class _PomodoroTimeStepperGrid extends StatelessWidget {
+  final int focusTime;
+  final int shortBreakTime;
+  final int longBreakTime;
+  final ValueChanged<int> onFocusChanged;
+  final ValueChanged<int> onShortBreakChanged;
+  final ValueChanged<int> onLongBreakChanged;
+
+  const _PomodoroTimeStepperGrid({
+    required this.focusTime,
+    required this.shortBreakTime,
+    required this.longBreakTime,
+    required this.onFocusChanged,
+    required this.onShortBreakChanged,
+    required this.onLongBreakChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
+        final children = [
+          _MinuteStepper(
+            label: 'Enfoque',
+            value: focusTime,
+            min: 5,
+            max: 90,
+            color: FocusPalette.primary,
+            onChanged: onFocusChanged,
+          ),
+          _MinuteStepper(
+            label: 'Descanso corto',
+            value: shortBreakTime,
+            min: 1,
+            max: 30,
+            color: FocusPalette.mint,
+            onChanged: onShortBreakChanged,
+          ),
+          _MinuteStepper(
+            label: 'Descanso largo',
+            value: longBreakTime,
+            min: 5,
+            max: 60,
+            color: FocusPalette.amber,
+            onChanged: onLongBreakChanged,
+          ),
+        ];
+
+        if (compact) {
+          return Column(
+            children: [
+              for (var index = 0; index < children.length; index++) ...[
+                children[index],
+                if (index != children.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            for (var index = 0; index < children.length; index++) ...[
+              Expanded(child: children[index]),
+              if (index != children.length - 1) const SizedBox(width: 8),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _MinuteStepper extends StatelessWidget {
   final String label;
   final int value;
   final int min;
@@ -4576,7 +4938,7 @@ class _TimerSlider extends StatelessWidget {
   final Color color;
   final ValueChanged<int> onChanged;
 
-  const _TimerSlider({
+  const _MinuteStepper({
     required this.label,
     required this.value,
     required this.min,
@@ -4585,45 +4947,94 @@ class _TimerSlider extends StatelessWidget {
     required this.onChanged,
   });
 
+  void _changeBy(int delta) {
+    onChanged((value + delta).clamp(min, max));
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(FocusRadii.control),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   label,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$value min',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        color: color,
                         fontWeight: FontWeight.w900,
                       ),
                 ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  color: color.withValues(alpha: 0.12),
-                ),
-                child: Text(
-                  '$value min',
-                  style: TextStyle(color: color, fontWeight: FontWeight.w900),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-          Slider(
-            value: value.toDouble().clamp(min.toDouble(), max.toDouble()),
-            min: min.toDouble(),
-            max: max.toDouble(),
-            activeColor: color,
-            label: '$value min',
-            onChanged: (newValue) => onChanged(newValue.round()),
+          _TinyStepperButton(
+            icon: Icons.remove_rounded,
+            enabled: value > min,
+            color: color,
+            onTap: () => _changeBy(-1),
+          ),
+          const SizedBox(width: 6),
+          _TinyStepperButton(
+            icon: Icons.add_rounded,
+            enabled: value < max,
+            color: color,
+            onTap: () => _changeBy(1),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TinyStepperButton extends StatelessWidget {
+  final IconData icon;
+  final bool enabled;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _TinyStepperButton({
+    required this.icon,
+    required this.enabled,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(999),
+      child: Opacity(
+        opacity: enabled ? 1 : 0.38,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 19),
+        ),
       ),
     );
   }
@@ -5149,6 +5560,21 @@ class _HorizontalThemeMock extends StatelessWidget {
     switch (theme.layout) {
       case _HorizontalTimerLayout.simple:
         return Row(children: [block(flex: 1, alpha: 0.78)]);
+      case _HorizontalTimerLayout.fomodoro:
+        return Column(
+          children: [
+            Container(
+              width: 64,
+              height: 14,
+              decoration: BoxDecoration(
+                color: theme.accent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [block(flex: 1, alpha: 0.22)]),
+          ],
+        );
       case _HorizontalTimerLayout.dashboard:
         return Row(
           children: [
@@ -5180,6 +5606,7 @@ class _HorizontalThemeMock extends StatelessWidget {
 String _horizontalLayoutLabel(_HorizontalTimerLayout layout) {
   return switch (layout) {
     _HorizontalTimerLayout.simple => 'Minimal',
+    _HorizontalTimerLayout.fomodoro => 'Fomodoro horizontal',
     _HorizontalTimerLayout.split => 'Doble tarjeta',
     _HorizontalTimerLayout.dashboard => 'Con panel lateral',
     _HorizontalTimerLayout.objective => 'Con objetivo',
@@ -5188,64 +5615,72 @@ String _horizontalLayoutLabel(_HorizontalTimerLayout layout) {
 
 const List<_HorizontalTheme> _horizontalThemes = [
   _HorizontalTheme(
-    label: 'Zen negro',
-    description: 'Minimal, elegante y sin ruido visual.',
-    icon: Icons.nights_stay_rounded,
-    layout: _HorizontalTimerLayout.simple,
-    backgroundStart: Color(0xFF10131C),
-    backgroundEnd: Color(0xFF02030A),
-    glow: Color(0xFFBFD7FF),
-    accent: Color(0xFF8EA7FF),
-    textColor: Color(0xFFF8FBFF),
-    panelColor: Color(0xE6111420),
-    panelBorder: Color(0x334B5563),
-    panelRadius: 22,
-    shadowAlpha: 0.12,
+    label: 'Focus rojo',
+    description: 'Inspirado en Fomodoro: chip, reloj grande y rojo profundo.',
+    icon: Icons.psychology_rounded,
+    layout: _HorizontalTimerLayout.fomodoro,
+    backgroundStart: Color(0xFFFFF2F2),
+    backgroundEnd: Color(0xFFF2EAE4),
+    vignetteColor: Color(0xFFFFF7F4),
+    glow: Color(0xFFFF7C7C),
+    accent: Color(0xFF471515),
+    textColor: Color(0xFF471515),
+    chipTextColor: Color(0xFFFFFFFF),
+    panelColor: Color(0xFFFFBBBB),
+    panelBorder: Color(0x33D71923),
+    panelRadius: 50,
+    shadowAlpha: 0.10,
   ),
   _HorizontalTheme(
-    label: 'Sakura',
-    description: 'Rosa suave, cute y calmado.',
-    icon: Icons.favorite_rounded,
-    layout: _HorizontalTimerLayout.dashboard,
-    backgroundStart: Color(0xFF7C2D57),
-    backgroundEnd: Color(0xFF211022),
-    glow: Color(0xFFFFC7E8),
-    accent: Color(0xFFFFF0A8),
-    textColor: Color(0xFFFFF8FC),
-    panelColor: Color(0x33FFFFFF),
-    panelBorder: Color(0x40FFD6EA),
-    panelRadius: 34,
-    shadowAlpha: 0.24,
+    label: 'Break verde',
+    description: 'Verde descanso, suave y limpio como Fomodoro.',
+    icon: Icons.local_cafe_rounded,
+    layout: _HorizontalTimerLayout.fomodoro,
+    backgroundStart: Color(0xFFF2FFF5),
+    backgroundEnd: Color(0xFFEFF8EF),
+    vignetteColor: Color(0xFFF8FFF9),
+    glow: Color(0xFF8CE8A1),
+    accent: Color(0xFF14401D),
+    textColor: Color(0xFF14401D),
+    chipTextColor: Color(0xFFFFFFFF),
+    panelColor: Color(0xFF8CE8A1),
+    panelBorder: Color(0x3327C300),
+    panelRadius: 50,
+    shadowAlpha: 0.10,
   ),
   _HorizontalTheme(
-    label: 'Mochi mint',
-    description: 'Menta fresca para sesiones largas.',
-    icon: Icons.spa_rounded,
-    layout: _HorizontalTimerLayout.objective,
-    backgroundStart: Color(0xFF0B5C50),
-    backgroundEnd: Color(0xFF031514),
-    glow: Color(0xFF8EF6D2),
-    accent: Color(0xFFFFD6A5),
-    textColor: Color(0xFFF1FFF9),
-    panelColor: Color(0x2EFFFFFF),
-    panelBorder: Color(0x408EF6D2),
-    panelRadius: 40,
-    shadowAlpha: 0.20,
+    label: 'Azul largo',
+    description: 'Azul profundo para descanso largo, claro y respirable.',
+    icon: Icons.nightlight_round,
+    layout: _HorizontalTimerLayout.fomodoro,
+    backgroundStart: Color(0xFFD9EEFF),
+    backgroundEnd: Color(0xFFEAF6FF),
+    vignetteColor: Color(0xFFF6FBFF),
+    glow: Color(0xFF8BCAFF),
+    accent: Color(0xFF153047),
+    textColor: Color(0xFF153047),
+    chipTextColor: Color(0xFFFFFFFF),
+    panelColor: Color(0xFF8BCAFF),
+    panelBorder: Color(0x332DA8F8),
+    panelRadius: 50,
+    shadowAlpha: 0.10,
   ),
   _HorizontalTheme(
-    label: 'Lofi lila',
-    description: 'Violeta chill con brillo suave.',
-    icon: Icons.auto_awesome_rounded,
-    layout: _HorizontalTimerLayout.split,
-    backgroundStart: Color(0xFF4338CA),
-    backgroundEnd: Color(0xFF10091F),
-    glow: Color(0xFFD8B4FE),
-    accent: Color(0xFF93C5FD),
-    textColor: Color(0xFFF5F3FF),
-    panelColor: Color(0x2BFFFFFF),
-    panelBorder: Color(0x44D8B4FE),
-    panelRadius: 44,
-    shadowAlpha: 0.22,
+    label: 'AMOLED',
+    description: 'Negro puro con acentos rojos, más concentrado.',
+    icon: Icons.contrast_rounded,
+    layout: _HorizontalTimerLayout.fomodoro,
+    backgroundStart: Color(0xFF1B1B1D),
+    backgroundEnd: Color(0xFF000000),
+    vignetteColor: Color(0xFF000000),
+    glow: Color(0xFFFF7C7C),
+    accent: Color(0xFFFF7C7C),
+    textColor: Color(0xFFFFF2F2),
+    chipTextColor: Color(0xFF241515),
+    panelColor: Color(0xFF414247),
+    panelBorder: Color(0x33FFFFFF),
+    panelRadius: 50,
+    shadowAlpha: 0.16,
   ),
 ];
 
@@ -5273,7 +5708,7 @@ const List<_HorizontalAnimation> _horizontalAnimations = [
   ),
 ];
 
-enum _HorizontalTimerLayout { simple, split, dashboard, objective }
+enum _HorizontalTimerLayout { simple, split, dashboard, objective, fomodoro }
 
 class _HorizontalTheme {
   final String label;
@@ -5282,9 +5717,11 @@ class _HorizontalTheme {
   final _HorizontalTimerLayout layout;
   final Color backgroundStart;
   final Color backgroundEnd;
+  final Color vignetteColor;
   final Color glow;
   final Color accent;
   final Color textColor;
+  final Color chipTextColor;
   final Color panelColor;
   final Color panelBorder;
   final double panelRadius;
@@ -5297,9 +5734,11 @@ class _HorizontalTheme {
     required this.layout,
     required this.backgroundStart,
     required this.backgroundEnd,
+    this.vignetteColor = Colors.black,
     required this.glow,
     required this.accent,
     required this.textColor,
+    this.chipTextColor = Colors.black,
     required this.panelColor,
     required this.panelBorder,
     required this.panelRadius,

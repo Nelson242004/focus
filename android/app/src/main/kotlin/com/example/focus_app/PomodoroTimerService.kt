@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -20,6 +19,8 @@ import java.util.concurrent.TimeUnit
 class PomodoroTimerService : Service() {
     private var mode: String = "focus"
     private var subject: String = "General"
+    private var nextLabel: String = "Descanso corto"
+    private var nextTotalSeconds: Int = 0
     private var totalSeconds: Int = 0
     private var endAtMillis: Long = 0L
     private var timerExecutor: ScheduledExecutorService? = null
@@ -29,6 +30,8 @@ class PomodoroTimerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         mode = intent?.getStringExtra(EXTRA_MODE) ?: "focus"
         subject = intent?.getStringExtra(EXTRA_SUBJECT)?.takeIf { it.isNotBlank() } ?: "General"
+        nextLabel = intent?.getStringExtra(EXTRA_NEXT_LABEL)?.takeIf { it.isNotBlank() } ?: "Descanso corto"
+        nextTotalSeconds = intent?.getIntExtra(EXTRA_NEXT_TOTAL_SECONDS, 0) ?: 0
         totalSeconds = intent?.getIntExtra(EXTRA_TOTAL_SECONDS, 0) ?: 0
         val remainingSeconds = intent?.getIntExtra(EXTRA_REMAINING_SECONDS, 0) ?: 0
 
@@ -104,13 +107,14 @@ class PomodoroTimerService : Service() {
             else -> "Enfoque"
         }
         val body = if (mode == "focus") {
-            "Materia: $subject"
+            if (subject == "General") "Materia: General" else "Materia: $subject"
         } else {
             when (mode) {
                 "longBreak" -> "Descanso largo activo"
                 else -> "Descanso corto activo"
             }
         }
+        val nextText = "A continuación: $nextLabel (${formatTime(nextTotalSeconds)})"
         val progress = if (totalSeconds <= 0) {
             0
         } else {
@@ -118,7 +122,7 @@ class PomodoroTimerService : Service() {
                 .toInt()
                 .coerceIn(0, 100)
         }
-        val timeLeft = formatTime(remainingSeconds)
+        val minutesLeft = formatRemainingMinutes(remainingSeconds)
         val accentColor = when (mode) {
             "longBreak" -> 0xFFF59E0B.toInt()
             "shortBreak" -> 0xFF10B981.toInt()
@@ -127,10 +131,9 @@ class PomodoroTimerService : Service() {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_focus)
-            .setLargeIcon(BitmapFactory.decodeResource(resources, R.drawable.focus_app_icon))
-            .setContentTitle("Focus · $timeLeft")
-            .setContentText("$modeLabel · $body")
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$modeLabel · $body"))
+            .setContentTitle("$modeLabel · $minutesLeft")
+            .setContentText(nextText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$body\n$nextText"))
             .setSubText(modeLabel)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -167,11 +170,19 @@ class PomodoroTimerService : Service() {
         return String.format("%02d:%02d", minutes, seconds)
     }
 
+    private fun formatRemainingMinutes(totalSeconds: Int): String {
+        if (totalSeconds < 60) return "< 1 min restante"
+        val minutes = totalSeconds / 60
+        return if (minutes == 1) "1 min restante" else "$minutes min restantes"
+    }
+
     companion object {
         const val EXTRA_MODE = "mode"
         const val EXTRA_SUBJECT = "subject"
         const val EXTRA_REMAINING_SECONDS = "remaining_seconds"
         const val EXTRA_TOTAL_SECONDS = "total_seconds"
+        const val EXTRA_NEXT_LABEL = "next_label"
+        const val EXTRA_NEXT_TOTAL_SECONDS = "next_total_seconds"
         private const val CHANNEL_ID = "focus_pomodoro_timer"
         private const val NOTIFICATION_ID = 880001
     }
