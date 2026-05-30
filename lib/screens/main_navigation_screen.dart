@@ -420,40 +420,6 @@ class _FocusDockNavigation extends StatefulWidget {
 }
 
 class _FocusDockNavigationState extends State<_FocusDockNavigation> {
-  final ScrollController _controller = ScrollController();
-
-  static const double _itemWidth = 74;
-  static const double _itemGap = 4;
-
-  @override
-  void didUpdateWidget(covariant _FocusDockNavigation oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.selectedIndex != widget.selectedIndex) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _centerSelected());
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _centerSelected() {
-    if (!_controller.hasClients) return;
-    if (widget.selectedIndex >= _dockItems.length) return;
-    final viewport = _controller.position.viewportDimension;
-    final itemExtent = _itemWidth + _itemGap;
-    final target =
-        (widget.selectedIndex * itemExtent) - (viewport / 2) + (_itemWidth / 2);
-    final max = _controller.position.maxScrollExtent;
-    _controller.animateTo(
-      target.clamp(0.0, max),
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutCubic,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -480,28 +446,140 @@ class _FocusDockNavigationState extends State<_FocusDockNavigation> {
             ),
           ],
         ),
-        child: SingleChildScrollView(
-          controller: _controller,
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              for (var index = 0; index < _dockItems.length; index++) ...[
-                SizedBox(
-                  width: _itemWidth,
-                  child: _DockButton(
-                    item: _dockItems[index],
-                    selected: widget.selectedIndex == index,
-                    onTap: () => widget.onDestinationSelected(index),
-                  ),
+        child: Row(
+          children: [
+            for (var index = 0; index < _dockItems.length; index++) ...[
+              Expanded(
+                child: _DockButton(
+                  item: _dockItems[index],
+                  selected: _dockItems[index].matches(widget.selectedIndex),
+                  onTap: () => _handleDockTap(context, _dockItems[index]),
                 ),
-                if (index != _dockItems.length - 1)
-                  const SizedBox(width: _itemGap),
-              ],
+              ),
+              if (index != _dockItems.length - 1) const SizedBox(width: 4),
             ],
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  void _handleDockTap(BuildContext context, _DockItem item) {
+    if (item.screenIndex != null) {
+      widget.onDestinationSelected(item.screenIndex!);
+      return;
+    }
+    _showMoreDestinations(context);
+  }
+
+  Future<void> _showMoreDestinations(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        final isDark = theme.brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Más',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Todo lo demás, sin cargar la barra principal.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = constraints.maxWidth > 520 ? 4 : 3;
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _moreDockItems.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 1.08,
+                    ),
+                    itemBuilder: (context, index) {
+                      final item = _moreDockItems[index];
+                      final selected = item.matches(widget.selectedIndex);
+                      final color = selected
+                          ? theme.colorScheme.primary
+                          : (isDark
+                              ? const Color(0xFFCBD5E1)
+                              : FocusPalette.ink);
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          widget.onDestinationSelected(item.screenIndex!);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? theme.colorScheme.primary.withValues(
+                                    alpha: isDark ? 0.20 : 0.10,
+                                  )
+                                : theme.colorScheme.surfaceContainerHighest
+                                    .withValues(alpha: isDark ? 0.35 : 0.55),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: selected
+                                  ? theme.colorScheme.primary.withValues(
+                                      alpha: 0.28,
+                                    )
+                                  : theme.colorScheme.outlineVariant
+                                      .withValues(alpha: 0.55),
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FocusAppIcon(
+                                kind: item.kind!,
+                                size: selected ? 32 : 29,
+                                fallback: item.fallback,
+                                fallbackColor: color,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                item.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: color,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -510,12 +588,21 @@ class _DockItem {
   final String label;
   final FocusAppIconKind? kind;
   final IconData fallback;
+  final int? screenIndex;
+  final bool featured;
 
   const _DockItem({
     required this.label,
     this.kind,
     required this.fallback,
+    this.screenIndex,
+    this.featured = false,
   });
+
+  bool matches(int selectedIndex) {
+    if (screenIndex != null) return screenIndex == selectedIndex;
+    return !_primaryScreenIndexes.contains(selectedIndex);
+  }
 }
 
 const _dockItems = [
@@ -523,53 +610,79 @@ const _dockItems = [
     label: 'Inicio',
     kind: FocusAppIconKind.focus,
     fallback: Icons.dashboard_rounded,
+    screenIndex: 0,
+  ),
+  _DockItem(
+    label: 'Materia',
+    kind: FocusAppIconKind.subjects,
+    fallback: Icons.menu_book_rounded,
+    screenIndex: 2,
   ),
   _DockItem(
     label: 'Focus',
     kind: FocusAppIconKind.pomodoro,
     fallback: Icons.timer_rounded,
-  ),
-  _DockItem(
-    label: 'Materias',
-    kind: FocusAppIconKind.subjects,
-    fallback: Icons.menu_book_rounded,
+    screenIndex: 1,
+    featured: true,
   ),
   _DockItem(
     label: 'Hábitos',
     kind: FocusAppIconKind.habits,
     fallback: Icons.check_circle_rounded,
+    screenIndex: 3,
   ),
+  _DockItem(
+    label: 'Más',
+    fallback: Icons.grid_view_rounded,
+  ),
+];
+
+const _moreDockItems = [
   _DockItem(
     label: 'Exámenes',
     kind: FocusAppIconKind.exams,
     fallback: Icons.assignment_rounded,
+    screenIndex: 4,
   ),
   _DockItem(
     label: 'Tareas',
     kind: FocusAppIconKind.tasks,
     fallback: Icons.task_alt_rounded,
+    screenIndex: 5,
   ),
   _DockItem(
     label: 'Recursos',
     kind: FocusAppIconKind.resources,
     fallback: Icons.folder_rounded,
+    screenIndex: 6,
   ),
   _DockItem(
     label: 'Ranking',
     kind: FocusAppIconKind.ranking,
     fallback: Icons.emoji_events_rounded,
+    screenIndex: 7,
   ),
   _DockItem(
     label: 'Perfil',
     kind: FocusAppIconKind.friends,
     fallback: Icons.people_alt_rounded,
+    screenIndex: 8,
   ),
   _DockItem(
     label: 'Logros',
     kind: FocusAppIconKind.achievements,
     fallback: Icons.military_tech_rounded,
+    screenIndex: 9,
+  ),
+  _DockItem(
+    label: 'Config.',
+    kind: FocusAppIconKind.settings,
+    fallback: Icons.settings_rounded,
+    screenIndex: 10,
   ),
 ];
+
+const _primaryScreenIndexes = {0, 1, 2, 3};
 
 class _DockButton extends StatelessWidget {
   final _DockItem item;
@@ -586,28 +699,59 @@ class _DockButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final featured = item.featured;
     final accent = selected
         ? theme.colorScheme.primary
         : (isDark ? const Color(0xFF94A3B8) : FocusPalette.muted);
     return InkWell(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(featured ? 26 : 22),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        padding: EdgeInsets.symmetric(
+          vertical: featured ? 7 : 8,
+          horizontal: featured ? 2 : 4,
+        ),
         decoration: BoxDecoration(
-          color: selected
-              ? theme.colorScheme.primary
-                  .withValues(alpha: isDark ? 0.18 : 0.10)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
+          gradient: featured
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: selected
+                      ? const [Color(0xFF2563EB), Color(0xFF14B8A6)]
+                      : [
+                          theme.colorScheme.primary
+                              .withValues(alpha: isDark ? 0.24 : 0.12),
+                          FocusPalette.teal
+                              .withValues(alpha: isDark ? 0.20 : 0.10),
+                        ],
+                )
+              : null,
+          color: featured
+              ? null
+              : selected
+                  ? theme.colorScheme.primary
+                      .withValues(alpha: isDark ? 0.18 : 0.10)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(featured ? 26 : 22),
           border: Border.all(
-            color: selected
-                ? theme.colorScheme.primary
-                    .withValues(alpha: isDark ? 0.22 : 0.12)
-                : Colors.transparent,
+            color: featured && selected
+                ? Colors.white.withValues(alpha: 0.24)
+                : selected
+                    ? theme.colorScheme.primary
+                        .withValues(alpha: isDark ? 0.22 : 0.12)
+                    : Colors.transparent,
           ),
+          boxShadow: featured && selected
+              ? [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.24),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -615,20 +759,24 @@ class _DockButton extends StatelessWidget {
             if (item.kind != null)
               FocusAppIcon(
                 kind: item.kind!,
-                size: selected ? 27 : 23,
+                size: featured ? 34 : (selected ? 27 : 23),
                 fallback: item.fallback,
-                fallbackColor: accent,
+                fallbackColor: featured && selected ? Colors.white : accent,
               )
             else
-              Icon(item.fallback, color: accent, size: selected ? 27 : 23),
-            const SizedBox(height: 3),
+              Icon(
+                item.fallback,
+                color: accent,
+                size: selected ? 27 : 23,
+              ),
+            SizedBox(height: featured ? 2 : 3),
             Text(
               item.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: accent,
-                fontSize: 10.5,
+                color: featured && selected ? Colors.white : accent,
+                fontSize: featured ? 11 : 10.5,
                 fontWeight: selected ? FontWeight.w900 : FontWeight.w700,
               ),
             ),

@@ -189,6 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       examReminderThirtyMinutesBefore: _examReminderThirtyMinutesBefore,
       onboardingCompleted: provider.settings.onboardingCompleted,
       breakAfterFocus: _breakAfterFocus,
+      pomodoroSessionsPerCycle: provider.settings.pomodoroSessionsPerCycle,
+      pomodoroAutoStartNext: provider.settings.pomodoroAutoStartNext,
       userName: provider.settings.userName,
       showPolytechnicTools: _showPolytechnicTools,
     );

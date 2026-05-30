@@ -878,6 +878,8 @@ class AppProvider extends ChangeNotifier {
     bool? examReminderThirtyMinutesBefore,
     bool? onboardingCompleted,
     String? breakAfterFocus,
+    int? pomodoroSessionsPerCycle,
+    bool? pomodoroAutoStartNext,
     String? userName,
     bool? showPolytechnicTools,
   }) {
@@ -912,6 +914,10 @@ class AppProvider extends ChangeNotifier {
           settings.examReminderThirtyMinutesBefore,
       onboardingCompleted: onboardingCompleted ?? settings.onboardingCompleted,
       breakAfterFocus: breakAfterFocus ?? settings.breakAfterFocus,
+      pomodoroSessionsPerCycle:
+          pomodoroSessionsPerCycle ?? settings.pomodoroSessionsPerCycle,
+      pomodoroAutoStartNext:
+          pomodoroAutoStartNext ?? settings.pomodoroAutoStartNext,
       userName: userName ?? settings.userName,
       showPolytechnicTools:
           showPolytechnicTools ?? settings.showPolytechnicTools,

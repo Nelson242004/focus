@@ -33,6 +33,8 @@ class AppSettings {
   bool examReminderThirtyMinutesBefore;
   bool onboardingCompleted;
   String breakAfterFocus;
+  int pomodoroSessionsPerCycle;
+  bool pomodoroAutoStartNext;
   String userName;
   bool showPolytechnicTools;
 
@@ -63,6 +65,8 @@ class AppSettings {
     this.examReminderThirtyMinutesBefore = false,
     this.onboardingCompleted = false,
     this.breakAfterFocus = 'auto',
+    this.pomodoroSessionsPerCycle = 4,
+    this.pomodoroAutoStartNext = false,
     this.userName = '',
     this.showPolytechnicTools = false,
   });
@@ -94,6 +98,8 @@ class AppSettings {
       'examReminderThirtyMinutesBefore': examReminderThirtyMinutesBefore,
       'onboardingCompleted': onboardingCompleted,
       'breakAfterFocus': breakAfterFocus,
+      'pomodoroSessionsPerCycle': pomodoroSessionsPerCycle,
+      'pomodoroAutoStartNext': pomodoroAutoStartNext,
       'userName': userName,
       'showPolytechnicTools': showPolytechnicTools,
     };
@@ -141,6 +147,11 @@ class AppSettings {
       onboardingCompleted:
           _boolFromMap(map['onboardingCompleted'], fallback: false),
       breakAfterFocus: '${map['breakAfterFocus'] ?? 'auto'}',
+      pomodoroSessionsPerCycle:
+          (int.tryParse('${map['pomodoroSessionsPerCycle'] ?? 4}') ?? 4)
+              .clamp(1, 8),
+      pomodoroAutoStartNext:
+          _boolFromMap(map['pomodoroAutoStartNext'], fallback: false),
       userName: '${map['userName'] ?? ''}',
       showPolytechnicTools:
           _boolFromMap(map['showPolytechnicTools'], fallback: false),

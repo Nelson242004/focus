@@ -234,7 +234,7 @@ class NotificationService {
           _pomodoroChannelId,
           _pomodoroChannelName,
           icon: 'ic_stat_focus',
-          largeIcon: DrawableResourceAndroidBitmap('@mipmap/ic_launcher'),
+          largeIcon: DrawableResourceAndroidBitmap('focus_app_icon'),
           channelDescription: _pomodoroChannelDescription,
           importance: Importance.low,
           priority: Priority.low,
