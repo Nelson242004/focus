@@ -652,7 +652,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               FocusGap.md,
               _SettingsSection(
                 title: 'Pomodoro',
-                subtitle: 'Tiempo y metas',
+                subtitle: 'Metas globales y preferencias base',
                 icon: Icons.timer_rounded,
                 iconKind: FocusAppIconKind.pomodoro,
                 children: [
@@ -662,34 +662,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _updateDraft(() => _selectedStartScreen = value),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _breakAfterFocus,
-                    decoration: const InputDecoration(
-                      labelText: 'Al terminar',
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest
+                          .withValues(alpha: 0.42),
                     ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'auto',
-                        child: Text('Automático'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'short',
-                        child: Text('Ir a descanso corto'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'long',
-                        child: Text('Ir a descanso largo'),
-                      ),
-                    ],
-                    onChanged: (value) =>
-                        _updateDraft(() => _breakAfterFocus = value ?? 'auto'),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.timer_rounded),
-                    title: const Text('Tiempos'),
-                    subtitle: const Text('Desde Pomodoro'),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Los tiempos y el ambiente del temporizador se ajustan dentro de Pomodoro.',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
                   _GoalControl(

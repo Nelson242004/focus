@@ -33,6 +33,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   bool _showDock = true;
   bool _startScreenApplied = false;
 
+  static const _screenTitles = [
+    'Inicio',
+    'Focus',
+    'Materias',
+    'Hábitos',
+    'Exámenes',
+    'Tareas',
+    'Recursos',
+    'Ranking',
+    'Amigos',
+    'Logros',
+    'Ajustes',
+  ];
+
   late final List<Widget Function()> _screenBuilders = [
     () => const DashboardScreen(),
     () => const PomodoroScreen(),
@@ -89,7 +103,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Focus'),
+        title: Text(_screenTitles[_selectedIndex]),
         actions: [
           _MainAppBarAction(
             index: _selectedIndex,

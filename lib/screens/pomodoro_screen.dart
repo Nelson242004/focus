@@ -11,6 +11,7 @@ import '../models/focus_mode_status.dart';
 import '../models/focus_shield_app.dart';
 import '../models/app_settings.dart';
 import '../models/pomodoro.dart';
+import '../models/ranking_profile.dart';
 import '../models/study_task.dart';
 import '../providers/app_provider.dart';
 import '../services/focus_mode_service.dart';
@@ -21,9 +22,11 @@ import '../services/widget_sync_service.dart';
 import 'focus_mode_setup_screen.dart';
 import '../utils/app_utils.dart';
 import '../utils/focus_palette.dart';
+import '../utils/profile_icon_access.dart';
 import '../widgets/focus_app_icon.dart';
 import '../widgets/focus_design_system.dart';
 import '../widgets/focus_feedback.dart';
+import '../widgets/focus_profile_icon_image.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -42,6 +45,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   static const _endAtKey = 'pomodoro_end_at';
   static const _cycleCountKey = 'pomodoro_cycle_count';
   static const _horizontalThemeKey = 'pomodoro_horizontal_theme';
+  static const _horizontalDarkModeKey = 'pomodoro_horizontal_dark_mode';
   static const _horizontalAnimationKey = 'pomodoro_horizontal_animation';
   static const _horizontalTickMutedKey = 'pomodoro_horizontal_tick_muted';
   static const _linkedTaskIdKey = 'pomodoro_linked_task_id';
@@ -54,6 +58,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _AmbientSoundOption(
       id: 'none',
       label: 'Sin ambiente',
+      vibe: 'Minimal',
       description: 'Pomodoro limpio, sin sonido de fondo.',
       icon: Icons.volume_off_rounded,
       color: Color(0xFF64748B),
@@ -61,6 +66,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _AmbientSoundOption(
       id: 'rain',
       label: 'Lluvia',
+      vibe: 'Fresco',
       description:
           'Un fondo fresco y constante para estudiar sin ruido visual.',
       icon: Icons.water_drop_rounded,
@@ -69,27 +75,39 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _AmbientSoundOption(
       id: 'forest',
       label: 'Bosque',
+      vibe: 'Natural',
       description: 'Ambiente natural y suave para sesiones largas.',
       icon: Icons.forest_rounded,
       color: Color(0xFF16A34A),
     ),
     _AmbientSoundOption(
       id: 'cafe',
-      label: 'Café',
-      description: 'Murmullo cálido para sentir compañía mientras trabajas.',
+      label: 'Cafe',
+      vibe: 'Acogedor',
+      description: 'Murmullo calido para sentir compania mientras trabajas.',
       icon: Icons.local_cafe_rounded,
       color: Color(0xFFD97706),
     ),
     _AmbientSoundOption(
+      id: 'light_jazz',
+      label: 'Light Jazz',
+      vibe: 'Nocturno',
+      description: 'Jazz suave y nocturno para estudiar con calma.',
+      icon: Icons.piano_rounded,
+      color: Color(0xFFB7794B),
+    ),
+    _AmbientSoundOption(
       id: 'water',
       label: 'Agua',
-      description: 'Movimiento tranquilo para bajar tensión y seguir enfocado.',
+      vibe: 'Fluido',
+      description: 'Movimiento tranquilo para bajar tension y seguir enfocado.',
       icon: Icons.waves_rounded,
       color: Color(0xFF0891B2),
     ),
     _AmbientSoundOption(
       id: 'white_noise',
       label: 'Ruido blanco',
+      vibe: 'Neutro',
       description: 'Sonido neutro para tapar distracciones del entorno.',
       icon: Icons.graphic_eq_rounded,
       color: Color(0xFF7C3AED),
@@ -163,9 +181,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   String _selectedSubject = '';
   int _completedFocusSessions = 0;
   int _horizontalThemeIndex = 0;
+  bool _horizontalDarkModeEnabled = false;
   int _horizontalAnimationIndex = 1;
   bool _horizontalTickMuted = false;
-  bool _horizontalTaskDockExpanded = false;
   final ValueNotifier<int> _horizontalRefresh = ValueNotifier<int>(0);
   late final AnimationController _timerAuraController;
   late final AudioPlayer _audioPlayer;
@@ -436,6 +454,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     _horizontalThemeIndex = (prefs.getInt(_horizontalThemeKey) ?? 0)
         .clamp(0, _horizontalThemes.length - 1)
         .toInt();
+    _horizontalDarkModeEnabled = prefs.getBool(_horizontalDarkModeKey) ?? false;
     _horizontalAnimationIndex = (prefs.getInt(_horizontalAnimationKey) ?? 1)
         .clamp(0, _horizontalAnimations.length - 1)
         .toInt();
@@ -517,6 +536,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     }
     await prefs.setInt(_cycleCountKey, _completedFocusSessions);
     await prefs.setInt(_horizontalThemeKey, _horizontalThemeIndex);
+    await prefs.setBool(_horizontalDarkModeKey, _horizontalDarkModeEnabled);
     await prefs.setInt(_horizontalAnimationKey, _horizontalAnimationIndex);
     await prefs.setBool(_horizontalTickMutedKey, _horizontalTickMuted);
     final linkedTaskId = _linkedTaskId;
@@ -1103,8 +1123,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         ),
       );
     } catch (error) {
-      debugPrint('[FocusPomodoro] No se pudo guardar la sesión: $error');
-      return;
+      debugPrint('[FocusPomodoro] No se pudo guardar la sesion: $error');
     }
 
     unawaited(
@@ -1197,26 +1216,32 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      if (taskTitle.trim().isNotEmpty)
-                        Text(
-                          taskTitle,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Decide por separado que paso con tu tarea y con tu objetivo de sesion.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                      if (taskTitle.trim().isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        _PostSessionDecisionCard(
+                          icon: Icons.task_alt_rounded,
+                          title: 'Tarea vinculada',
+                          body: taskTitle,
+                        ),
+                      ],
                       if (sessionGoal.trim().isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: goalDone,
-                          onChanged: (value) =>
-                              refreshSheet(() => goalDone = value ?? false),
-                          title: const Text('¿Lograste el objetivo?'),
-                          subtitle: Text(sessionGoal),
-                          controlAffinity: ListTileControlAffinity.leading,
+                        _PostSessionDecisionCard(
+                          icon: Icons.flag_rounded,
+                          title: 'Objetivo de sesión',
+                          body: sessionGoal,
+                          trailing: Checkbox(
+                            value: goalDone,
+                            onChanged: (value) =>
+                                refreshSheet(() => goalDone = value ?? false),
+                          ),
                         ),
                       ],
                       const SizedBox(height: 8),
@@ -1224,7 +1249,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         tilePadding: EdgeInsets.zero,
                         childrenPadding: EdgeInsets.zero,
                         leading: const Icon(Icons.edit_note_rounded),
-                        title: const Text('Agregar nota rápida'),
+                        title: const Text('Agregar nota rapida'),
                         children: [
                           TextField(
                             controller: noteController,
@@ -1256,7 +1281,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                               onPressed: () =>
                                   Navigator.pop(sheetContext, 'inProgress'),
                               icon: const Icon(Icons.trending_up_rounded),
-                              label: const Text('En progreso'),
+                              label: const Text('Seguir con tarea'),
                             ),
                           OutlinedButton.icon(
                             onPressed: () =>
@@ -1268,7 +1293,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(sheetContext, 'later'),
-                        child: const Text('Seguir después'),
+                        child: const Text('Seguir despues'),
                       ),
                     ],
                   ),
@@ -1614,7 +1639,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       (sum, pomodoro) => sum + pomodoro.duration,
     );
     if (count == 0) return '0 sesiones';
-    return '$count ${count == 1 ? 'sesión' : 'sesiones'} · $minutes min';
+    return '$count ${count == 1 ? 'sesion' : 'sesiones'} ? $minutes min';
   }
 
   StudyTask? _studyTaskById(AppProvider provider, int taskId) {
@@ -1667,6 +1692,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   Future<void> _clearLinkedTask() async {
+    final hadTask = _linkedTaskTitle.trim().isNotEmpty;
     if (mounted) {
       setState(() {
         _linkedTaskId = null;
@@ -1677,9 +1703,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _linkedTaskTitle = '';
     }
     await _persistState();
+    if (hadTask && mounted) {
+      showFocusFeedback(
+        context,
+        message: 'Tarea quitada del bloque.',
+        type: FocusFeedbackType.info,
+      );
+    }
   }
 
   Future<void> _clearSessionGoal() async {
+    final hadGoal = _sessionGoal.trim().isNotEmpty;
     _sessionGoalController.clear();
     if (mounted) {
       setState(() => _sessionGoal = '');
@@ -1687,6 +1721,13 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       _sessionGoal = '';
     }
     await _persistState();
+    if (hadGoal && mounted) {
+      showFocusFeedback(
+        context,
+        message: 'Objetivo quitado.',
+        type: FocusFeedbackType.info,
+      );
+    }
   }
 
   Future<void> _syncFocusModeShield(AppProvider provider) async {
@@ -1752,7 +1793,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             content: FocusActionSnackContent(
               icon: Icons.warning_amber_rounded,
               message:
-                  'El bloqueo falló al arrancar. La sesión de Pomodoro sigue activa.',
+                  'El bloqueo fallo al arrancar. La sesion de Pomodoro sigue activa.',
               color: FocusPalette.amber,
             ),
             behavior: SnackBarBehavior.floating,
@@ -1895,7 +1936,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Para proteger sesión necesitás activar estos permisos.',
+                  'Para proteger sesion necesitas activar estos permisos.',
                   style: Theme.of(sheetContext).textTheme.bodyMedium,
                 ),
                 FocusGap.lg,
@@ -2018,7 +2059,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
             valueListenable: _horizontalRefresh,
             builder: (_, __, ___) {
               final provider = Provider.of<AppProvider>(context, listen: false);
-              final horizontalTheme = _horizontalThemes[_horizontalThemeIndex];
+              final horizontalTheme = _activeHorizontalTheme();
               final horizontalAnimation =
                   _horizontalAnimations[_horizontalAnimationIndex];
               return _buildCinematicHorizontalTimer(
@@ -2044,10 +2085,41 @@ class _PomodoroScreenState extends State<PomodoroScreen>
   }
 
   void _setHorizontalTheme(int index) {
-    setState(() => _horizontalThemeIndex =
-        index.clamp(0, _horizontalThemes.length - 1).toInt());
+    final nextIndex = index.clamp(0, _horizontalThemes.length - 1).toInt();
+    setState(() => _horizontalThemeIndex = nextIndex);
     _horizontalRefresh.value++;
     _persistState();
+  }
+
+  bool get _isHorizontalDarkMode => _horizontalDarkModeEnabled;
+
+  void _toggleHorizontalDarkMode(bool enabled) {
+    setState(() => _horizontalDarkModeEnabled = enabled);
+    _horizontalRefresh.value++;
+    _persistState();
+  }
+
+  _HorizontalTheme _activeHorizontalTheme() {
+    final base = _horizontalThemes[_horizontalThemeIndex];
+    if (!_horizontalDarkModeEnabled) return base;
+    return _HorizontalTheme(
+      label: '${base.label} Dark',
+      description: 'Versión oscura del tema actual.',
+      icon: Icons.dark_mode_rounded,
+      layout: base.layout,
+      isDark: true,
+      backgroundStart: const Color(0xFF171A20),
+      backgroundEnd: const Color(0xFF090B10),
+      vignetteColor: const Color(0xFF05070B),
+      glow: Color.lerp(base.glow, const Color(0xFF78C6FF), 0.35)!,
+      accent: Color.lerp(base.accent, const Color(0xFF8ED0FF), 0.4)!,
+      textColor: const Color(0xFFF5F8FF),
+      chipTextColor: const Color(0xFF0F1720),
+      panelColor: const Color(0xFF262C36),
+      panelBorder: const Color(0x3D9FC7E8),
+      panelRadius: base.panelRadius,
+      shadowAlpha: 0.20,
+    );
   }
 
   void _toggleHorizontalTickSound() {
@@ -2074,7 +2146,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, refreshSheet) {
-            final activeTheme = _horizontalThemes[_horizontalThemeIndex];
+            final activeTheme = _activeHorizontalTheme();
             final media = MediaQuery.of(sheetContext);
             final maxHeight = media.size.height * 0.86;
             return SafeArea(
@@ -2113,6 +2185,20 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       children: [
                         _HorizontalSettingsHeader(theme: activeTheme),
                         const SizedBox(height: 16),
+                        SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          value: _isHorizontalDarkMode,
+                          activeColor: activeTheme.glow,
+                          title: const Text('Modo dark'),
+                          subtitle: const Text(
+                            'Aplica una versión oscura al tema actual.',
+                          ),
+                          onChanged: (value) {
+                            _toggleHorizontalDarkMode(value);
+                            refreshSheet(() {});
+                          },
+                        ),
+                        const SizedBox(height: 8),
                         Text(
                           'Temas',
                           style: TextStyle(
@@ -2240,24 +2326,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     required VoidCallback onExit,
   }) {
     final provider = Provider.of<AppProvider>(routeContext, listen: false);
-    final minutes = _remainingSeconds ~/ 60;
-    final seconds = _remainingSeconds % 60;
-    final progress =
-        totalSeconds == 0 ? 0.0 : 1 - (_remainingSeconds / totalSeconds);
     final modeLabel = _mode == 'focus'
         ? 'Enfoque'
         : _mode == 'shortBreak'
-            ? 'Descanso'
+            ? 'Descanso breve'
             : 'Descanso largo';
-    final modeIcon = _mode == 'focus'
-        ? Icons.psychology_rounded
-        : _mode == 'shortBreak'
-            ? Icons.local_cafe_rounded
-            : Icons.nightlight_round;
-    final nextMode = _nextPomodoroMode(provider);
-    final nextLabel = _pomodoroModeLabel(nextMode);
-    final nextTime = _formatTime(_totalSecondsForMode(provider, nextMode));
-    final focusTasks = provider.activeStudyTasks.take(8).toList();
 
     return Scaffold(
       backgroundColor: horizontalTheme.backgroundEnd,
@@ -2290,133 +2363,260 @@ class _PomodoroScreenState extends State<PomodoroScreen>
           ),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 14, 74, 72),
+              padding: const EdgeInsets.fromLTRB(24, 18, 24, 24),
               child: Column(
                 children: [
-                  if (horizontalTheme.layout !=
-                      _HorizontalTimerLayout.fomodoro) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            modeLabel,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: horizontalTheme.textColor
-                                  .withValues(alpha: 0.58),
-                              fontSize: 24,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
+                  Row(
+                    children: [
+                      _RailButton(
+                        icon: Icons.music_note_rounded,
+                        onTap: () => _showAmbientSoundSheet(provider),
+                        theme: horizontalTheme,
+                        selected: provider.settings.ambientSound != 'none',
+                      ),
+                      const Spacer(),
+                      _buildHorizontalIdentity(provider, horizontalTheme),
+                      const SizedBox(width: 10),
+                      _RailButton(
+                        icon: Icons.close_rounded,
+                        onTap: onExit,
+                        theme: horizontalTheme,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final numberSize =
-                            (constraints.maxHeight * 0.74).clamp(112.0, 265.0);
-                        return _HorizontalTimerBody(
-                          theme: horizontalTheme,
-                          animation: horizontalAnimation,
-                          minutes: minutes,
-                          seconds: seconds,
-                          remainingSeconds: _remainingSeconds,
-                          numberSize: numberSize,
-                          modeLabel: modeLabel,
-                          modeIcon: modeIcon,
-                          sessionGoal: _sessionGoal.trim(),
-                          progress: progress.clamp(0, 1),
+                        final compactHeight = constraints.maxHeight < 420;
+                        final narrowWidth = constraints.maxWidth < 620;
+                        final timerSize = (constraints.maxWidth *
+                                (narrowWidth ? 0.21 : 0.245))
+                            .clamp(138.0, 248.0);
+                        final infoText = [
+                          if (_linkedTaskTitle.trim().isNotEmpty)
+                            _linkedTaskTitle.trim(),
+                          if (_sessionGoal.trim().isNotEmpty)
+                            _sessionGoal.trim(),
+                        ].join(' • ');
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: constraints.maxWidth * 0.88,
+                            ),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    modeLabel,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: horizontalTheme.textColor
+                                          .withValues(alpha: 0.58),
+                                      fontSize: compactHeight ? 16 : 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                  SizedBox(height: compactHeight ? 10 : 14),
+                                  SizedBox(
+                                    height:
+                                        (timerSize * 1.04).clamp(150.0, 280.0),
+                                    child: _TimePanel(
+                                      value: _formatTime(_remainingSeconds),
+                                      topLabel: '',
+                                      numberSize: timerSize * 0.9,
+                                      theme: horizontalTheme,
+                                      animationStyle: horizontalAnimation,
+                                      pulseKey: _remainingSeconds,
+                                      frameless: true,
+                                    ),
+                                  ),
+                                  if (infoText.isNotEmpty) ...[
+                                    SizedBox(height: compactHeight ? 14 : 18),
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: constraints.maxWidth * 0.62,
+                                      ),
+                                      child: Text(
+                                        infoText,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: horizontalTheme.textColor
+                                              .withValues(alpha: 0.68),
+                                          fontSize: compactHeight ? 12 : 13,
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.35,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  SizedBox(height: compactHeight ? 16 : 22),
+                                  narrowWidth
+                                      ? Column(
+                                          children: [
+                                            SizedBox(
+                                              width:
+                                                  (constraints.maxWidth * 0.52)
+                                                      .clamp(172.0, 240.0),
+                                              child: FilledButton.icon(
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor:
+                                                      horizontalTheme.accent,
+                                                  foregroundColor:
+                                                      horizontalTheme
+                                                          .chipTextColor,
+                                                  minimumSize: Size(
+                                                    0,
+                                                    compactHeight ? 50 : 56,
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 18,
+                                                    vertical: 16,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999),
+                                                  ),
+                                                ),
+                                                onPressed: _isRunning
+                                                    ? _pauseTimer
+                                                    : () => _startTimer(),
+                                                icon: Icon(
+                                                  _isRunning
+                                                      ? Icons.pause_rounded
+                                                      : Icons
+                                                          .play_arrow_rounded,
+                                                ),
+                                                label: Text(
+                                                  _isRunning
+                                                      ? 'Pausar'
+                                                      : 'Iniciar',
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 10),
+                                            SizedBox(
+                                              width:
+                                                  (constraints.maxWidth * 0.52)
+                                                      .clamp(172.0, 240.0),
+                                              child: OutlinedButton.icon(
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      horizontalTheme.textColor,
+                                                  minimumSize: Size(
+                                                    0,
+                                                    compactHeight ? 50 : 56,
+                                                  ),
+                                                  side: BorderSide(
+                                                    color: horizontalTheme
+                                                        .textColor
+                                                        .withValues(
+                                                            alpha: 0.18),
+                                                  ),
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 18,
+                                                    vertical: 16,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            999),
+                                                  ),
+                                                ),
+                                                onPressed: _resetTimer,
+                                                icon: const Icon(
+                                                    Icons.refresh_rounded),
+                                                label: const Text('Reiniciar'),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Wrap(
+                                          spacing: 12,
+                                          runSpacing: 12,
+                                          alignment: WrapAlignment.center,
+                                          children: [
+                                            FilledButton.icon(
+                                              style: FilledButton.styleFrom(
+                                                backgroundColor:
+                                                    horizontalTheme.accent,
+                                                foregroundColor: horizontalTheme
+                                                    .chipTextColor,
+                                                minimumSize:
+                                                    const Size(180, 60),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 26,
+                                                  vertical: 18,
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                ),
+                                              ),
+                                              onPressed: _isRunning
+                                                  ? _pauseTimer
+                                                  : () => _startTimer(),
+                                              icon: Icon(
+                                                _isRunning
+                                                    ? Icons.pause_rounded
+                                                    : Icons.play_arrow_rounded,
+                                              ),
+                                              label: Text(
+                                                _isRunning
+                                                    ? 'Pausar'
+                                                    : 'Iniciar',
+                                              ),
+                                            ),
+                                            OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    horizontalTheme.textColor,
+                                                minimumSize:
+                                                    const Size(160, 60),
+                                                side: BorderSide(
+                                                  color: horizontalTheme
+                                                      .textColor
+                                                      .withValues(alpha: 0.18),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 22,
+                                                  vertical: 18,
+                                                ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          999),
+                                                ),
+                                              ),
+                                              onPressed: _resetTimer,
+                                              icon: const Icon(
+                                                Icons.refresh_rounded,
+                                              ),
+                                              label: const Text('Reiniciar'),
+                                            ),
+                                          ],
+                                        ),
+                                ],
+                              ),
+                            ),
+                          ),
                         );
                       },
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      minHeight: 5,
-                      value: progress.clamp(0, 1),
-                      backgroundColor: Colors.white.withValues(alpha: 0.08),
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(horizontalTheme.glow),
-                    ),
-                  ),
                 ],
-              ),
-            ),
-          ),
-          Positioned(
-            right: 18,
-            top: 58,
-            bottom: 58,
-            child: _HorizontalToolRail(
-              theme: horizontalTheme,
-              isRunning: _isRunning,
-              tickMuted: _horizontalTickMuted,
-              onTasks: () {
-                setState(() {
-                  _horizontalTaskDockExpanded = !_horizontalTaskDockExpanded;
-                });
-                _refreshHorizontalMode();
-              },
-              onTickSound: _toggleHorizontalTickSound,
-              onToggle: _isRunning ? _pauseTimer : () => _startTimer(),
-              onExit: onExit,
-            ),
-          ),
-          Positioned(
-            top: 18,
-            left: 18,
-            child: SafeArea(
-              child: Row(
-                children: [
-                  _RailButton(
-                    icon: Icons.music_note_rounded,
-                    onTap: () => _showAmbientSoundSheet(provider),
-                    theme: horizontalTheme,
-                    selected: provider.settings.ambientSound != 'none',
-                  ),
-                  const SizedBox(width: 8),
-                  _RailButton(
-                    icon: Icons.tune_rounded,
-                    onTap: () => _showHorizontalSettings(routeContext),
-                    theme: horizontalTheme,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 18,
-            right: 82,
-            bottom: 16,
-            child: SafeArea(
-              child: _HorizontalTaskDock(
-                theme: horizontalTheme,
-                expanded: _horizontalTaskDockExpanded,
-                currentTaskTitle: _linkedTaskTitle,
-                tasks: focusTasks,
-                nextLabel: nextLabel,
-                nextTime: nextTime,
-                onToggle: () {
-                  setState(() {
-                    _horizontalTaskDockExpanded = !_horizontalTaskDockExpanded;
-                  });
-                  _refreshHorizontalMode();
-                },
-                onTaskTap: (task) async {
-                  await _linkTaskForPomodoro(task);
-                  _refreshHorizontalMode();
-                },
-                onTaskComplete: (task) async {
-                  await provider.completeStudyTask(task, true);
-                  if (task.id == _linkedTaskId) await _clearLinkedTask();
-                  _refreshHorizontalMode();
-                },
               ),
             ),
           ),
@@ -2486,6 +2686,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     final modeTitle = _currentModeTitle();
     final ambientEnabled = provider.settings.ambientSound != 'none';
     final ambientOption = _ambientOptionFor(provider.settings.ambientSound);
+    final idleSubtitle = _mode == 'focus'
+        ? 'Un bloque tranquilo y claro.'
+        : _mode == 'shortBreak'
+            ? 'Una pausa breve para respirar.'
+            : 'Descansa un poco más.';
 
     return Container(
       decoration: BoxDecoration(
@@ -2525,14 +2730,34 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          _isRunning ? modeTitle : _idleModeTitle(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _isRunning ? modeTitle : _idleModeTitle(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _isRunning ? 'Sigue con calma.' : idleSubtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
                         ),
                       ),
                       IconButton(
@@ -2583,7 +2808,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                 onTap: () => _changeMode('focus'),
                               ),
                               _ModePill(
-                                label: 'Descanso',
+                                label: 'Breve',
                                 selected: _mode == 'shortBreak',
                                 color: FocusPalette.mint,
                                 onTap: () => _changeMode('shortBreak'),
@@ -2604,17 +2829,17 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                       subject: _selectedSubject.trim().isEmpty
                           ? 'General'
                           : _selectedSubject.trim(),
-                      hasGoal: _sessionGoal.trim().isNotEmpty,
+                      goal: _sessionGoal,
                       ambientEnabled: ambientEnabled,
                       protectEnabled: _focusModeConfig.enabled,
                       accent: themePalette.accent,
                       onTasks: _showFocusTaskSheet,
-                      onSubject: () => _showSubjectQuickPicker(provider),
                       onGoal: _showSessionGoalSheet,
+                      onSubject: () => _showSubjectQuickPicker(provider),
                       onAmbient: () => _showAmbientSoundSheet(provider),
                       onProtect: () =>
                           _toggleFocusModeEnabled(!_focusModeConfig.enabled),
-                      onSettings: () => _showPomodoroSettingsSheet(provider),
+                      onHorizontal: _toggleHorizontalFocusMode,
                     ),
                   ],
                   FocusGap.lg,
@@ -2714,8 +2939,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                   _isRunning
                                       ? 'Sesión activa'
                                       : _mode == 'focus'
-                                          ? 'Tiempo restante'
-                                          : 'Cuenta regresiva',
+                                          ? 'En curso'
+                                          : 'Pausa activa',
                                   style: Theme.of(context)
                                       .textTheme
                                       .bodySmall
@@ -2736,28 +2961,36 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     ),
                   ),
                   FocusGap.lg,
-                  if (_linkedTaskId != null &&
-                      _linkedTaskTitle.trim().isNotEmpty) ...[
-                    _LinkedTaskStrip(
-                      title: _linkedTaskTitle,
-                      accent: themePalette.accent,
-                      onComplete: () async {
-                        final task = _studyTaskById(provider, _linkedTaskId!);
-                        if (task == null) {
-                          await _clearLinkedTask();
-                        } else {
-                          await provider.completeStudyTask(task, true);
-                          await _clearLinkedTask();
-                        }
-                      },
-                      onClear: _isRunning ? null : _clearLinkedTask,
-                    ),
-                    FocusGap.sm,
-                  ],
-                  if (_isRunning && _sessionGoal.trim().isNotEmpty) ...[
-                    _GoalStrip(
-                      goal: _sessionGoal.trim(),
-                      accent: themePalette.accent,
+                  if (_linkedTaskTitle.trim().isNotEmpty ||
+                      _sessionGoal.trim().isNotEmpty) ...[
+                    FocusMicroPop(
+                      trigger:
+                          'session-context-${_linkedTaskTitle.trim()}-${_sessionGoal.trim()}',
+                      fromScale: 0.985,
+                      child: _SessionContextCard(
+                        accent: themePalette.accent,
+                        taskTitle: _linkedTaskTitle.trim(),
+                        goal: _sessionGoal.trim(),
+                        onEditGoal: _showSessionGoalSheet,
+                        onCompleteTask: _linkedTaskId == null
+                            ? null
+                            : () async {
+                                final task =
+                                    _studyTaskById(provider, _linkedTaskId!);
+                                if (task == null) {
+                                  await _clearLinkedTask();
+                                } else {
+                                  await provider.completeStudyTask(task, true);
+                                  await _clearLinkedTask();
+                                }
+                              },
+                        onClearGoal: (_isRunning || _sessionGoal.trim().isEmpty)
+                            ? null
+                            : _clearSessionGoal,
+                        onClearTask: (_isRunning || _linkedTaskId == null)
+                            ? null
+                            : _clearLinkedTask,
+                      ),
                     ),
                     FocusGap.sm,
                   ],
@@ -2773,6 +3006,12 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           padding: const EdgeInsets.symmetric(
                             horizontal: 18,
                             vertical: 16,
+                          ),
+                          elevation: 0,
+                          shadowColor:
+                              themePalette.accent.withValues(alpha: 0.22),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(22),
                           ),
                         ),
                         onPressed:
@@ -2790,10 +3029,10 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                         ),
                         label: Text(
                           _isRunning
-                              ? 'Pausar sesión'
+                              ? 'Pausar'
                               : _mode == 'focus'
-                                  ? 'Iniciar sesión de enfoque'
-                                  : 'Empezar descanso',
+                                  ? 'Empezar bloque'
+                                  : 'Empezar pausa',
                         ),
                       ),
                     ),
@@ -2824,6 +3063,9 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                                     horizontal: 18,
                                     vertical: 14,
                                   ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
                                 ),
                                 onPressed: _resetTimer,
                                 icon: const Icon(Icons.refresh_rounded),
@@ -2840,20 +3082,25 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               _glassCard(
                 context,
                 padding: FocusInsets.cardRelaxed,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    FocusSectionHeader(
-                      icon: Icons.today_rounded,
-                      iconKind: FocusAppIconKind.pomodoro,
-                      title: 'Sesiones de hoy',
-                      subtitle:
-                          'Se guardan automáticamente al completar el enfoque.',
-                      accent: themePalette.accent,
-                    ),
-                    FocusGap.md,
-                    SizedBox(height: 250, child: _buildTodaySessions(provider)),
-                  ],
+                child: FocusMicroPop(
+                  trigger: 'today-sessions-${provider.pomodoros.length}',
+                  fromScale: 0.99,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      FocusSectionHeader(
+                        icon: Icons.today_rounded,
+                        iconKind: FocusAppIconKind.pomodoro,
+                        title: 'Sesiones de hoy',
+                        subtitle:
+                            'Se guardan automáticamente al completar el enfoque.',
+                        accent: themePalette.accent,
+                      ),
+                      FocusGap.md,
+                      SizedBox(
+                          height: 250, child: _buildTodaySessions(provider)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -2911,6 +3158,11 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               _refreshPomodoroSettingsSheet = () => refreshSheet(() {});
               return Consumer<AppProvider>(
                 builder: (context, sheetProvider, _) {
+                  final ambientSelected =
+                      _ambientOptionFor(sheetProvider.settings.ambientSound);
+                  final completionSelected =
+                      _completionOptionFor(sheetProvider.settings.sound);
+
                   return Padding(
                     padding: EdgeInsets.fromLTRB(
                       18,
@@ -2928,144 +3180,248 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                             modeTitle: _currentModeTitle(),
                           ),
                           FocusGap.lg,
-                          ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(FocusRadii.panel),
+                          _PomodoroSettingsSection(
+                            icon: Icons.timer_rounded,
+                            title: 'Tiempo',
+                            subtitle:
+                                '${sheetProvider.settings.focusTime}/${sheetProvider.settings.shortBreakTime}/${sheetProvider.settings.longBreakTime} min',
+                            accent: FocusPalette.primary,
+                            shape: BorderRadius.circular(FocusRadii.panel),
+                            child: _PomodoroTimeStepperGrid(
+                              focusTime: sheetProvider.settings.focusTime,
+                              shortBreakTime:
+                                  sheetProvider.settings.shortBreakTime,
+                              longBreakTime:
+                                  sheetProvider.settings.longBreakTime,
+                              onFocusChanged: (value) =>
+                                  _updatePomodoroSettings(
+                                focusTime: value,
+                              ),
+                              onShortBreakChanged: (value) =>
+                                  _updatePomodoroSettings(
+                                shortBreakTime: value,
+                              ),
+                              onLongBreakChanged: (value) =>
+                                  _updatePomodoroSettings(
+                                longBreakTime: value,
+                              ),
+                            ),
+                          ),
+                          FocusGap.sm,
+                          _PomodoroSettingsSection(
+                            icon: Icons.music_note_rounded,
+                            title: 'Ambiente',
+                            subtitle: ambientSelected.label,
+                            accent: ambientSelected.color,
+                            shape: BorderRadius.circular(FocusRadii.panel),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _PomodoroSettingsSection(
-                                  icon: Icons.timer_rounded,
-                                  title: 'Tiempo',
-                                  subtitle:
-                                      '${sheetProvider.settings.focusTime}/${sheetProvider.settings.shortBreakTime}/${sheetProvider.settings.longBreakTime} min',
-                                  accent: FocusPalette.primary,
-                                  shape: _segmentedSettingsShape(0, 4),
-                                  child: _PomodoroTimeStepperGrid(
-                                    focusTime: sheetProvider.settings.focusTime,
-                                    shortBreakTime:
-                                        sheetProvider.settings.shortBreakTime,
-                                    longBreakTime:
-                                        sheetProvider.settings.longBreakTime,
-                                    onFocusChanged: (value) =>
-                                        _updatePomodoroSettings(
-                                      focusTime: value,
+                                _SimpleAmbientSoundControls(
+                                  selected: ambientSelected,
+                                  options: _ambientSoundOptions,
+                                  volume: sheetProvider.settings.ambientVolume,
+                                  isPreviewing: _previewingAmbientSound ==
+                                          ambientSelected.id &&
+                                      _ambientPreviewPlayer.playing,
+                                  onSelected: (option) async {
+                                    await _updatePomodoroSettings(
+                                      ambientSound: option.id,
+                                    );
+                                    await _stopAmbientPreview();
+                                    refreshSheet(() {});
+                                  },
+                                  onVolumeChanged: ambientSelected.id == 'none'
+                                      ? null
+                                      : (value) {
+                                          unawaited(
+                                            _ambientPlayer.setVolume(value),
+                                          );
+                                          unawaited(
+                                            _ambientPreviewPlayer
+                                                .setVolume(value),
+                                          );
+                                          unawaited(
+                                            _updatePomodoroSettings(
+                                              ambientVolume: value,
+                                            ),
+                                          );
+                                          refreshSheet(() {});
+                                        },
+                                  onPreview: ambientSelected.id == 'none'
+                                      ? null
+                                      : () async {
+                                          await _previewAmbientSound(
+                                            ambientSelected.id,
+                                            volume: sheetProvider
+                                                .settings.ambientVolume,
+                                          );
+                                          refreshSheet(() {});
+                                        },
+                                ),
+                                const SizedBox(height: 8),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  value:
+                                      sheetProvider.settings.ambientDuringFocus,
+                                  activeColor: ambientSelected.color,
+                                  title: const Text('Reproducir en enfoque'),
+                                  onChanged: ambientSelected.id == 'none'
+                                      ? null
+                                      : (value) async {
+                                          await _updatePomodoroSettings(
+                                            ambientDuringFocus: value,
+                                          );
+                                          refreshSheet(() {});
+                                        },
+                                ),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  value: sheetProvider
+                                      .settings.ambientDuringBreaks,
+                                  activeColor: ambientSelected.color,
+                                  title: const Text('Reproducir en descansos'),
+                                  onChanged: ambientSelected.id == 'none'
+                                      ? null
+                                      : (value) async {
+                                          await _updatePomodoroSettings(
+                                            ambientDuringBreaks: value,
+                                          );
+                                          refreshSheet(() {});
+                                        },
+                                ),
+                              ],
+                            ),
+                          ),
+                          FocusGap.sm,
+                          _PomodoroSettingsSection(
+                            icon: Icons.notifications_active_rounded,
+                            title: 'Flujo de sesión',
+                            subtitle:
+                                '${completionSelected.label} · ${sheetProvider.settings.pomodoroSessionsPerCycle} enfoques por ciclo',
+                            accent: FocusPalette.teal,
+                            shape: BorderRadius.circular(FocusRadii.panel),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _CompactCompletionSoundPicker(
+                                  selected: completionSelected,
+                                  options: _completionSoundOptions,
+                                  onSelected: (option) async {
+                                    await _updatePomodoroSettings(
+                                      sound: option.id,
+                                    );
+                                    await _previewCompletionSound(option.id);
+                                    refreshSheet(() {});
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue:
+                                      sheetProvider.settings.breakAfterFocus,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Después del enfoque',
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'auto',
+                                      child: Text('Según ciclos'),
                                     ),
-                                    onShortBreakChanged: (value) =>
-                                        _updatePomodoroSettings(
-                                      shortBreakTime: value,
+                                    DropdownMenuItem(
+                                      value: 'shortBreak',
+                                      child: Text('Siempre descanso corto'),
                                     ),
-                                    onLongBreakChanged: (value) =>
-                                        _updatePomodoroSettings(
-                                      longBreakTime: value,
+                                    DropdownMenuItem(
+                                      value: 'longBreak',
+                                      child: Text('Siempre descanso largo'),
                                     ),
+                                  ],
+                                  onChanged: (value) => _updatePomodoroSettings(
+                                    breakAfterFocus: value ?? 'auto',
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                _PomodoroSettingsSection(
-                                  icon: Icons.volume_up_rounded,
-                                  title: 'Sonidos',
-                                  subtitle: _completionOptionFor(
-                                    sheetProvider.settings.sound,
-                                  ).label,
-                                  accent: FocusPalette.teal,
-                                  shape: _segmentedSettingsShape(1, 4),
-                                  child: _CompactCompletionSoundPicker(
-                                    selected: _completionOptionFor(
-                                      sheetProvider.settings.sound,
+                                const SizedBox(height: 10),
+                                _MinuteStepper(
+                                  label: 'Descanso largo cada',
+                                  value: sheetProvider
+                                      .settings.pomodoroSessionsPerCycle,
+                                  min: 1,
+                                  max: 8,
+                                  unit: 'enfoques',
+                                  color: FocusPalette.primary,
+                                  onChanged: (value) => _updatePomodoroSettings(
+                                    pomodoroSessionsPerCycle: value,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: const Text('Iniciar siguiente bloque'),
+                                  subtitle: const Text(
+                                    'Pasa de enfoque a descanso sin tocar iniciar.',
+                                  ),
+                                  value: sheetProvider
+                                      .settings.pomodoroAutoStartNext,
+                                  onChanged: (value) => _updatePomodoroSettings(
+                                    pomodoroAutoStartNext: value,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          FocusGap.sm,
+                          _PomodoroSettingsSection(
+                            icon: Icons.tune_rounded,
+                            title: 'Vista y bloqueo',
+                            subtitle: _focusModeConfig.enabled
+                                ? 'Vista horizontal y protección activable'
+                                : 'Vista horizontal y protección opcional',
+                            accent: FocusPalette.primaryDeep,
+                            shape: BorderRadius.circular(FocusRadii.panel),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                _buildFocusModeTotalCard(sheetProvider),
+                                const SizedBox(height: 12),
+                                ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  leading: const Icon(Icons.palette_rounded),
+                                  title: const Text('Apariencia horizontal'),
+                                  subtitle: const Text(
+                                    'Tema y animación del reloj.',
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_rounded,
+                                  ),
+                                  onTap: () => _showHorizontalSettings(context),
+                                ),
+                                if (_isRunning)
+                                  ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: const Icon(
+                                      Icons.open_in_full_rounded,
                                     ),
-                                    options: _completionSoundOptions,
-                                    onSelected: (option) async {
-                                      await _updatePomodoroSettings(
-                                        sound: option.id,
-                                      );
-                                      await _previewCompletionSound(option.id);
-                                      refreshSheet(() {});
-                                    },
+                                    title: const Text('Abrir modo horizontal'),
+                                    subtitle: const Text(
+                                      'Entra a la vista inmersiva del temporizador.',
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right_rounded,
+                                    ),
+                                    onTap: _toggleHorizontalFocusMode,
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                _PomodoroSettingsSection(
-                                  icon: Icons.shield_rounded,
-                                  title: 'Bloqueo',
-                                  subtitle: _focusModeConfig.enabled
-                                      ? '${_focusModeConfig.blockedApps.length} apps'
-                                      : 'Desactivado',
-                                  accent: FocusPalette.amber,
-                                  shape: _segmentedSettingsShape(2, 4),
-                                  child:
-                                      _buildFocusModeTotalCard(sheetProvider),
-                                ),
-                                const SizedBox(height: 2),
-                                _PomodoroSettingsSection(
-                                  icon: Icons.tune_rounded,
-                                  title: 'Avanzado',
-                                  subtitle:
-                                      '${sheetProvider.settings.pomodoroSessionsPerCycle} enfoques por ciclo',
-                                  accent: FocusPalette.muted,
-                                  shape: _segmentedSettingsShape(3, 4),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      DropdownButtonFormField<String>(
-                                        initialValue: sheetProvider
-                                            .settings.breakAfterFocus,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Después del enfoque',
-                                        ),
-                                        items: const [
-                                          DropdownMenuItem(
-                                            value: 'auto',
-                                            child: Text('Según ciclos'),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'shortBreak',
-                                            child:
-                                                Text('Siempre descanso corto'),
-                                          ),
-                                          DropdownMenuItem(
-                                            value: 'longBreak',
-                                            child:
-                                                Text('Siempre descanso largo'),
-                                          ),
-                                        ],
-                                        onChanged: (value) =>
-                                            _updatePomodoroSettings(
-                                          breakAfterFocus: value ?? 'auto',
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _MinuteStepper(
-                                        label: 'Descanso largo cada',
-                                        value: sheetProvider
-                                            .settings.pomodoroSessionsPerCycle,
-                                        min: 1,
-                                        max: 8,
-                                        unit: 'enfoques',
-                                        color: FocusPalette.primary,
-                                        onChanged: (value) =>
-                                            _updatePomodoroSettings(
-                                          pomodoroSessionsPerCycle: value,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      SwitchListTile.adaptive(
-                                        contentPadding: EdgeInsets.zero,
-                                        title: const Text(
-                                          'Iniciar siguiente bloque',
-                                        ),
-                                        subtitle: const Text(
-                                          'Pasa de enfoque a descanso sin tocar iniciar.',
-                                        ),
-                                        value: sheetProvider
-                                            .settings.pomodoroAutoStartNext,
-                                        onChanged: (value) =>
-                                            _updatePomodoroSettings(
-                                          pomodoroAutoStartNext: value,
-                                        ),
-                                      ),
-                                    ],
+                                SwitchListTile.adaptive(
+                                  contentPadding: EdgeInsets.zero,
+                                  title:
+                                      const Text('Activar bloqueo al estudiar'),
+                                  subtitle: const Text(
+                                    'Protege la sesión de apps que distraen.',
                                   ),
+                                  value: _focusModeConfig.enabled,
+                                  onChanged: _isTogglingFocusMode
+                                      ? null
+                                      : (value) =>
+                                          _toggleFocusModeEnabled(value),
                                 ),
                               ],
                             ),
@@ -3092,37 +3448,31 @@ class _PomodoroScreenState extends State<PomodoroScreen>
       builder: (sheetContext) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _PomodoroMoreAction(
-                  icon: Icons.task_alt_rounded,
-                  title: 'Tareas',
-                  subtitle: _linkedTaskTitle.trim().isEmpty
-                      ? 'Elegir o crear tarea'
-                      : _linkedTaskTitle,
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _showFocusTaskSheet();
-                  },
+                Text(
+                  'Más opciones',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
                 ),
-                _PomodoroMoreAction(
-                  icon: _focusModeConfig.enabled
-                      ? Icons.shield_rounded
-                      : Icons.shield_outlined,
-                  title: 'Proteger sesión',
-                  subtitle: 'Evita distracciones mientras estudias.',
-                  onTap: () {
-                    Navigator.pop(sheetContext);
-                    _toggleFocusModeEnabled(!_focusModeConfig.enabled);
-                  },
+                const SizedBox(height: 4),
+                Text(
+                  'Atajos lindos y útiles para este bloque.',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                        color:
+                            Theme.of(sheetContext).colorScheme.onSurfaceVariant,
+                      ),
                 ),
+                const SizedBox(height: 14),
                 if (_isRunning)
                   _PomodoroMoreAction(
-                    icon: Icons.screen_rotation_alt_rounded,
-                    title: 'Modo horizontal',
-                    subtitle: 'Vista inmersiva del reloj',
+                    icon: Icons.open_in_full_rounded,
+                    title: 'Abrir horizontal',
+                    subtitle: 'Vista inmersiva del reloj actual.',
                     onTap: () {
                       Navigator.pop(sheetContext);
                       _toggleHorizontalFocusMode();
@@ -3130,8 +3480,8 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                   ),
                 _PomodoroMoreAction(
                   icon: Icons.palette_rounded,
-                  title: 'Apariencia horizontal',
-                  subtitle: 'Tema y animación del reloj',
+                  title: 'Look horizontal',
+                  subtitle: 'Tema y movimiento del reloj.',
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _showHorizontalSettings(context);
@@ -3140,12 +3490,25 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                 _PomodoroMoreAction(
                   icon: Icons.tune_rounded,
                   title: 'Ajustes',
-                  subtitle: 'Tiempo, sonidos y avanzado',
+                  subtitle: 'Tiempo, ambiente y ritmo.',
                   onTap: () {
                     Navigator.pop(sheetContext);
                     _showPomodoroSettingsSheet(provider);
                   },
                 ),
+                if (!_isRunning &&
+                    (_linkedTaskTitle.trim().isNotEmpty ||
+                        _sessionGoal.trim().isNotEmpty))
+                  _PomodoroMoreAction(
+                    icon: Icons.layers_clear_rounded,
+                    title: 'Limpiar contexto',
+                    subtitle: 'Quita tarea y objetivo de esta sesión.',
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      await _clearLinkedTask();
+                      await _clearSessionGoal();
+                    },
+                  ),
               ],
             ),
           ),
@@ -3191,8 +3554,15 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Sonido de fondo para acompañar tu sesión.',
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            'Elige una vibra suave para acompañarte.',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
                           ),
                           const SizedBox(height: 14),
                           _SimpleAmbientSoundControls(
@@ -3408,9 +3778,124 @@ class _PomodoroScreenState extends State<PomodoroScreen>
     if (selected == null || !mounted) return;
     setState(() => _selectedSubject = selected);
     await _persistState();
+    if (!mounted) return;
+    showFocusFeedback(
+      context,
+      message: selected.trim().isEmpty
+          ? 'Bloque general listo.'
+          : 'Materia actualizada.',
+      type: FocusFeedbackType.info,
+    );
     unawaited(_syncPomodoroWidget(provider, force: true));
   }
 
+  String _horizontalDisplayName(AppProvider provider, {String? profileName}) {
+    final localName = provider.settings.userName.trim();
+    final authName = RankingService.currentUser?.displayName?.trim() ?? '';
+    final emailName = RankingService.currentUser?.email?.split('@').first ?? '';
+    final resolved = (profileName ?? '').trim().isNotEmpty
+        ? profileName!.trim()
+        : localName.isNotEmpty
+            ? localName
+            : authName.isNotEmpty
+                ? authName
+                : emailName.isNotEmpty
+                    ? emailName
+                    : 'Focus';
+    return resolved.split(' ').first;
+  }
+
+  String _horizontalAvatarAsset(RankingProfile? profile) {
+    final rawAsset = profile == null
+        ? ''
+        : '${profile.stats['profileIconAsset'] ?? ''}'.trim();
+    if (rawAsset.isNotEmpty) {
+      return normalizeProfileIconAsset(
+        rawAsset,
+        email: RankingService.currentUser?.email,
+        enforceAccess: true,
+      );
+    }
+    if (profile != null) {
+      return profileIconAssetFromIndex(
+        profile.stats['socialMascotIndex'],
+        email: RankingService.currentUser?.email,
+        enforceAccess: true,
+      );
+    }
+    return defaultProfileIconAsset;
+  }
+
+  Widget _buildHorizontalIdentity(
+    AppProvider provider,
+    _HorizontalTheme horizontalTheme,
+  ) {
+    final baseTextStyle = TextStyle(
+      color: horizontalTheme.textColor.withValues(alpha: 0.88),
+      fontWeight: FontWeight.w800,
+      fontSize: 12,
+    );
+
+    Widget buildChip(String name, String asset) {
+      return Container(
+        constraints: const BoxConstraints(maxWidth: 144),
+        padding: const EdgeInsets.fromLTRB(6, 6, 12, 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipOval(
+              child: ColoredBox(
+                color: Colors.white.withValues(alpha: 0.08),
+                child: FocusProfileIconImage(
+                  asset: asset,
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: baseTextStyle,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (RankingService.currentUser == null) {
+      return buildChip(
+          _horizontalDisplayName(provider), defaultProfileIconAsset);
+    }
+
+    return StreamBuilder<RankingProfile?>(
+      stream: RankingService.profileStream(),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        return buildChip(
+          _horizontalDisplayName(
+            provider,
+            profileName: profile?.name,
+          ),
+          _horizontalAvatarAsset(profile),
+        );
+      },
+    );
+  }
+
+  // ignore: unused_element
   Future<void> _showSessionGoalSheet() async {
     final controller = TextEditingController(text: _sessionGoal);
     try {
@@ -3442,12 +3927,21 @@ class _PomodoroScreenState extends State<PomodoroScreen>
                     maxLines: 3,
                     textInputAction: TextInputAction.done,
                     decoration: const InputDecoration(
-                      labelText: '¿Qué vas a lograr?',
+                      labelText: 'Qué quieres lograr',
                       hintText: 'Resolver 5 ejercicios',
                       prefixIcon: Icon(Icons.flag_rounded),
                     ),
                     onSubmitted: (_) =>
                         Navigator.pop(sheetContext, controller.text),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Es algo corto para esta sesión. No crea una tarea nueva.',
+                    style: Theme.of(sheetContext).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(sheetContext)
+                              .colorScheme
+                              .onSurfaceVariant,
+                        ),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -3471,11 +3965,29 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         },
       );
       if (value == null || !mounted) return;
+      final previousGoal = _sessionGoal.trim();
       setState(() {
         _sessionGoal = value.trim();
         _sessionGoalController.text = _sessionGoal;
       });
       await _persistState();
+      if (!mounted) return;
+      final nextGoal = _sessionGoal.trim();
+      if (nextGoal.isEmpty && previousGoal.isNotEmpty) {
+        showFocusFeedback(
+          context,
+          message: 'Objetivo limpio.',
+          type: FocusFeedbackType.info,
+        );
+      } else if (nextGoal.isNotEmpty) {
+        showFocusFeedback(
+          context,
+          message: previousGoal.isEmpty
+              ? 'Objetivo guardado.'
+              : 'Objetivo actualizado.',
+          type: FocusFeedbackType.success,
+        );
+      }
     } finally {
       controller.dispose();
     }
@@ -3517,7 +4029,7 @@ class _PomodoroScreenState extends State<PomodoroScreen>
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Proteger sesión',
+                  'Proteger sesion',
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -3567,28 +4079,28 @@ class _PomodoroScreenState extends State<PomodoroScreen>
         return const _PomodoroPalette(
           accent: FocusPalette.mint,
           accentSecondary: FocusPalette.mint,
-          backgroundStart: Color(0xFFF3FBF7),
-          backgroundMiddle: Color(0xFFE7F8EF),
-          backgroundEnd: Color(0xFFD9F3E6),
-          surfaceTint: Color(0xFFECFDF5),
+          backgroundStart: Color(0xFFF7FCF9),
+          backgroundMiddle: Color(0xFFEEF9F3),
+          backgroundEnd: Color(0xFFE3F4EA),
+          surfaceTint: Color(0xFFF4FDF8),
         );
       case 'longBreak':
         return const _PomodoroPalette(
           accent: FocusPalette.amber,
           accentSecondary: FocusPalette.amber,
-          backgroundStart: Color(0xFFFFF8EE),
-          backgroundMiddle: Color(0xFFFFF1D6),
-          backgroundEnd: Color(0xFFFFE5BF),
-          surfaceTint: Color(0xFFFFF7ED),
+          backgroundStart: Color(0xFFFFFBF4),
+          backgroundMiddle: Color(0xFFFFF5E6),
+          backgroundEnd: Color(0xFFFFECCE),
+          surfaceTint: Color(0xFFFFFAF2),
         );
       default:
         return const _PomodoroPalette(
           accent: FocusPalette.primary,
           accentSecondary: FocusPalette.cyan,
-          backgroundStart: Color(0xFFF4F8FF),
-          backgroundMiddle: Color(0xFFEAF1FF),
-          backgroundEnd: Color(0xFFDDE8FF),
-          surfaceTint: Color(0xFFF8FAFF),
+          backgroundStart: Color(0xFFF7FAFF),
+          backgroundMiddle: Color(0xFFEEF4FF),
+          backgroundEnd: Color(0xFFE5EEFF),
+          surfaceTint: Color(0xFFFBFCFF),
         );
     }
   }
@@ -3803,38 +4315,85 @@ class _ActiveSessionStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: const ValueKey('active-session'),
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        color: accent.withValues(alpha: 0.10),
-        border: Border.all(color: accent.withValues(alpha: 0.16)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.menu_book_rounded, color: accent, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              subject,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 360;
+        return Container(
+          key: const ValueKey('active-session'),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(FocusRadii.card),
+            color: accent.withValues(alpha: 0.07),
+            border: Border.all(color: accent.withValues(alpha: 0.12)),
           ),
-          const SizedBox(width: 8),
-          FocusPill(
-            icon: shieldActive ? Icons.shield_rounded : Icons.shield_outlined,
-            label: blockedApps == 0 ? 'Sin bloqueo' : '$blockedApps apps',
-            color: shieldActive ? FocusPalette.teal : FocusPalette.muted,
-            selected: shieldActive,
-          ),
-        ],
-      ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.menu_book_rounded, color: accent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Materia: $subject',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    FocusPill(
+                      icon: shieldActive
+                          ? Icons.shield_rounded
+                          : Icons.shield_outlined,
+                      label: blockedApps == 0
+                          ? 'Sin bloqueo'
+                          : '$blockedApps apps',
+                      color:
+                          shieldActive ? FocusPalette.teal : FocusPalette.muted,
+                      selected: shieldActive,
+                    ),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Icon(Icons.menu_book_rounded, color: accent, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Materia: $subject',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FocusPill(
+                      icon: shieldActive
+                          ? Icons.shield_rounded
+                          : Icons.shield_outlined,
+                      label: blockedApps == 0
+                          ? 'Sin bloqueo'
+                          : '$blockedApps apps',
+                      color:
+                          shieldActive ? FocusPalette.teal : FocusPalette.muted,
+                      selected: shieldActive,
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 }
@@ -3842,30 +4401,30 @@ class _ActiveSessionStrip extends StatelessWidget {
 class _PreStartActionBar extends StatelessWidget {
   final String taskTitle;
   final String subject;
-  final bool hasGoal;
+  final String goal;
   final bool ambientEnabled;
   final bool protectEnabled;
   final Color accent;
   final VoidCallback onTasks;
-  final VoidCallback onSubject;
   final VoidCallback onGoal;
+  final VoidCallback onSubject;
   final VoidCallback onAmbient;
   final VoidCallback onProtect;
-  final VoidCallback onSettings;
+  final VoidCallback onHorizontal;
 
   const _PreStartActionBar({
     required this.taskTitle,
     required this.subject,
-    required this.hasGoal,
+    required this.goal,
     required this.ambientEnabled,
     required this.protectEnabled,
     required this.accent,
     required this.onTasks,
-    required this.onSubject,
     required this.onGoal,
+    required this.onSubject,
     required this.onAmbient,
     required this.onProtect,
-    required this.onSettings,
+    required this.onHorizontal,
   });
 
   @override
@@ -3873,68 +4432,76 @@ class _PreStartActionBar extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(FocusRadii.card),
         color:
-            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-        border: Border.all(color: accent.withValues(alpha: 0.14)),
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.26),
+        border: Border.all(color: accent.withValues(alpha: 0.10)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: [
-                  _SessionMiniAction(
-                    icon: Icons.task_alt_rounded,
-                    label: taskTitle.trim().isEmpty ? 'Tarea' : taskTitle,
-                    active: taskTitle.trim().isNotEmpty,
-                    onTap: onTasks,
-                  ),
-                  const SizedBox(width: 8),
-                  _SessionMiniAction(
-                    icon: Icons.menu_book_rounded,
-                    label: subject,
-                    active: subject != 'General',
-                    onTap: onSubject,
-                  ),
-                  const SizedBox(width: 8),
-                  _SessionMiniAction(
-                    icon: Icons.flag_rounded,
-                    label: hasGoal ? 'Objetivo' : 'Meta',
-                    active: hasGoal,
-                    onTap: onGoal,
-                  ),
-                  const SizedBox(width: 8),
-                  _SessionMiniAction(
-                    icon: ambientEnabled
-                        ? Icons.music_note_rounded
-                        : Icons.music_off_rounded,
-                    label: 'Ambiente',
-                    active: ambientEnabled,
-                    onTap: onAmbient,
-                  ),
-                  const SizedBox(width: 8),
-                  _SessionMiniAction(
-                    icon: protectEnabled
-                        ? Icons.shield_rounded
-                        : Icons.shield_outlined,
-                    label: 'Proteger',
-                    active: protectEnabled,
-                    onTap: onProtect,
-                  ),
-                ],
-              ),
+          Text(
+            'Accesos rápidos',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: accent,
+              fontWeight: FontWeight.w900,
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton.filledTonal(
-            tooltip: 'Ajustes de Pomodoro',
-            onPressed: onSettings,
-            icon: const Icon(Icons.tune_rounded),
+          const SizedBox(height: 4),
+          Text(
+            'Lo justo para preparar la sesión.',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _SessionMiniAction(
+                icon: Icons.task_alt_rounded,
+                label: 'Tarea',
+                active: taskTitle.trim().isNotEmpty,
+                onTap: onTasks,
+              ),
+              _SessionMiniAction(
+                icon: Icons.flag_rounded,
+                label: 'Objetivo',
+                active: goal.trim().isNotEmpty,
+                onTap: onGoal,
+              ),
+              _SessionMiniAction(
+                icon: Icons.menu_book_rounded,
+                label: 'Materia',
+                active: subject != 'General',
+                onTap: onSubject,
+              ),
+              _SessionMiniAction(
+                icon: ambientEnabled
+                    ? Icons.music_note_rounded
+                    : Icons.music_off_rounded,
+                label: 'Ambiente',
+                active: ambientEnabled,
+                onTap: onAmbient,
+              ),
+              _SessionMiniAction(
+                icon: protectEnabled
+                    ? Icons.shield_rounded
+                    : Icons.shield_outlined,
+                label: 'Bloqueo',
+                active: protectEnabled,
+                onTap: onProtect,
+              ),
+              _SessionMiniAction(
+                icon: Icons.stay_current_landscape_rounded,
+                label: 'Horizontal',
+                active: false,
+                onTap: onHorizontal,
+              ),
+            ],
           ),
         ],
       ),
@@ -3961,36 +4528,47 @@ class _SessionMiniAction extends StatelessWidget {
     final color = active ? colorScheme.primary : colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 132),
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        width: 86,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
         decoration: BoxDecoration(
           color: active
               ? colorScheme.primary.withValues(alpha: 0.10)
               : colorScheme.surface.withValues(alpha: 0.62),
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: active
                 ? colorScheme.primary.withValues(alpha: 0.18)
                 : colorScheme.outlineVariant.withValues(alpha: 0.28),
           ),
         ),
-        child: Row(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                ),
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: active
+                    ? colorScheme.primary.withValues(alpha: 0.14)
+                    : colorScheme.surfaceContainerHighest
+                        .withValues(alpha: 0.7),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 16, color: color),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: color,
+                fontWeight: FontWeight.w800,
+                fontSize: 11,
+                height: 1.05,
               ),
             ),
           ],
@@ -4015,118 +4593,282 @@ class _PomodoroMoreAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w900),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                theme.colorScheme.surface.withValues(alpha: 0.96),
+                theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.42,
+                ),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(FocusRadii.card),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.22),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: theme.colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rápido',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: const TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
-      subtitle: Text(
-        subtitle,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      onTap: onTap,
     );
   }
 }
 
-class _GoalStrip extends StatelessWidget {
-  final String goal;
-  final Color accent;
+class _PostSessionDecisionCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String body;
+  final Widget? trailing;
 
-  const _GoalStrip({
-    required this.goal,
-    required this.accent,
+  const _PostSessionDecisionCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(FocusRadii.card),
-        color: accent.withValues(alpha: 0.08),
-        border: Border.all(color: accent.withValues(alpha: 0.12)),
+        color:
+            theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.22),
+        ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.flag_rounded, color: accent, size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, size: 20, color: theme.colorScheme.primary),
+          const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              'Objetivo: $goal',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
                   ),
+                ),
+                const SizedBox(height: 4),
+                Text(body, style: theme.textTheme.bodyMedium),
+              ],
             ),
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing!,
+          ],
         ],
       ),
     );
   }
 }
 
-class _LinkedTaskStrip extends StatelessWidget {
-  final String title;
+class _SessionContextCard extends StatelessWidget {
   final Color accent;
-  final Future<void> Function()? onComplete;
-  final Future<void> Function()? onClear;
+  final String taskTitle;
+  final String goal;
+  final Future<void> Function()? onEditGoal;
+  final Future<void> Function()? onClearGoal;
+  final Future<void> Function()? onCompleteTask;
+  final Future<void> Function()? onClearTask;
 
-  const _LinkedTaskStrip({
-    required this.title,
+  const _SessionContextCard({
     required this.accent,
-    this.onComplete,
-    this.onClear,
+    required this.taskTitle,
+    required this.goal,
+    this.onEditGoal,
+    this.onClearGoal,
+    this.onCompleteTask,
+    this.onClearTask,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chips = <Widget>[
+      if (taskTitle.isNotEmpty)
+        _SessionContextPill(
+          icon: Icons.task_alt_rounded,
+          label: taskTitle,
+          accent: accent,
+        ),
+      if (goal.isNotEmpty)
+        _SessionContextPill(
+          icon: Icons.flag_rounded,
+          label: goal,
+          accent: accent,
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(FocusRadii.card),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.14)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Sesión actual',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Tu contexto para este bloque.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: chips),
+          if (onEditGoal != null ||
+              onClearGoal != null ||
+              onCompleteTask != null ||
+              onClearTask != null) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (onEditGoal != null)
+                  TextButton.icon(
+                    onPressed: () => unawaited(onEditGoal!()),
+                    icon: const Icon(Icons.edit_rounded, size: 18),
+                    label: const Text('Editar objetivo'),
+                  ),
+                if (onClearGoal != null)
+                  TextButton.icon(
+                    onPressed: () => unawaited(onClearGoal!()),
+                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    label: const Text('Quitar objetivo'),
+                  ),
+                if (onCompleteTask != null)
+                  TextButton.icon(
+                    onPressed: () => unawaited(onCompleteTask!()),
+                    icon: const Icon(Icons.check_circle_rounded, size: 18),
+                    label: const Text('Completar'),
+                  ),
+                if (onClearTask != null)
+                  TextButton.icon(
+                    onPressed: () => unawaited(onClearTask!()),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: const Text('Quitar'),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SessionContextPill extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color accent;
+
+  const _SessionContextPill({
+    required this.icon,
+    required this.label,
+    required this.accent,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      constraints: const BoxConstraints(maxWidth: 320),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(FocusRadii.card),
-        color: Theme.of(context)
-            .colorScheme
-            .surfaceContainerHighest
-            .withValues(alpha: 0.38),
-        border: Border.all(color: accent.withValues(alpha: 0.14)),
+        borderRadius: BorderRadius.circular(999),
+        color: Colors.white.withValues(alpha: 0.72),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.task_alt_rounded, color: accent, size: 20),
+          Icon(icon, color: accent, size: 17),
           const SizedBox(width: 8),
-          Expanded(
+          Flexible(
             child: Text(
-              'Trabajando en: $title',
+              label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
             ),
           ),
-          if (onComplete != null)
-            IconButton(
-              tooltip: 'Completar tarea',
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              icon: const Icon(Icons.check_circle_rounded, size: 20),
-              color: FocusPalette.mint,
-              onPressed: () => unawaited(onComplete!()),
-            ),
-          if (onClear != null)
-            IconButton(
-              tooltip: 'Quitar tarea',
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints.tightFor(width: 34, height: 34),
-              icon: const Icon(Icons.close_rounded, size: 18),
-              onPressed: () => unawaited(onClear!()),
-            ),
         ],
       ),
     );
@@ -4304,383 +5046,41 @@ class _ModePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(999),
-          color: selected ? color.withValues(alpha: 0.16) : Colors.transparent,
+          color: selected
+              ? color.withValues(alpha: 0.14)
+              : theme.colorScheme.surface.withValues(alpha: 0.42),
           border: Border.all(
-              color: selected ? color : Theme.of(context).dividerColor),
+            color: selected
+                ? color.withValues(alpha: 0.30)
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.42),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.w800,
-            color: selected ? color : null,
+            color: selected ? color : theme.colorScheme.onSurfaceVariant,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _HorizontalTimerBody extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final _HorizontalAnimation animation;
-  final int minutes;
-  final int seconds;
-  final int remainingSeconds;
-  final double numberSize;
-  final String modeLabel;
-  final IconData modeIcon;
-  final String sessionGoal;
-  final double progress;
-
-  const _HorizontalTimerBody({
-    required this.theme,
-    required this.animation,
-    required this.minutes,
-    required this.seconds,
-    required this.remainingSeconds,
-    required this.numberSize,
-    required this.modeLabel,
-    required this.modeIcon,
-    required this.sessionGoal,
-    required this.progress,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final fullTime =
-        '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-    switch (theme.layout) {
-      case _HorizontalTimerLayout.fomodoro:
-        return _FomodoroLandTimerBody(
-          theme: theme,
-          animation: animation,
-          value: fullTime,
-          modeLabel: modeLabel,
-          modeIcon: modeIcon,
-          numberSize: numberSize,
-          pulseKey: remainingSeconds,
-          sessionGoal: sessionGoal,
-        );
-      case _HorizontalTimerLayout.simple:
-        return _TimePanel(
-          value: fullTime,
-          topLabel: '',
-          numberSize: numberSize * 0.82,
-          theme: theme,
-          animationStyle: animation,
-          pulseKey: remainingSeconds,
-        );
-      case _HorizontalTimerLayout.dashboard:
-        return Row(
-          children: [
-            Expanded(
-              flex: 7,
-              child: _TimePanel(
-                value: fullTime,
-                topLabel: '',
-                numberSize: numberSize * 0.72,
-                theme: theme,
-                animationStyle: animation,
-                pulseKey: remainingSeconds,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 3,
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _HorizontalMiniCard(
-                      theme: theme,
-                      label: 'Modo',
-                      value: modeLabel,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: _HorizontalMiniCard(
-                      theme: theme,
-                      label: 'Progreso',
-                      value: '${(progress * 100).round()}%',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      case _HorizontalTimerLayout.objective:
-        return Row(
-          children: [
-            Expanded(
-              flex: 6,
-              child: _TimePanel(
-                value: fullTime,
-                topLabel: '',
-                numberSize: numberSize * 0.72,
-                theme: theme,
-                animationStyle: animation,
-                pulseKey: remainingSeconds,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              flex: 4,
-              child: _HorizontalMiniCard(
-                theme: theme,
-                label: 'Objetivo',
-                value: sessionGoal.trim().isEmpty
-                    ? 'Respira y sigue'
-                    : sessionGoal.trim(),
-              ),
-            ),
-          ],
-        );
-      case _HorizontalTimerLayout.split:
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _TimePanel(
-                    value: minutes.toString().padLeft(2, '0'),
-                    topLabel: '',
-                    numberSize: numberSize,
-                    theme: theme,
-                    animationStyle: animation,
-                    pulseKey: minutes,
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: _TimePanel(
-                    value: seconds.toString().padLeft(2, '0'),
-                    topLabel: '',
-                    numberSize: numberSize,
-                    theme: theme,
-                    animationStyle: animation,
-                    pulseKey: seconds,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-    }
-  }
-}
-
-class _FomodoroLandTimerBody extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final _HorizontalAnimation animation;
-  final String value;
-  final String modeLabel;
-  final IconData modeIcon;
-  final double numberSize;
-  final int pulseKey;
-  final String sessionGoal;
-
-  const _FomodoroLandTimerBody({
-    required this.theme,
-    required this.animation,
-    required this.value,
-    required this.modeLabel,
-    required this.modeIcon,
-    required this.numberSize,
-    required this.pulseKey,
-    required this.sessionGoal,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final timer = _TimePanel(
-      value: value,
-      topLabel: '',
-      numberSize: numberSize * 0.78,
-      theme: theme,
-      animationStyle: animation,
-      pulseKey: pulseKey,
-      frameless: true,
-    );
-
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 860),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _FomodoroModePill(
-              theme: theme,
-              icon: modeIcon,
-              label: modeLabel,
-            ),
-            Transform.translate(
-              offset: const Offset(0, -12),
-              child: SizedBox(
-                height: (numberSize * 0.92).clamp(128.0, 250.0),
-                child: timer,
-              ),
-            ),
-            if (sessionGoal.trim().isNotEmpty)
-              Transform.translate(
-                offset: const Offset(0, -20),
-                child: _FomodoroInfoChip(
-                  theme: theme,
-                  icon: Icons.flag_rounded,
-                  label: sessionGoal.trim(),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FomodoroModePill extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final IconData icon;
-  final String label;
-
-  const _FomodoroModePill({
-    required this.theme,
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.accent,
-        borderRadius: BorderRadius.circular(999),
-        boxShadow: [
-          BoxShadow(
-            color: theme.accent.withValues(alpha: 0.24),
-            blurRadius: 22,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: theme.chipTextColor, size: 20),
-          const SizedBox(width: 10),
-          Text(
-            label,
-            style: TextStyle(
-              color: theme.chipTextColor,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FomodoroInfoChip extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final IconData icon;
-  final String label;
-
-  const _FomodoroInfoChip({
-    required this.theme,
-    required this.icon,
-    required this.label,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Flexible(
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(
-          color: theme.panelColor.withValues(alpha: 0.84),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: theme.panelBorder),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                color: theme.textColor.withValues(alpha: 0.72), size: 17),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: theme.textColor.withValues(alpha: 0.78),
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizontalMiniCard extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final String label;
-  final String value;
-
-  const _HorizontalMiniCard({
-    required this.theme,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(theme.panelRadius),
-        color: theme.panelColor.withValues(alpha: 0.72),
-        border: Border.all(color: theme.panelBorder),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: theme.textColor.withValues(alpha: 0.58),
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: theme.textColor,
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -4811,257 +5211,6 @@ class _TimePanel extends StatelessWidget {
   }
 }
 
-class _HorizontalTaskDock extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final bool expanded;
-  final String currentTaskTitle;
-  final List<StudyTask> tasks;
-  final String nextLabel;
-  final String nextTime;
-  final VoidCallback onToggle;
-  final ValueChanged<StudyTask> onTaskTap;
-  final ValueChanged<StudyTask> onTaskComplete;
-
-  const _HorizontalTaskDock({
-    required this.theme,
-    required this.expanded,
-    required this.currentTaskTitle,
-    required this.tasks,
-    required this.nextLabel,
-    required this.nextTime,
-    required this.onToggle,
-    required this.onTaskTap,
-    required this.onTaskComplete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final activeTitle = currentTaskTitle.trim();
-    return Align(
-      alignment: Alignment.bottomLeft,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-        constraints: BoxConstraints(
-          maxHeight: expanded ? 118 : 52,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: theme.panelColor.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: theme.panelBorder),
-          boxShadow: [
-            BoxShadow(
-              color: theme.glow.withValues(alpha: 0.12),
-              blurRadius: 22,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _HorizontalDockPill(
-                  theme: theme,
-                  icon: expanded
-                      ? Icons.keyboard_arrow_down_rounded
-                      : Icons.task_alt_rounded,
-                  label: activeTitle.isEmpty ? 'Tareas' : activeTitle,
-                  onTap: onToggle,
-                  active: activeTitle.isNotEmpty,
-                ),
-                const SizedBox(width: 8),
-                _HorizontalDockPill(
-                  theme: theme,
-                  icon: Icons.skip_next_rounded,
-                  label: '$nextLabel · $nextTime',
-                  onTap: onToggle,
-                ),
-              ],
-            ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: expanded
-                  ? Padding(
-                      key: const ValueKey('expanded-task-dock'),
-                      padding: const EdgeInsets.only(top: 8),
-                      child: SizedBox(
-                        height: 42,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: math.max(tasks.length, 1),
-                          separatorBuilder: (_, __) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            if (tasks.isEmpty) {
-                              return _HorizontalDockPill(
-                                theme: theme,
-                                icon: Icons.add_task_rounded,
-                                label: 'Sin tareas',
-                                onTap: onToggle,
-                              );
-                            }
-                            final task = tasks[index];
-                            return _HorizontalDockPill(
-                              theme: theme,
-                              icon: task.title == activeTitle
-                                  ? Icons.radio_button_checked_rounded
-                                  : Icons.task_alt_rounded,
-                              label: task.title,
-                              active: task.title == activeTitle,
-                              onTap: () => onTaskTap(task),
-                              trailing: IconButton(
-                                tooltip: 'Completar',
-                                visualDensity: VisualDensity.compact,
-                                constraints: const BoxConstraints.tightFor(
-                                  width: 26,
-                                  height: 26,
-                                ),
-                                padding: EdgeInsets.zero,
-                                icon: Icon(
-                                  Icons.check_rounded,
-                                  size: 16,
-                                  color: theme.textColor.withValues(
-                                    alpha: 0.72,
-                                  ),
-                                ),
-                                onPressed: () => onTaskComplete(task),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizontalDockPill extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool active;
-  final Widget? trailing;
-
-  const _HorizontalDockPill({
-    required this.theme,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.active = false,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? theme.accent : theme.textColor;
-    return Material(
-      color: active
-          ? theme.glow.withValues(alpha: 0.22)
-          : Colors.white.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 240),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 17, color: color.withValues(alpha: 0.82)),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: color.withValues(alpha: 0.86),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: 4),
-                trailing!,
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _HorizontalToolRail extends StatelessWidget {
-  final _HorizontalTheme theme;
-  final bool isRunning;
-  final bool tickMuted;
-  final VoidCallback onTasks;
-  final VoidCallback onTickSound;
-  final VoidCallback onToggle;
-  final VoidCallback onExit;
-
-  const _HorizontalToolRail({
-    required this.theme,
-    required this.isRunning,
-    required this.tickMuted,
-    required this.onTasks,
-    required this.onTickSound,
-    required this.onToggle,
-    required this.onExit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _RailButton(
-            icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
-            onTap: onToggle,
-            theme: theme,
-          ),
-          const SizedBox(height: 8),
-          _RailButton(
-            icon: Icons.task_alt_rounded,
-            onTap: onTasks,
-            theme: theme,
-          ),
-          const SizedBox(height: 8),
-          _RailButton(
-            icon:
-                tickMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-            onTap: onTickSound,
-            theme: theme,
-            selected: !tickMuted,
-          ),
-          const SizedBox(height: 8),
-          _RailButton(
-            icon: Icons.close_rounded,
-            onTap: onExit,
-            theme: theme,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _RailButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
@@ -5099,29 +5248,6 @@ class _RailButton extends StatelessWidget {
       ),
     );
   }
-}
-
-BorderRadius _segmentedSettingsShape(int index, int count) {
-  const outer = Radius.circular(FocusRadii.card);
-  const inner = Radius.circular(8);
-  if (count <= 1) return BorderRadius.circular(FocusRadii.card);
-  if (index == 0) {
-    return const BorderRadius.only(
-      topLeft: outer,
-      topRight: outer,
-      bottomLeft: inner,
-      bottomRight: inner,
-    );
-  }
-  if (index == count - 1) {
-    return const BorderRadius.only(
-      topLeft: inner,
-      topRight: inner,
-      bottomLeft: outer,
-      bottomRight: outer,
-    );
-  }
-  return BorderRadius.circular(8);
 }
 
 class _PomodoroSettingsHeader extends StatelessWidget {
@@ -5506,6 +5632,7 @@ class _PomodoroPalette {
 class _AmbientSoundOption {
   final String id;
   final String label;
+  final String vibe;
   final String description;
   final IconData icon;
   final Color color;
@@ -5513,6 +5640,7 @@ class _AmbientSoundOption {
   const _AmbientSoundOption({
     required this.id,
     required this.label,
+    required this.vibe,
     required this.description,
     required this.icon,
     required this.color,
@@ -5655,7 +5783,7 @@ class _SimpleAmbientSoundControls extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(FocusRadii.card),
@@ -5665,92 +5793,243 @@ class _SimpleAmbientSoundControls extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: selected.id,
-                  decoration: const InputDecoration(
-                    labelText: 'Sonido de fondo',
-                    isDense: true,
-                  ),
-                  items: [
-                    for (final option in options)
-                      DropdownMenuItem<String>(
-                        value: option.id,
-                        child: Text(option.label),
-                      ),
-                  ],
-                  onChanged: (id) {
-                    if (id == null) return;
-                    final option = options.firstWhere(
-                      (item) => item.id == id,
-                      orElse: () => selected,
-                    );
-                    onSelected(option);
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: isPreviewing ? 'Detener' : 'Probar',
-                onPressed: selected.id == 'none' ? null : onPreview,
-                style: IconButton.styleFrom(
-                  foregroundColor: selected.color,
-                  backgroundColor: selected.color.withValues(alpha: 0.12),
-                ),
-                icon: Icon(
-                  isPreviewing ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Text(
-                'Volumen',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Slider(
-                  value: volume.clamp(0.0, 1.0),
-                  min: 0,
-                  max: 1,
-                  divisions: 10,
-                  activeColor: selected.color,
-                  label: '${(volume * 100).round()}%',
-                  onChanged: selected.id == 'none' ? null : onVolumeChanged,
-                ),
-              ),
-              SizedBox(
-                width: 42,
-                child: Text(
-                  '${(volume * 100).round()}%',
-                  textAlign: TextAlign.end,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              selected.description,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+              'Sonido de fondo',
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Elige una vibra para acompanar tu sesion.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              for (final option in options)
+                _AmbientCuteOptionChip(
+                  option: option,
+                  selected: option.id == selected.id,
+                  onTap: () => onSelected(option),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: selected.color.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: selected.color.withValues(alpha: 0.16),
+              ),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: selected.color.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        selected.icon,
+                        color: selected.color,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            selected.label,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: selected.color,
+                            ),
+                          ),
+                          Text(
+                            selected.vibe,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton.filledTonal(
+                      tooltip: isPreviewing ? 'Detener' : 'Probar',
+                      onPressed: selected.id == 'none' ? null : onPreview,
+                      style: IconButton.styleFrom(
+                        foregroundColor: selected.color,
+                        backgroundColor: selected.color.withValues(alpha: 0.12),
+                      ),
+                      icon: Icon(
+                        isPreviewing
+                            ? Icons.stop_circle_rounded
+                            : Icons.play_arrow_rounded,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    selected.description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      'Volumen',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Slider(
+                        value: volume.clamp(0.0, 1.0),
+                        min: 0,
+                        max: 1,
+                        divisions: 10,
+                        activeColor: selected.color,
+                        label: '${(volume * 100).round()}%',
+                        onChanged:
+                            selected.id == 'none' ? null : onVolumeChanged,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 42,
+                      child: Text(
+                        '${(volume * 100).round()}%',
+                        textAlign: TextAlign.end,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+class _AmbientCuteOptionChip extends StatelessWidget {
+  final _AmbientSoundOption option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AmbientCuteOptionChip({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = option.id == 'none' ? 132.0 : 146.0;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: width,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? option.color.withValues(alpha: 0.14)
+              : Colors.white.withValues(alpha: 0.90),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: selected
+                ? option.color.withValues(alpha: 0.32)
+                : option.color.withValues(alpha: 0.12),
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: option.color.withValues(alpha: 0.12),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color:
+                        option.color.withValues(alpha: selected ? 0.18 : 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(option.icon, size: 18, color: option.color),
+                ),
+                const Spacer(),
+                if (selected)
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: option.color,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              option.label,
+              style: TextStyle(
+                color: option.color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              option.vibe,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: option.color.withValues(alpha: 0.78),
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -6062,28 +6341,29 @@ const List<_HorizontalTheme> _horizontalThemes = [
     shadowAlpha: 0.10,
   ),
   _HorizontalTheme(
-    label: 'AMOLED',
-    description: 'Negro puro con acentos rojos, más concentrado.',
-    icon: Icons.contrast_rounded,
+    label: 'Dark',
+    description: 'Oscuro, limpio y elegante para enfocarte sin ruido.',
+    icon: Icons.dark_mode_rounded,
     layout: _HorizontalTimerLayout.fomodoro,
-    backgroundStart: Color(0xFF1B1B1D),
-    backgroundEnd: Color(0xFF000000),
-    vignetteColor: Color(0xFF000000),
-    glow: Color(0xFFFF7C7C),
-    accent: Color(0xFFFF7C7C),
-    textColor: Color(0xFFFFF2F2),
-    chipTextColor: Color(0xFF241515),
-    panelColor: Color(0xFF414247),
-    panelBorder: Color(0x33FFFFFF),
+    isDark: true,
+    backgroundStart: Color(0xFF171A20),
+    backgroundEnd: Color(0xFF090B10),
+    vignetteColor: Color(0xFF05070B),
+    glow: Color(0xFF78C6FF),
+    accent: Color(0xFF8ED0FF),
+    textColor: Color(0xFFF5F8FF),
+    chipTextColor: Color(0xFF0F1720),
+    panelColor: Color(0xFF262C36),
+    panelBorder: Color(0x3D9FC7E8),
     panelRadius: 50,
-    shadowAlpha: 0.16,
+    shadowAlpha: 0.20,
   ),
 ];
 
 const List<_HorizontalAnimation> _horizontalAnimations = [
   _HorizontalAnimation(
     id: 'none',
-    label: 'Sin animación',
+    label: 'Sin animacion',
     icon: Icons.motion_photos_off_rounded,
     durationMs: 1,
     curve: Curves.linear,
@@ -6111,6 +6391,7 @@ class _HorizontalTheme {
   final String description;
   final IconData icon;
   final _HorizontalTimerLayout layout;
+  final bool isDark;
   final Color backgroundStart;
   final Color backgroundEnd;
   final Color vignetteColor;
@@ -6128,6 +6409,7 @@ class _HorizontalTheme {
     required this.description,
     required this.icon,
     required this.layout,
+    this.isDark = false,
     required this.backgroundStart,
     required this.backgroundEnd,
     this.vignetteColor = Colors.black,

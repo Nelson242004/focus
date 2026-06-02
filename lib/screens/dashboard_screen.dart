@@ -178,21 +178,29 @@ class _DashboardGreetingLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(FocusRadii.panel),
-      onTap: () => FocusMainNavigationScope.of(context)(8),
+      onTap: () => FocusMainNavigationScope.of(context)(1),
       child: FocusCuteCard(
         accent: FocusPalette.primary,
-        padding: const EdgeInsets.fromLTRB(22, 22, 4, 4),
+        padding: const EdgeInsets.fromLTRB(22, 22, 14, 12),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 152),
+          constraints: const BoxConstraints(minHeight: 164),
           child: Stack(
             clipBehavior: Clip.none,
             children: [
               Padding(
-                padding: const EdgeInsets.only(right: 138, bottom: 18),
+                padding: const EdgeInsets.only(right: 132, bottom: 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    Text(
+                      'Hoy',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: FocusPalette.primary,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 6),
                     Text(
                       'Hola, $name',
                       maxLines: 1,
@@ -210,25 +218,29 @@ class _DashboardGreetingLayout extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: FocusTypography.helper(context),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     const FocusPill(
-                      icon: Icons.person_rounded,
-                      label: 'Ver perfil',
-                      color: FocusPalette.amber,
+                      icon: Icons.play_arrow_rounded,
+                      label: 'Empezar',
+                      color: FocusPalette.mint,
                     ),
                   ],
                 ),
               ),
               Positioned(
-                right: -8,
-                bottom: -4,
+                right: -2,
+                bottom: 0,
                 child: loadingAvatar
-                    ? const SizedBox(width: 154, height: 154)
-                    : FocusProfileIconImage(
-                        asset: avatarAsset,
-                        width: 154,
-                        height: 154,
-                        fit: BoxFit.contain,
+                    ? const SizedBox(width: 134, height: 134)
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => FocusMainNavigationScope.of(context)(8),
+                        child: FocusProfileIconImage(
+                          asset: avatarAsset,
+                          width: 134,
+                          height: 134,
+                          fit: BoxFit.contain,
+                        ),
                       ),
               ),
             ],
