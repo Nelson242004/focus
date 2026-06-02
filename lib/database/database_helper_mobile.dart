@@ -302,7 +302,7 @@ class DatabaseHelper {
         streakGoal: 7,
         sound: (parts.elementAtOrNull(5) ?? '').trim().isNotEmpty
             ? parts[5]
-            : 'chime',
+            : 'focus_clock',
         selectedIdentity: (parts.elementAtOrNull(6) ?? '').trim().isNotEmpty
             ? parts[6]
             : 'Soy una persona constante que cumple lo que se propone.',

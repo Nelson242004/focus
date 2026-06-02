@@ -48,7 +48,7 @@ class AppSettings {
     this.weeklyFocusMinutesGoal = 300,
     this.dailyHabitGoal = 3,
     this.streakGoal = 7,
-    this.sound = 'chime',
+    this.sound = 'focus_clock',
     this.ambientSound = 'none',
     this.ambientVolume = 0.45,
     this.ambientDuringFocus = true,
@@ -121,7 +121,7 @@ class AppSettings {
           int.tryParse('${map['weeklyFocusMinutesGoal'] ?? 300}') ?? 300,
       dailyHabitGoal: int.tryParse('${map['dailyHabitGoal'] ?? 3}') ?? 3,
       streakGoal: int.tryParse('${map['streakGoal'] ?? 7}') ?? 7,
-      sound: '${map['sound'] ?? 'chime'}',
+      sound: '${map['sound'] ?? 'focus_clock'}',
       ambientSound: '${map['ambientSound'] ?? 'none'}',
       ambientVolume:
           (double.tryParse('${map['ambientVolume'] ?? 0.45}') ?? 0.45)

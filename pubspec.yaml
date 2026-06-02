@@ -59,15 +59,7 @@ flutter:
     - android/app/src/main/res/drawable-nodpi/focus_streak_fire.png
     - assets/profile_icons/
     - assets/badges/
-    - assets/sounds/chime.mp3
-    - assets/sounds/bell.mp3
-    - assets/sounds/success.mp3
-    - assets/sounds/soft_bell.mp3
-    - assets/sounds/digital.mp3
-    - assets/sounds/magic.mp3
-    - assets/sounds/confirm.mp3
-    - assets/sounds/fomodoro_clock.mp3
-    - assets/sounds/clock_tick.mp3
+    - assets/sounds/focus_clock.mp3
     - assets/sounds/ambient/
 flutter_icons:
   android: true

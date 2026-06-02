@@ -41,7 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _dailyHabitGoal = 3;
   int _streakGoal = 7;
   AppLanguage _selectedLanguage = AppLanguage.system;
-  String _selectedSound = 'chime';
+  String _selectedSound = 'focus_clock';
   String _selectedStartScreen = 'dashboard';
   String _breakAfterFocus = 'auto';
   double _textScale = 1.0;
