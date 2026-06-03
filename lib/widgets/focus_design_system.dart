@@ -42,6 +42,27 @@ class FocusGap {
   static const Widget section = SizedBox(height: 16);
 }
 
+class FocusMotion {
+  FocusMotion._();
+
+  static const Duration instant = Duration(milliseconds: 90);
+  static const Duration short = Duration(milliseconds: 180);
+  static const Duration medium = Duration(milliseconds: 260);
+  static const Duration long = Duration(milliseconds: 380);
+  static const Duration sheet = Duration(milliseconds: 320);
+  static const Duration aura = Duration(milliseconds: 2400);
+
+  static const Curve standard = Curves.easeOutCubic;
+  static const Curve soft = Curves.easeInOutCubic;
+  static const Curve enter = Curves.easeOutQuart;
+  static const Curve micro = Curves.easeOutCubic;
+
+  static Duration stagger(int index) {
+    final extra = (index * 46).clamp(0, 220).toInt();
+    return Duration(milliseconds: medium.inMilliseconds + extra);
+  }
+}
+
 enum FocusCardVariant { hero, normal, compact }
 
 class FocusTypography {
@@ -608,14 +629,14 @@ class FocusStaggeredItem extends StatelessWidget {
     if (!enabled) return child;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 320 + (index * 55).clamp(0, 260)),
-      curve: Curves.easeOutCubic,
+      duration: FocusMotion.stagger(index),
+      curve: FocusMotion.enter,
       builder: (context, value, child) {
-        final eased = Curves.easeOutCubic.transform(value);
+        final eased = FocusMotion.enter.transform(value);
         return Opacity(
           opacity: eased,
           child: Transform.translate(
-            offset: Offset(0, (1 - eased) * 18),
+            offset: Offset(0, (1 - eased) * 14),
             child: child,
           ),
         );
@@ -637,8 +658,8 @@ class FocusMicroPop extends StatelessWidget {
     super.key,
     required this.trigger,
     required this.child,
-    this.duration = const Duration(milliseconds: 260),
-    this.fromScale = 0.94,
+    this.duration = FocusMotion.medium,
+    this.fromScale = 0.97,
     this.toScale = 1,
     this.fade = false,
   });
@@ -649,7 +670,7 @@ class FocusMicroPop extends StatelessWidget {
       key: ValueKey(trigger),
       tween: Tween(begin: 0, end: 1),
       duration: duration,
-      curve: Curves.easeOutBack,
+      curve: FocusMotion.micro,
       builder: (context, value, child) {
         final scale = fromScale + ((toScale - fromScale) * value);
         final transformed = Transform.scale(scale: scale, child: child);
@@ -677,11 +698,11 @@ class FocusActionSnackContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutBack,
+      duration: FocusMotion.medium,
+      curve: FocusMotion.micro,
       builder: (context, value, child) {
         return Transform.scale(
-          scale: 0.92 + (value * 0.08),
+          scale: 0.96 + (value * 0.04),
           child: child,
         );
       },
